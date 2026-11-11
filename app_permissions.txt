@@ -1,0 +1,2 @@
+# Kainuwa Studio works offline and needs no permissions for step 1.
+# Lines starting with # are ignored. RECORD_AUDIO will be added in a later step.

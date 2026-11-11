@@ -1,0 +1,16 @@
+name: kainuwa_studio
+description: Offline course video maker for Kainuwa Academy.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  kainuwa_encoder:
+    path: packages/kainuwa_encoder
+
+flutter:
+  uses-material-design: true
