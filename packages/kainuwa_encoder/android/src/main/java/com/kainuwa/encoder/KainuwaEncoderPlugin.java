@@ -325,8 +325,11 @@ public class KainuwaEncoderPlugin
         EditedMediaItem editedImage = new EditedMediaItem.Builder(imageItem)
                 .setFrameRate(30)
                 .build();
+        // Use only the sound of this file. If it is a video, its picture is ignored
+        // (some phones cannot decode every video format, for example AV1).
         EditedMediaItem editedAudio = new EditedMediaItem.Builder(
                 MediaItem.fromUri(Uri.fromFile(new File(audioPath))))
+                .setRemoveVideo(true)
                 .build();
 
         EditedMediaItemSequence videoSequence =
