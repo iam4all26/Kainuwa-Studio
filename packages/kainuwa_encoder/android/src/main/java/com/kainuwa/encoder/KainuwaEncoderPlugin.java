@@ -65,6 +65,7 @@ public class KainuwaEncoderPlugin
 
     private static final String CHANNEL_NAME = "kainuwa_encoder";
     private static final int REQUEST_PICK = 4101;
+    private static final int REQUEST_SAVE = 4102;
 
     private MethodChannel channel;
     private Context appContext;
@@ -72,6 +73,8 @@ public class KainuwaEncoderPlugin
     private ActivityPluginBinding activityBinding;
 
     private MethodChannel.Result pendingPick;
+    private MethodChannel.Result pendingSave;
+    private String pendingSavePath;
 
     private Transformer transformer;
     private MethodChannel.Result exportResult;
@@ -201,6 +204,10 @@ public class KainuwaEncoderPlugin
 
     @Override
     public boolean onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_SAVE) {
+            handleSaveResult(resultCode, data);
+            return true;
+        }
         if (requestCode != REQUEST_PICK) {
             return false;
         }
@@ -401,7 +408,7 @@ public class KainuwaEncoderPlugin
             return;
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            result.error("unsupported", "Saving to the Movies folder needs Android 10 or newer.", null);
+            saveWithPicker(path, name, result);
             return;
         }
         worker.execute(() -> {
@@ -431,6 +438,53 @@ public class KainuwaEncoderPlugin
             } catch (Exception e) {
                 final String message = String.valueOf(e.getMessage());
                 mainHandler.post(() -> result.error("save_failed", message, null));
+            }
+        });
+    }
+
+    // Android 9 and older: let the user choose where to save (no storage permission needed).
+    private void saveWithPicker(String path, String name, MethodChannel.Result result) {
+        if (activity == null) {
+            result.error("no_activity", "The app screen is not ready yet.", null);
+            return;
+        }
+        if (pendingSave != null) {
+            result.error("busy", "A save dialog is already open.", null);
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("video/mp4");
+        intent.putExtra(Intent.EXTRA_TITLE, name);
+        pendingSave = result;
+        pendingSavePath = path;
+        activity.startActivityForResult(intent, REQUEST_SAVE);
+    }
+
+    private void handleSaveResult(int resultCode, Intent data) {
+        final MethodChannel.Result r = pendingSave;
+        final String path = pendingSavePath;
+        pendingSave = null;
+        pendingSavePath = null;
+        if (r == null) {
+            return;
+        }
+        if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null || path == null) {
+            r.error("save_cancelled", "Saving was cancelled.", null);
+            return;
+        }
+        final Uri uri = data.getData();
+        worker.execute(() -> {
+            try (InputStream in = new FileInputStream(path);
+                 OutputStream out = appContext.getContentResolver().openOutputStream(uri)) {
+                if (out == null) {
+                    throw new IOException("Could not write to the chosen location.");
+                }
+                copyStream(in, out);
+                mainHandler.post(() -> r.success("the location you chose"));
+            } catch (Exception e) {
+                final String message = String.valueOf(e.getMessage());
+                mainHandler.post(() -> r.error("save_failed", message, null));
             }
         });
     }

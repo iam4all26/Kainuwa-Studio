@@ -40,6 +40,7 @@ class _ExportTestScreenState extends State<ExportTestScreen> {
   int _progress = 0;
   bool _failed = false;
   String _status = 'Choose one image and one audio file, then export.';
+  String? _unsavedVideo;
 
   String _shortName(String path) {
     final name = path.split('/').last;
@@ -85,6 +86,7 @@ class _ExportTestScreenState extends State<ExportTestScreen> {
       _busy = true;
       _progress = 0;
       _failed = false;
+      _unsavedVideo = null;
       _status = 'Exporting. Keep this screen open.';
     });
 
@@ -100,28 +102,35 @@ class _ExportTestScreenState extends State<ExportTestScreen> {
         audioPath: audio,
         outputPath: output,
       );
-      try {
-        final saved = await KainuwaEncoder.saveToMovies(
-          path: output,
-          name: 'Kainuwa_Test_$stamp.mp4',
-        );
-        _setMessage(
-          'Done. The video was saved to $saved. Open it from your gallery or video player to check it.',
-        );
-        try {
-          await File(output).delete();
-        } catch (_) {}
-      } on PlatformException catch (e) {
-        _setMessage(
-          'The video was exported but could not be copied to Movies: ${e.message}. It is at: $output',
-          failed: true,
-        );
-      }
+      await _save(output);
     } on PlatformException catch (e) {
       _setMessage('Export stopped: ${e.message}', failed: true);
     } finally {
       await sub.cancel();
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _save(String output) async {
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final saved = await KainuwaEncoder.saveToMovies(
+        path: output,
+        name: 'Kainuwa_Test_$stamp.mp4',
+      );
+      if (mounted) setState(() => _unsavedVideo = null);
+      _setMessage(
+        'Done. The video was saved to $saved. Open it from your gallery or a file manager to check it.',
+      );
+      try {
+        await File(output).delete();
+      } catch (_) {}
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _unsavedVideo = output);
+      _setMessage(
+        'The video was exported but not saved yet (${e.message}). Tap Save video to try again.',
+        failed: true,
+      );
     }
   }
 
@@ -221,6 +230,13 @@ class _ExportTestScreenState extends State<ExportTestScreen> {
               onPressed: ready ? _export : null,
               child: const Text('Export MP4'),
             ),
+          if (_unsavedVideo != null && !_busy) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => _save(_unsavedVideo!),
+              child: const Text('Save video'),
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
             _status,
