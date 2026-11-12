@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Brand colors taken from the Kainuwa Studio mockup.
 class KColors {
@@ -30,6 +31,7 @@ ThemeData buildTheme() {
       backgroundColor: KColors.deepPurple,
       foregroundColor: Colors.white,
       centerTitle: false,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,

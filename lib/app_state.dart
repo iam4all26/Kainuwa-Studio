@@ -31,7 +31,19 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  String _newId() => DateTime.now().microsecondsSinceEpoch.toString();
+  String _newId() => newId();
+
+  Lesson? lessonById(String courseId, String lessonId) {
+    final course = courseById(courseId);
+    if (course == null) return null;
+    for (final lesson in course.lessons) {
+      if (lesson.id == lessonId) return lesson;
+    }
+    return null;
+  }
+
+  /// Saves everything after an edit made directly on a course, lesson or scene.
+  Future<void> persist() => _saveCourses();
 
   Future<void> _saveCourses() async {
     notifyListeners();

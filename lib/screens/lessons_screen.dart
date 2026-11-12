@@ -4,6 +4,7 @@ import '../app_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'lesson_editor_screen.dart';
 
 class LessonsScreen extends StatelessWidget {
   const LessonsScreen({super.key, required this.courseId});
@@ -169,14 +170,17 @@ class LessonsScreen extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                          subtitle: Text(formatClock(lesson.durationMs)),
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('The lesson editor is the next step.'),
+                          subtitle: Text(
+                            '${sceneCountText(lesson.scenes.length)} - ${formatClock(lesson.durationMs)}',
+                          ),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => LessonEditorScreen(
+                                courseId: course.id,
+                                lessonId: lesson.id,
                               ),
-                            );
-                          },
+                            ),
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

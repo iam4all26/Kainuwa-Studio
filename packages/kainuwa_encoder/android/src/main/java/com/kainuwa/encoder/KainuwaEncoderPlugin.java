@@ -249,7 +249,7 @@ public class KainuwaEncoderPlugin
     }
 
     private String copyToCache(Uri uri) throws IOException {
-        File dir = new File(appContext.getCacheDir(), "imports");
+        File dir = new File(appContext.getFilesDir(), "media");
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("Could not create the import folder.");
         }

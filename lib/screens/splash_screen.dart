@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_state.dart';
 import '../theme.dart';
@@ -32,7 +33,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
@@ -66,6 +73,7 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

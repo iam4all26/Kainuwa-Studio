@@ -109,3 +109,14 @@ const List<CatalogItem> kIllustrations = [
   CatalogItem('assets/illustrations/29_Email.png', 'Email'),
   CatalogItem('assets/illustrations/30_Network.png', 'Network'),
 ];
+
+// Backgrounds that are mostly dark: new text defaults to white on them.
+const Set<String> kDarkBackgrounds = {
+  'assets/backgrounds/01_Royal_Purple_Waves.jpg',
+  'assets/backgrounds/05_Dark_Technology.jpg',
+  'assets/backgrounds/08_Financial_Growth.jpg',
+  'assets/backgrounds/10_Cryptocurrency_Blockchain.jpg',
+  'assets/backgrounds/11_Video_Production.jpg',
+  'assets/backgrounds/12_Green_Chalkboard.jpg',
+  'assets/backgrounds/13_AI_Innovation.jpg',
+};
