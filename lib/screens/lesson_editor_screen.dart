@@ -10,6 +10,7 @@ import '../models.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'audio_sheet.dart';
 import 'editor_sheets.dart';
 
 /// Width and height (as fractions of the slide) for an item with the given
@@ -38,13 +39,22 @@ class LessonEditorScreen extends StatefulWidget {
   State<LessonEditorScreen> createState() => _LessonEditorScreenState();
 }
 
-class _LessonEditorScreenState extends State<LessonEditorScreen> {
+class _LessonEditorScreenState extends State<LessonEditorScreen>
+    with SingleTickerProviderStateMixin {
   int _sceneIndex = 0;
   String? _selectedId;
+  late final AnimationController _preview = AnimationController(vsync: this);
+  bool _previewing = false;
 
   @override
   void initState() {
     super.initState();
+    _preview.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _preview.addStatusListener((status) {
+      if (status == AnimationStatus.completed) _stopPreview();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = AppScope.read(context);
       final lesson = state.lessonById(widget.courseId, widget.lessonId);
@@ -53,6 +63,77 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
         state.persist();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _preview.dispose();
+    KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
+    super.dispose();
+  }
+
+  void _startPreview(Scene scene) {
+    _preview.duration = Duration(milliseconds: math.max(500, scene.durationMs));
+    _preview.forward(from: 0);
+    setState(() {
+      _previewing = true;
+      _selectedId = null;
+    });
+    if (scene.narrationPath.isNotEmpty) {
+      KainuwaEncoder.playAudio(scene.narrationPath, volume: scene.narrationVolume)
+          .then((_) {}, onError: (_) {});
+    }
+  }
+
+  void _stopPreview() {
+    if (!_previewing) return;
+    _preview.stop();
+    _preview.value = 0;
+    KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
+    if (mounted) setState(() => _previewing = false);
+  }
+
+  Future<void> _openAdd() async {
+    final choice = await showAddSheet(context);
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case 'text':
+        await _addText();
+        break;
+      case 'icon':
+        await _addIcon();
+        break;
+      case 'image':
+        await _addImage();
+        break;
+      case 'shape':
+        await _addShape();
+        break;
+    }
+  }
+
+  Future<void> _openAudio() async {
+    final lesson = _lesson();
+    final scene = _currentScene();
+    if (lesson == null || scene == null) return;
+    await showAudioSheet(context, lesson: lesson, scene: scene, onChanged: _commit);
+  }
+
+  Future<void> _openAnimate() async {
+    final scene = _currentScene();
+    if (scene == null) return;
+    Layer? layer;
+    for (final l in scene.layers) {
+      if (l.id == _selectedId) layer = l;
+    }
+    if (layer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an item on the slide first, then tap Animate.')),
+      );
+      return;
+    }
+    await showAnimateSheet(context, layer, scene.durationMs);
+    _commit();
   }
 
   Lesson? _lesson() => AppScope.read(context).lessonById(widget.courseId, widget.lessonId);
@@ -211,7 +292,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
   Future<void> _setDuration() async {
     final scene = _currentScene();
     if (scene == null) return;
-    final ms = await showDurationSheet(context, scene.durationMs);
+    final ms = await showDurationSheet(context, scene.durationMs, minMs: scene.narrationMs);
     if (ms == null) return;
     scene.durationMs = ms;
     _commit();
@@ -449,10 +530,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
           final scene = lesson.scenes[index];
           final selected = index == _sceneIndex;
           return GestureDetector(
-            onTap: () => setState(() {
-              _sceneIndex = index;
-              _selectedId = null;
-            }),
+            onTap: () {
+              _stopPreview();
+              setState(() {
+                _sceneIndex = index;
+                _selectedId = null;
+              });
+            },
             onLongPress: () => _sceneMenu(lesson, index),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -469,7 +553,18 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(5),
-                    child: IgnorePointer(child: SceneCanvas(scene: scene)),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        IgnorePointer(child: SceneCanvas(scene: scene)),
+                        if (scene.narrationPath.isNotEmpty)
+                          const Positioned(
+                            right: 3,
+                            top: 3,
+                            child: Icon(Icons.mic, size: 14, color: KColors.gold),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -532,12 +627,38 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
               borderRadius: BorderRadius.circular(10),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: SceneCanvas(
-                  scene: scene,
-                  selectedId: _selectedId,
-                  interactive: true,
-                  onSelect: (id) => setState(() => _selectedId = id),
-                  onCommit: _commit,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SceneCanvas(
+                      scene: scene,
+                      selectedId: _previewing ? null : _selectedId,
+                      interactive: !_previewing,
+                      previewMs: _previewing ? (_preview.value * scene.durationMs).round() : null,
+                      onSelect: (id) => setState(() => _selectedId = id),
+                      onCommit: _commit,
+                    ),
+                    if (_previewing)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: LinearProgressIndicator(value: _preview.value, minHeight: 3),
+                      ),
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Material(
+                        color: const Color(0x99000000),
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _previewing ? _stopPreview() : _startPreview(scene),
+                          icon: Icon(_previewing ? Icons.stop : Icons.play_arrow, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -569,12 +690,26 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
           color: Colors.white,
           child: Row(
             children: [
-              _tool(Icons.wallpaper, 'Background', _setBackground),
-              _tool(Icons.title, 'Text', _addText),
-              _tool(Icons.star_outline, 'Icon', _addIcon),
-              _tool(Icons.image_outlined, 'Image', _addImage),
-              _tool(Icons.category_outlined, 'Shape', _addShape),
-              _tool(Icons.timer_outlined, 'Time', _setDuration),
+              _tool(Icons.wallpaper, 'Background', () {
+                _stopPreview();
+                _setBackground();
+              }),
+              _tool(Icons.add_box_outlined, 'Add', () {
+                _stopPreview();
+                _openAdd();
+              }),
+              _tool(Icons.mic_none, 'Sound', () {
+                _stopPreview();
+                _openAudio();
+              }),
+              _tool(Icons.auto_awesome_outlined, 'Animate', () {
+                _stopPreview();
+                _openAnimate();
+              }),
+              _tool(Icons.timer_outlined, 'Time', () {
+                _stopPreview();
+                _setDuration();
+              }),
             ],
           ),
         ),

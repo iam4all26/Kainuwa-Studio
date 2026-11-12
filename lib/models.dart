@@ -103,6 +103,10 @@ class Scene {
     this.durationMs = 5000,
     this.bgType = 'color',
     this.bgValue = '4294967295',
+    this.narrationPath = '',
+    this.narrationMs = 0,
+    this.narrationVolume = 1.0,
+    this.narrationClean = true,
     List<Layer>? layers,
   }) : layers = layers ?? <Layer>[];
 
@@ -112,6 +116,14 @@ class Scene {
   /// color (bgValue is the ARGB number), asset (an asset path) or file (a photo path)
   String bgType;
   String bgValue;
+
+  /// Voice recording or imported audio for this scene. Empty means none.
+  String narrationPath;
+  int narrationMs;
+  double narrationVolume;
+
+  /// Clean the voice (cut rumble, quiet the gaps) when the lesson is exported.
+  bool narrationClean;
   final List<Layer> layers;
 
   bool get isDarkBackground {
@@ -130,6 +142,10 @@ class Scene {
         durationMs: durationMs,
         bgType: bgType,
         bgValue: bgValue,
+        narrationPath: narrationPath,
+        narrationMs: narrationMs,
+        narrationVolume: narrationVolume,
+        narrationClean: narrationClean,
         layers: layers.map((l) => l.copy()).toList(),
       );
 
@@ -138,6 +154,10 @@ class Scene {
         'durationMs': durationMs,
         'bgType': bgType,
         'bgValue': bgValue,
+        'narrationPath': narrationPath,
+        'narrationMs': narrationMs,
+        'narrationVolume': narrationVolume,
+        'narrationClean': narrationClean,
         'layers': layers.map((l) => l.toJson()).toList(),
       };
 
@@ -154,24 +174,42 @@ class Scene {
       durationMs: _int(json['durationMs'], 5000),
       bgType: _str(json['bgType'], 'color'),
       bgValue: _str(json['bgValue'], '4294967295'),
+      narrationPath: _str(json['narrationPath'], ''),
+      narrationMs: _int(json['narrationMs'], 0),
+      narrationVolume: _num(json['narrationVolume'], 1.0),
+      narrationClean: json['narrationClean'] is bool ? json['narrationClean'] as bool : true,
       layers: layers,
     );
   }
 }
 
 class Lesson {
-  Lesson({required this.id, required this.title, List<Scene>? scenes})
-      : scenes = scenes ?? <Scene>[];
+  Lesson({
+    required this.id,
+    required this.title,
+    List<Scene>? scenes,
+    this.musicPath = '',
+    this.musicVolume = 0.3,
+    this.musicFade = true,
+  }) : scenes = scenes ?? <Scene>[];
 
   final String id;
   String title;
   final List<Scene> scenes;
+
+  /// Background music for the whole lesson. Empty means none.
+  String musicPath;
+  double musicVolume;
+  bool musicFade;
 
   int get durationMs => scenes.fold<int>(0, (sum, s) => sum + s.durationMs);
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
+        'musicPath': musicPath,
+        'musicVolume': musicVolume,
+        'musicFade': musicFade,
         'scenes': scenes.map((s) => s.toJson()).toList(),
       };
 
@@ -186,6 +224,9 @@ class Lesson {
     return Lesson(
       id: _str(json['id'], newId()),
       title: _str(json['title'], 'Untitled lesson'),
+      musicPath: _str(json['musicPath'], ''),
+      musicVolume: _num(json['musicVolume'], 0.3),
+      musicFade: json['musicFade'] is bool ? json['musicFade'] as bool : true,
       scenes: scenes,
     );
   }

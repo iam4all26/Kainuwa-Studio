@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'animation_math.dart';
 import 'models.dart';
 import 'theme.dart';
 
@@ -16,6 +17,7 @@ class SceneCanvas extends StatefulWidget {
     this.onSelect,
     this.onCommit,
     this.interactive = false,
+    this.previewMs,
   });
 
   final Scene scene;
@@ -23,6 +25,10 @@ class SceneCanvas extends StatefulWidget {
   final ValueChanged<String?>? onSelect;
   final VoidCallback? onCommit;
   final bool interactive;
+
+  /// When set, the scene is drawn as it looks at this time (in milliseconds),
+  /// with entrance animations applied.
+  final int? previewMs;
 
   @override
   State<SceneCanvas> createState() => _SceneCanvasState();
@@ -121,12 +127,26 @@ class _SceneCanvasState extends State<SceneCanvas> {
       content = IgnorePointer(child: content);
     }
 
+    Widget placed = Transform.rotate(angle: layer.rotation, child: content);
+    final previewMs = widget.previewMs;
+    if (previewMs != null) {
+      final frame = animationFrame(layer.animIn, previewMs, layer.animStartMs, layer.animDurationMs);
+      if (frame.alpha <= 0) return const SizedBox.shrink();
+      placed = Opacity(
+        opacity: frame.alpha.clamp(0.0, 1.0).toDouble(),
+        child: Transform.translate(
+          offset: Offset(frame.dx * width, 0),
+          child: Transform.scale(scale: frame.scale, child: placed),
+        ),
+      );
+    }
+
     return Positioned(
       left: (layer.cx - layer.w / 2) * width,
       top: (layer.cy - layer.h / 2) * height,
       width: layer.w * width,
       height: layer.h * height,
-      child: Transform.rotate(angle: layer.rotation, child: content),
+      child: placed,
     );
   }
 }

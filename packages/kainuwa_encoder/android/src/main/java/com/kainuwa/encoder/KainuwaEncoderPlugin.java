@@ -1,6 +1,10 @@
 package com.kainuwa.encoder;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
 import android.graphics.Bitmap;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -65,11 +69,13 @@ public class KainuwaEncoderPlugin
         implements FlutterPlugin,
         MethodChannel.MethodCallHandler,
         ActivityAware,
-        PluginRegistry.ActivityResultListener {
+        PluginRegistry.ActivityResultListener,
+        PluginRegistry.RequestPermissionsResultListener {
 
     private static final String CHANNEL_NAME = "kainuwa_encoder";
     private static final int REQUEST_PICK = 4101;
     private static final int REQUEST_SAVE = 4102;
+    private static final int REQUEST_AUDIO_PERMISSION = 4103;
 
     private MethodChannel channel;
     private Context appContext;
@@ -79,6 +85,13 @@ public class KainuwaEncoderPlugin
     private MethodChannel.Result pendingPick;
     private MethodChannel.Result pendingSave;
     private String pendingSavePath;
+
+    private MediaRecorder recorder;
+    private String recordingPath;
+    private MethodChannel.Result pendingRecordResult;
+    private String pendingRecordPath;
+    private boolean pendingReduceNoise;
+    private MediaPlayer player;
 
     private Transformer transformer;
     private MethodChannel.Result exportResult;
@@ -120,6 +133,8 @@ public class KainuwaEncoderPlugin
         transformer = null;
         exportResult = null;
         mainHandler.removeCallbacks(progressTicker);
+        stopPlayerQuietly();
+        releaseRecorderQuietly();
         if (channel != null) {
             channel.setMethodCallHandler(null);
             channel = null;
@@ -133,6 +148,7 @@ public class KainuwaEncoderPlugin
         activity = binding.getActivity();
         activityBinding = binding;
         binding.addActivityResultListener(this);
+        binding.addRequestPermissionsResultListener(this);
     }
 
     @Override
@@ -153,6 +169,7 @@ public class KainuwaEncoderPlugin
     private void detachActivity() {
         if (activityBinding != null) {
             activityBinding.removeActivityResultListener(this);
+            activityBinding.removeRequestPermissionsResultListener(this);
         }
         activityBinding = null;
         activity = null;
@@ -174,6 +191,26 @@ public class KainuwaEncoderPlugin
                 break;
             case "saveToMovies":
                 saveToMovies((String) call.argument("path"), (String) call.argument("name"), result);
+                break;
+            case "startRecording":
+                startRecording((String) call.argument("path"),
+                        Boolean.TRUE.equals(call.argument("reduceNoise")), result);
+                break;
+            case "stopRecording":
+                stopRecording(result);
+                break;
+            case "recordingLevel":
+                recordingLevel(result);
+                break;
+            case "audioDuration":
+                result.success((int) Math.max(readDurationMs(String.valueOf((String) call.argument("path"))), 0));
+                break;
+            case "playAudio":
+                playAudio((String) call.argument("path"), num(call, "volume", 1.0), result);
+                break;
+            case "stopAudio":
+                stopPlayerQuietly();
+                result.success(null);
                 break;
             case "filesDir":
                 result.success(appContext.getFilesDir().getAbsolutePath());
@@ -558,5 +595,216 @@ public class KainuwaEncoderPlugin
                 mainHandler.post(() -> r.error("save_failed", message, null));
             }
         });
+    }
+
+    // ---- Voice recording and playback ----
+
+    private void startRecording(String path, boolean reduceNoise, MethodChannel.Result result) {
+        if (path == null) {
+            result.error("bad_arguments", "A file path is required.", null);
+            return;
+        }
+        if (recorder != null || pendingRecordResult != null) {
+            result.error("busy", "A recording is already running.", null);
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 23
+                && appContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (activity == null) {
+                result.error("no_activity", "The app screen is not ready yet.", null);
+                return;
+            }
+            pendingRecordResult = result;
+            pendingRecordPath = path;
+            pendingReduceNoise = reduceNoise;
+            activity.requestPermissions(
+                    new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_AUDIO_PERMISSION);
+            return;
+        }
+        beginRecording(path, reduceNoise, result);
+    }
+
+    @Override
+    public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode != REQUEST_AUDIO_PERMISSION) {
+            return false;
+        }
+        MethodChannel.Result r = pendingRecordResult;
+        String path = pendingRecordPath;
+        boolean reduceNoise = pendingReduceNoise;
+        pendingRecordResult = null;
+        pendingRecordPath = null;
+        if (r == null) {
+            return true;
+        }
+        boolean granted = grantResults != null && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (granted) {
+            beginRecording(path, reduceNoise, r);
+        } else {
+            r.error("permission_denied", "The microphone permission was not allowed.", null);
+        }
+        return true;
+    }
+
+    private void beginRecording(String path, boolean reduceNoise, MethodChannel.Result result) {
+        File parent = new File(path).getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        MediaRecorder r = null;
+        try {
+            r = Build.VERSION.SDK_INT >= 31 ? new MediaRecorder(appContext) : new MediaRecorder();
+            // VOICE_COMMUNICATION switches on the phone's own noise suppression where it exists.
+            r.setAudioSource(reduceNoise
+                    ? MediaRecorder.AudioSource.VOICE_COMMUNICATION
+                    : MediaRecorder.AudioSource.MIC);
+            r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            r.setAudioChannels(1);
+            r.setAudioSamplingRate(44100);
+            r.setAudioEncodingBitRate(128000);
+            r.setOutputFile(path);
+            r.prepare();
+            r.start();
+            recorder = r;
+            recordingPath = path;
+            result.success(true);
+        } catch (Exception e) {
+            if (r != null) {
+                try {
+                    r.release();
+                } catch (Exception ignored) {
+                    // nothing to do
+                }
+            }
+            recorder = null;
+            recordingPath = null;
+            result.error("record_failed", String.valueOf(e.getMessage()), null);
+        }
+    }
+
+    private void stopRecording(MethodChannel.Result result) {
+        MediaRecorder r = recorder;
+        String path = recordingPath;
+        recorder = null;
+        recordingPath = null;
+        if (r == null) {
+            result.error("not_recording", "No recording is running.", null);
+            return;
+        }
+        boolean ok = true;
+        try {
+            r.stop();
+        } catch (RuntimeException e) {
+            ok = false;
+        }
+        try {
+            r.release();
+        } catch (Exception ignored) {
+            // nothing to do
+        }
+        if (!ok || path == null) {
+            if (path != null) {
+                new File(path).delete();
+            }
+            result.error("too_short", "The recording was too short.", null);
+            return;
+        }
+        result.success((int) Math.max(readDurationMs(path), 0));
+    }
+
+    private void recordingLevel(MethodChannel.Result result) {
+        MediaRecorder r = recorder;
+        int level = 0;
+        if (r != null) {
+            try {
+                level = r.getMaxAmplitude();
+            } catch (Exception ignored) {
+                level = 0;
+            }
+        }
+        result.success(level);
+    }
+
+    private void releaseRecorderQuietly() {
+        MediaRecorder r = recorder;
+        recorder = null;
+        recordingPath = null;
+        if (r != null) {
+            try {
+                r.stop();
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+            try {
+                r.release();
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+        }
+    }
+
+    private void playAudio(String path, double volume, MethodChannel.Result result) {
+        stopPlayerQuietly();
+        if (path == null) {
+            result.error("bad_arguments", "A file path is required.", null);
+            return;
+        }
+        try {
+            final MediaPlayer p = new MediaPlayer();
+            p.setDataSource(path);
+            float v = (float) Math.max(0.0, Math.min(1.0, volume));
+            p.setVolume(v, v);
+            p.setOnPreparedListener(mp -> mp.start());
+            p.setOnCompletionListener(mp -> {
+                releasePlayer(mp);
+                if (channel != null) {
+                    channel.invokeMethod("playbackDone", null);
+                }
+            });
+            p.setOnErrorListener((mp, what, extra) -> {
+                releasePlayer(mp);
+                if (channel != null) {
+                    channel.invokeMethod("playbackDone", null);
+                }
+                return true;
+            });
+            player = p;
+            p.prepareAsync();
+            result.success(true);
+        } catch (Exception e) {
+            player = null;
+            result.error("play_failed", String.valueOf(e.getMessage()), null);
+        }
+    }
+
+    private void releasePlayer(MediaPlayer mp) {
+        try {
+            mp.release();
+        } catch (Exception ignored) {
+            // nothing to do
+        }
+        if (player == mp) {
+            player = null;
+        }
+    }
+
+    private void stopPlayerQuietly() {
+        MediaPlayer p = player;
+        player = null;
+        if (p != null) {
+            try {
+                p.stop();
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+            try {
+                p.release();
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+        }
     }
 }

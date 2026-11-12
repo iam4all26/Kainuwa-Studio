@@ -9,12 +9,17 @@ class KainuwaEncoder {
   static const MethodChannel _channel = MethodChannel('kainuwa_encoder');
   static final StreamController<int> _progress =
       StreamController<int>.broadcast();
+  static final StreamController<void> _playbackDone =
+      StreamController<void>.broadcast();
   static bool _ready = false;
 
   static void _init() {
     if (_ready) return;
     _ready = true;
     _channel.setMethodCallHandler((call) async {
+      if (call.method == 'playbackDone') {
+        _playbackDone.add(null);
+      }
       if (call.method == 'progress') {
         final value = call.arguments;
         if (value is int) _progress.add(value);
@@ -28,6 +33,48 @@ class KainuwaEncoder {
     _init();
     final result = await _channel.invokeMethod<String>('filesDir');
     return result ?? '';
+  }
+
+  /// Fires when audio started with [playAudio] reaches its end.
+  static Stream<void> get playbackDone {
+    _init();
+    return _playbackDone.stream;
+  }
+
+  /// Starts recording the microphone to [path] (an .m4a file). The first call asks
+  /// for the microphone permission. [reduceNoise] switches on the phone's own
+  /// noise suppression where the phone has it.
+  static Future<void> startRecording({required String path, bool reduceNoise = true}) async {
+    _init();
+    await _channel.invokeMethod<bool>('startRecording', {'path': path, 'reduceNoise': reduceNoise});
+  }
+
+  /// Stops recording and returns the length of the recording in milliseconds.
+  static Future<int> stopRecording() async {
+    _init();
+    return (await _channel.invokeMethod<int>('stopRecording')) ?? 0;
+  }
+
+  /// Loudness while recording, from 0 to 32767.
+  static Future<int> recordingLevel() async {
+    _init();
+    return (await _channel.invokeMethod<int>('recordingLevel')) ?? 0;
+  }
+
+  /// Length of an audio file in milliseconds, or 0 if it cannot be read.
+  static Future<int> audioDuration(String path) async {
+    _init();
+    return (await _channel.invokeMethod<int>('audioDuration', {'path': path})) ?? 0;
+  }
+
+  static Future<void> playAudio(String path, {double volume = 1.0}) async {
+    _init();
+    await _channel.invokeMethod<bool>('playAudio', {'path': path, 'volume': volume});
+  }
+
+  static Future<void> stopAudio() async {
+    _init();
+    await _channel.invokeMethod<void>('stopAudio');
   }
 
   /// Export progress from 0 to 100.
