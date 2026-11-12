@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/asset_catalog.dart';
 import '../theme.dart';
@@ -35,7 +34,7 @@ class AssetsTab extends StatelessWidget {
               child: TabBarView(
                 children: [
                   _AssetGrid(items: kBackgrounds, columns: 2, aspect: 16 / 11, kind: _Kind.photo),
-                  _AssetGrid(items: kIconsSvg, columns: 4, aspect: 0.85, kind: _Kind.svg),
+                  _AssetGrid(items: kIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
                   _AssetGrid(items: kIllustrations, columns: 3, aspect: 0.9, kind: _Kind.png),
                 ],
               ),
@@ -47,7 +46,7 @@ class AssetsTab extends StatelessWidget {
   }
 }
 
-enum _Kind { photo, svg, png }
+enum _Kind { photo, png }
 
 class _AssetGrid extends StatelessWidget {
   const _AssetGrid({
@@ -64,8 +63,6 @@ class _AssetGrid extends StatelessWidget {
 
   Widget _picture(CatalogItem item, {double? size}) {
     switch (kind) {
-      case _Kind.svg:
-        return SvgPicture.asset(item.path, width: size, height: size);
       case _Kind.png:
         return Image.asset(item.path, width: size, height: size, fit: BoxFit.contain);
       case _Kind.photo:
