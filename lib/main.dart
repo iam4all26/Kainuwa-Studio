@@ -36,6 +36,16 @@ class _KainuwaStudioAppState extends State<KainuwaStudioApp> {
         title: 'Kainuwa Studio',
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
+        builder: (context, child) {
+          // Phones set to very large text would otherwise break the layout.
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              textScaler: media.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const SplashScreen(),
       ),
     );

@@ -358,8 +358,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ActionChip(
-        avatar: Icon(icon, size: 18),
-        label: Text(label),
+        avatar: Icon(icon, size: 16),
+        label: Text(label, style: const TextStyle(fontSize: 13)),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         onPressed: onTap,
       ),
     );
@@ -370,13 +372,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: KColors.purple),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 11)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(label, maxLines: 1, softWrap: false, style: const TextStyle(fontSize: 11)),
+              ),
             ],
           ),
         ),
@@ -516,7 +521,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -553,6 +561,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
             ),
           ),
         ],
+      ),
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
