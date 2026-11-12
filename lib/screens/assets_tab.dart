@@ -1,0 +1,159 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../data/asset_catalog.dart';
+import '../theme.dart';
+
+class AssetsTab extends StatelessWidget {
+  const AssetsTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Assets',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const TabBar(
+              tabs: [
+                Tab(text: 'Backgrounds'),
+                Tab(text: 'Icons'),
+                Tab(text: 'Illustrations'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _AssetGrid(items: kBackgrounds, columns: 2, aspect: 16 / 11, kind: _Kind.photo),
+                  _AssetGrid(items: kIconsSvg, columns: 4, aspect: 0.85, kind: _Kind.svg),
+                  _AssetGrid(items: kIllustrations, columns: 3, aspect: 0.9, kind: _Kind.png),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _Kind { photo, svg, png }
+
+class _AssetGrid extends StatelessWidget {
+  const _AssetGrid({
+    required this.items,
+    required this.columns,
+    required this.aspect,
+    required this.kind,
+  });
+
+  final List<CatalogItem> items;
+  final int columns;
+  final double aspect;
+  final _Kind kind;
+
+  Widget _picture(CatalogItem item, {double? size}) {
+    switch (kind) {
+      case _Kind.svg:
+        return SvgPicture.asset(item.path, width: size, height: size);
+      case _Kind.png:
+        return Image.asset(item.path, width: size, height: size, fit: BoxFit.contain);
+      case _Kind.photo:
+        return Image.asset(item.path, width: size, fit: BoxFit.cover);
+    }
+  }
+
+  void _preview(BuildContext context, CatalogItem item) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: kind == _Kind.photo
+                      ? Image.asset(item.path, fit: BoxFit.contain)
+                      : _picture(item, size: 220),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        childAspectRatio: aspect,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _preview(context, item),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: KColors.lavender),
+            ),
+            padding: const EdgeInsets.all(6),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox.expand(
+                      child: kind == _Kind.photo
+                          ? Image.asset(item.path, fit: BoxFit.cover, cacheWidth: 480)
+                          : Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: _picture(item),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

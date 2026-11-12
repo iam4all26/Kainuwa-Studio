@@ -23,6 +23,13 @@ class KainuwaEncoder {
     });
   }
 
+  /// Private folder of the app where data is kept permanently (not cleared like the cache).
+  static Future<String> filesDir() async {
+    _init();
+    final result = await _channel.invokeMethod<String>('filesDir');
+    return result ?? '';
+  }
+
   /// Export progress from 0 to 100.
   static Stream<int> get progress {
     _init();

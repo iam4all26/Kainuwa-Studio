@@ -175,6 +175,9 @@ public class KainuwaEncoderPlugin
             case "saveToMovies":
                 saveToMovies((String) call.argument("path"), (String) call.argument("name"), result);
                 break;
+            case "filesDir":
+                result.success(appContext.getFilesDir().getAbsolutePath());
+                break;
             default:
                 result.notImplemented();
         }

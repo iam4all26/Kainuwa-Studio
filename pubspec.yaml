@@ -9,8 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_svg: ^2.0.10
   kainuwa_encoder:
     path: packages/kainuwa_encoder
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
+    - assets/backgrounds/
+    - assets/icons_svg/
+    - assets/illustrations/
