@@ -41,19 +41,40 @@ class KainuwaEncoder {
     return _channel.invokeMethod<String>('pick', {'mime': 'audio/*'});
   }
 
-  /// Shows one image for the full length of the audio and writes an MP4.
-  static Future<String> exportImageWithAudio({
+  /// One scene: an image shown for the length of the narration, optional
+  /// background music with volume and fades, and an optional animated text label.
+  ///
+  /// overlayAnimation is one of: fade, slide, pop, zoom.
+  static Future<String> exportScene({
     required String imagePath,
-    required String audioPath,
+    required String narrationPath,
     required String outputPath,
+    String? musicPath,
+    double narrationVolume = 1.0,
+    double musicVolume = 0.3,
+    int musicFadeInMs = 0,
+    int musicFadeOutMs = 0,
+    String? overlayText,
+    int overlayStartMs = 1000,
+    int overlayDurationMs = 800,
+    String overlayAnimation = 'fade',
     int width = 1280,
     int height = 720,
   }) async {
     _init();
-    final result = await _channel.invokeMethod<String>('export', {
+    final result = await _channel.invokeMethod<String>('exportScene', {
       'image': imagePath,
-      'audio': audioPath,
+      'narration': narrationPath,
+      'music': musicPath,
       'output': outputPath,
+      'narrationVolume': narrationVolume,
+      'musicVolume': musicVolume,
+      'musicFadeInMs': musicFadeInMs,
+      'musicFadeOutMs': musicFadeOutMs,
+      'overlayText': overlayText,
+      'overlayStartMs': overlayStartMs,
+      'overlayDurationMs': overlayDurationMs,
+      'overlayAnimation': overlayAnimation,
       'width': width,
       'height': height,
     });
@@ -65,7 +86,8 @@ class KainuwaEncoder {
     await _channel.invokeMethod<void>('cancel');
   }
 
-  /// Copies a finished video into Movies/Kainuwa Studio so it shows in the gallery.
+  /// Saves a finished video. On Android 10 and newer it goes to Movies/Kainuwa Studio;
+  /// on older versions a save dialog opens.
   static Future<String> saveToMovies({
     required String path,
     required String name,

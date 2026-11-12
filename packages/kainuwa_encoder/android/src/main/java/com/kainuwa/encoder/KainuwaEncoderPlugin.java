@@ -1,6 +1,7 @@
 package com.kainuwa.encoder;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -22,7 +23,9 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
+import androidx.media3.effect.TextureOverlay;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -32,6 +35,8 @@ import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.ProgressHolder;
 import androidx.media3.transformer.Transformer;
 
+import com.google.common.collect.ImmutableList;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -39,7 +44,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -162,16 +166,8 @@ public class KainuwaEncoderPlugin
             case "pick":
                 pick((String) call.argument("mime"), result);
                 break;
-            case "export":
-                Integer width = call.argument("width");
-                Integer height = call.argument("height");
-                export(
-                        (String) call.argument("image"),
-                        (String) call.argument("audio"),
-                        (String) call.argument("output"),
-                        width == null ? 1280 : width,
-                        height == null ? 720 : height,
-                        result);
+            case "exportScene":
+                exportScene(call, result);
                 break;
             case "cancel":
                 cancel(result);
@@ -292,19 +288,47 @@ public class KainuwaEncoderPlugin
         }
     }
 
-    private void export(String imagePath, String audioPath, String outputPath,
-                        int width, int height, MethodChannel.Result result) {
+    private static double num(MethodCall call, String key, double fallback) {
+        Object value = call.argument(key);
+        return value instanceof Number ? ((Number) value).doubleValue() : fallback;
+    }
+
+    private static String str(MethodCall call, String key) {
+        Object value = call.argument(key);
+        if (value instanceof String) {
+            String s = ((String) value).trim();
+            return s.isEmpty() ? null : s;
+        }
+        return null;
+    }
+
+    private void exportScene(MethodCall call, MethodChannel.Result result) {
         if (transformer != null) {
             result.error("busy", "An export is already running.", null);
             return;
         }
-        if (imagePath == null || audioPath == null || outputPath == null) {
-            result.error("bad_arguments", "Image, audio and output paths are required.", null);
+        String imagePath = str(call, "image");
+        String narrationPath = str(call, "narration");
+        String musicPath = str(call, "music");
+        String outputPath = str(call, "output");
+        if (imagePath == null || narrationPath == null || outputPath == null) {
+            result.error("bad_arguments", "Image, narration and output paths are required.", null);
             return;
         }
-        long audioMs = readDurationMs(audioPath);
-        if (audioMs <= 0) {
-            result.error("bad_audio", "Could not read the length of the audio file.", null);
+        int width = (int) num(call, "width", 1280);
+        int height = (int) num(call, "height", 720);
+        float narrationVolume = (float) num(call, "narrationVolume", 1.0);
+        float musicVolume = (float) num(call, "musicVolume", 0.3);
+        long musicFadeInMs = (long) num(call, "musicFadeInMs", 0);
+        long musicFadeOutMs = (long) num(call, "musicFadeOutMs", 0);
+        String overlayText = str(call, "overlayText");
+        long overlayStartMs = (long) num(call, "overlayStartMs", 1000);
+        long overlayDurationMs = (long) num(call, "overlayDurationMs", 800);
+        String overlayAnimation = str(call, "overlayAnimation");
+
+        long narrationMs = readDurationMs(narrationPath);
+        if (narrationMs <= 0) {
+            result.error("bad_audio", "Could not read the length of the narration file.", null);
             return;
         }
 
@@ -317,33 +341,74 @@ public class KainuwaEncoderPlugin
             out.delete();
         }
 
-        // The image is shown for exactly as long as the audio lasts.
+        // Picture: the image for the whole narration, plus an optional animated text label.
         MediaItem imageItem = new MediaItem.Builder()
                 .setUri(Uri.fromFile(new File(imagePath)))
-                .setImageDurationMs(audioMs)
+                .setImageDurationMs(narrationMs)
                 .build();
+        List<Effect> imageEffects = new ArrayList<>();
+        imageEffects.add(Presentation.createForWidthAndHeight(
+                width, height, Presentation.LAYOUT_SCALE_TO_FIT));
+        if (overlayText != null) {
+            Bitmap label = AnimatedTextOverlay.renderText(overlayText);
+            imageEffects.add(new OverlayEffect(ImmutableList.<TextureOverlay>of(
+                    new AnimatedTextOverlay(label, overlayStartMs * 1000L,
+                            overlayDurationMs * 1000L, overlayAnimation))));
+        }
         EditedMediaItem editedImage = new EditedMediaItem.Builder(imageItem)
                 .setFrameRate(30)
+                .setEffects(new Effects(new ArrayList<AudioProcessor>(), imageEffects))
                 .build();
-        // Use only the sound of this file. If it is a video, its picture is ignored
-        // (some phones cannot decode every video format, for example AV1).
-        EditedMediaItem editedAudio = new EditedMediaItem.Builder(
-                MediaItem.fromUri(Uri.fromFile(new File(audioPath))))
+
+        // Narration: only the sound of the file, with its own volume.
+        List<AudioProcessor> narrationProcessors = new ArrayList<>();
+        if (Math.abs(narrationVolume - 1f) > 0.001f) {
+            narrationProcessors.add(new GainAudioProcessor(
+                    narrationVolume, 0L, 0L, narrationMs * 1000L));
+        }
+        EditedMediaItem editedNarration = new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.fromFile(new File(narrationPath))))
                 .setRemoveVideo(true)
+                .setEffects(new Effects(narrationProcessors, new ArrayList<Effect>()))
                 .build();
 
-        EditedMediaItemSequence videoSequence =
-                new EditedMediaItemSequence(Collections.singletonList(editedImage));
-        EditedMediaItemSequence audioSequence =
-                new EditedMediaItemSequence(Collections.singletonList(editedAudio));
+        List<EditedMediaItemSequence> sequences = new ArrayList<>();
+        sequences.add(new EditedMediaItemSequence(Collections.singletonList(editedImage)));
+        sequences.add(new EditedMediaItemSequence(Collections.singletonList(editedNarration)));
 
-        List<Effect> videoEffects = new ArrayList<>();
-        videoEffects.add(Presentation.createForWidthAndHeight(
+        // Background music: cut to the narration length, with volume and fades.
+        if (musicPath != null) {
+            long musicMs = readDurationMs(musicPath);
+            if (musicMs <= 0) {
+                result.error("bad_audio", "Could not read the length of the music file.", null);
+                return;
+            }
+            long usedMs = Math.min(musicMs, narrationMs);
+            MediaItem.Builder musicBuilder = new MediaItem.Builder()
+                    .setUri(Uri.fromFile(new File(musicPath)));
+            if (musicMs > narrationMs) {
+                musicBuilder.setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                                .setEndPositionMs(narrationMs)
+                                .build());
+            }
+            List<AudioProcessor> musicProcessors = new ArrayList<>();
+            musicProcessors.add(new GainAudioProcessor(
+                    musicVolume, musicFadeInMs * 1000L, musicFadeOutMs * 1000L, usedMs * 1000L));
+            EditedMediaItem editedMusic = new EditedMediaItem.Builder(musicBuilder.build())
+                    .setRemoveVideo(true)
+                    .setEffects(new Effects(musicProcessors, new ArrayList<Effect>()))
+                    .build();
+            sequences.add(new EditedMediaItemSequence(Collections.singletonList(editedMusic)));
+        }
+
+        List<Effect> compositionVideoEffects = new ArrayList<>();
+        compositionVideoEffects.add(Presentation.createForWidthAndHeight(
                 width, height, Presentation.LAYOUT_SCALE_TO_FIT));
-        Effects compositionEffects = new Effects(new ArrayList<AudioProcessor>(), videoEffects);
+        Effects compositionEffects =
+                new Effects(new ArrayList<AudioProcessor>(), compositionVideoEffects);
 
-        Composition composition = new Composition.Builder(
-                Arrays.asList(videoSequence, audioSequence))
+        Composition composition = new Composition.Builder(sequences)
                 .setEffects(compositionEffects)
                 .build();
 
