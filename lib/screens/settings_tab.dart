@@ -56,7 +56,7 @@ class SettingsTab extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'These choices are saved now and will be used when lessons are exported from the editor.',
+            'These choices are used when you export a lesson (the video icon in the lesson editor).',
             style: TextStyle(fontSize: 12),
           ),
           const Divider(height: 32),

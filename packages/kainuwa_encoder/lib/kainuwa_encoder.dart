@@ -11,6 +11,10 @@ class KainuwaEncoder {
       StreamController<int>.broadcast();
   static final StreamController<void> _playbackDone =
       StreamController<void>.broadcast();
+  static final StreamController<String> _stage =
+      StreamController<String>.broadcast();
+  static final StreamController<int> _audioProgress =
+      StreamController<int>.broadcast();
   static bool _ready = false;
 
   static void _init() {
@@ -19,6 +23,14 @@ class KainuwaEncoder {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'playbackDone') {
         _playbackDone.add(null);
+      }
+      if (call.method == 'stage') {
+        final value = call.arguments;
+        if (value is String) _stage.add(value);
+      }
+      if (call.method == 'audioProgress') {
+        final value = call.arguments;
+        if (value is int) _audioProgress.add(value);
       }
       if (call.method == 'progress') {
         final value = call.arguments;
@@ -75,6 +87,47 @@ class KainuwaEncoder {
   static Future<void> stopAudio() async {
     _init();
     await _channel.invokeMethod<void>('stopAudio');
+  }
+
+  /// Whole-lesson export stage: 'audio' (preparing narration), then 'video'.
+  static Stream<String> get stage {
+    _init();
+    return _stage.stream;
+  }
+
+  /// Progress of the narration preparation, 0 to 100.
+  static Stream<int> get audioProgress {
+    _init();
+    return _audioProgress.stream;
+  }
+
+  /// Exports a whole lesson. Each entry of [scenes] has: image (path), durationMs,
+  /// narration (path or null), volume, clean (bool) and overlays (a list of maps
+  /// with path, cx, cy, anim, startMs, durMs).
+  static Future<String> exportLesson({
+    required List<Map<String, Object?>> scenes,
+    required String workDir,
+    required String outputPath,
+    String? musicPath,
+    double musicVolume = 0.3,
+    int musicFadeMs = 0,
+    int width = 1280,
+    int height = 720,
+    int fps = 30,
+  }) async {
+    _init();
+    final result = await _channel.invokeMethod<String>('exportLesson', {
+      'scenes': scenes,
+      'workDir': workDir,
+      'output': outputPath,
+      'music': musicPath,
+      'musicVolume': musicVolume,
+      'musicFadeMs': musicFadeMs,
+      'width': width,
+      'height': height,
+      'fps': fps,
+    });
+    return result ?? outputPath;
   }
 
   /// Export progress from 0 to 100.

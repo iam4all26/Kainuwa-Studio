@@ -19,6 +19,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
@@ -50,6 +51,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -99,6 +101,8 @@ public class KainuwaEncoderPlugin
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService lessonWorker = Executors.newSingleThreadExecutor();
+    private volatile int lessonGen = 0;
 
     private final Runnable progressTicker = new Runnable() {
         @Override
@@ -127,6 +131,7 @@ public class KainuwaEncoderPlugin
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        lessonGen++;
         if (transformer != null) {
             transformer.cancel();
         }
@@ -185,6 +190,9 @@ public class KainuwaEncoderPlugin
                 break;
             case "exportScene":
                 exportScene(call, result);
+                break;
+            case "exportLesson":
+                exportLesson(call, result);
                 break;
             case "cancel":
                 cancel(result);
@@ -489,6 +497,7 @@ public class KainuwaEncoderPlugin
     }
 
     private void finishExport() {
+        setKeepAwake(false);
         transformer = null;
         exportResult = null;
         exportOutput = null;
@@ -496,6 +505,7 @@ public class KainuwaEncoderPlugin
     }
 
     private void cancel(MethodChannel.Result result) {
+        lessonGen++;
         Transformer t = transformer;
         MethodChannel.Result pending = exportResult;
         if (t != null) {
@@ -506,6 +516,271 @@ public class KainuwaEncoderPlugin
             pending.error("cancelled", "Export cancelled.", null);
         }
         result.success(null);
+    }
+
+    // ---- Whole lesson export ----
+
+    private void setKeepAwake(final boolean on) {
+        final Activity a = activity;
+        if (a == null) {
+            return;
+        }
+        a.runOnUiThread(() -> {
+            try {
+                if (on) {
+                    a.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                } else {
+                    a.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+        });
+    }
+
+    private void sendStage(String stage) {
+        if (channel != null) {
+            channel.invokeMethod("stage", stage);
+        }
+    }
+
+    private static long longOf(Object v, long fallback) {
+        return v instanceof Number ? ((Number) v).longValue() : fallback;
+    }
+
+    private static double doubleOf(Object v, double fallback) {
+        return v instanceof Number ? ((Number) v).doubleValue() : fallback;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void exportLesson(MethodCall call, MethodChannel.Result result) {
+        if (transformer != null || exportResult != null) {
+            result.error("busy", "An export is already running.", null);
+            return;
+        }
+        final List<Map<String, Object>> scenes = call.argument("scenes");
+        final String workDir = str(call, "workDir");
+        final String outputPath = str(call, "output");
+        final String musicPath = str(call, "music");
+        if (scenes == null || scenes.isEmpty() || workDir == null || outputPath == null) {
+            result.error("bad_arguments", "Slides, work folder and output path are required.", null);
+            return;
+        }
+        final int width = (int) num(call, "width", 1280);
+        final int height = (int) num(call, "height", 720);
+        final int fps = (int) num(call, "fps", 30);
+        final float musicVolume = (float) num(call, "musicVolume", 0.3);
+        final long musicFadeMs = (long) num(call, "musicFadeMs", 0);
+
+        final List<LessonAudioMixer.Spec> specs = new ArrayList<>();
+        final List<String> images = new ArrayList<>();
+        final List<Long> durations = new ArrayList<>();
+        final LessonOverlays overlays = new LessonOverlays();
+        long totalMs = 0;
+        for (Map<String, Object> sc : scenes) {
+            Object img = sc.get("image");
+            long dur = longOf(sc.get("durationMs"), 0);
+            if (!(img instanceof String) || dur <= 0) {
+                result.error("bad_arguments", "A slide has no picture or no length.", null);
+                return;
+            }
+            images.add((String) img);
+            durations.add(dur);
+            totalMs += dur;
+
+            LessonAudioMixer.Spec spec = new LessonAudioMixer.Spec();
+            Object narr = sc.get("narration");
+            spec.path = narr instanceof String && !((String) narr).isEmpty() ? (String) narr : null;
+            spec.durationMs = dur;
+            spec.volume = (float) doubleOf(sc.get("volume"), 1.0);
+            spec.clean = Boolean.TRUE.equals(sc.get("clean"));
+            specs.add(spec);
+
+            List<LessonOverlays.Item> items = new ArrayList<>();
+            Object raw = sc.get("overlays");
+            if (raw instanceof List) {
+                for (Object o : (List<Object>) raw) {
+                    if (!(o instanceof Map)) {
+                        continue;
+                    }
+                    Map<String, Object> m = (Map<String, Object>) o;
+                    if (!(m.get("path") instanceof String)) {
+                        continue;
+                    }
+                    LessonOverlays.Item it = new LessonOverlays.Item();
+                    it.path = (String) m.get("path");
+                    it.cx = (float) doubleOf(m.get("cx"), 0.5);
+                    it.cy = (float) doubleOf(m.get("cy"), 0.5);
+                    it.kind = m.get("anim") instanceof String ? (String) m.get("anim") : "none";
+                    it.startMs = longOf(m.get("startMs"), 0);
+                    it.durMs = longOf(m.get("durMs"), 800);
+                    items.add(it);
+                }
+            }
+            overlays.addScene(dur, items);
+        }
+        final long total = totalMs;
+
+        final int gen = ++lessonGen;
+        exportResult = result;
+        exportOutput = outputPath;
+        setKeepAwake(true);
+        sendStage("audio");
+
+        lessonWorker.execute(() -> {
+            try {
+                File dir = new File(workDir);
+                if (!dir.exists() && !dir.mkdirs()) {
+                    throw new IOException("Could not create the export folder.");
+                }
+                final File wav = new File(dir, "narration.wav");
+                LessonAudioMixer.mix(specs, wav, new LessonAudioMixer.Control() {
+                    @Override
+                    public boolean cancelled() {
+                        return gen != lessonGen;
+                    }
+
+                    @Override
+                    public void progress(final int percent) {
+                        mainHandler.post(() -> {
+                            if (gen == lessonGen && channel != null) {
+                                channel.invokeMethod("audioProgress", percent);
+                            }
+                        });
+                    }
+                });
+                long musicMs = 0;
+                if (musicPath != null) {
+                    musicMs = readDurationMs(musicPath);
+                    if (musicMs <= 0) {
+                        throw new IOException("Could not read the length of the music file.");
+                    }
+                }
+                final long musicLen = musicMs;
+                mainHandler.post(() -> {
+                    if (gen != lessonGen) {
+                        return;
+                    }
+                    try {
+                        startLessonVideo(images, durations, wav, musicPath, musicLen, musicVolume,
+                                musicFadeMs, overlays, width, height, fps, total, outputPath);
+                    } catch (Exception e) {
+                        failLesson(gen, String.valueOf(e.getMessage()));
+                    }
+                });
+            } catch (Exception e) {
+                final String message = String.valueOf(e.getMessage());
+                mainHandler.post(() -> failLesson(gen, message));
+            }
+        });
+    }
+
+    private void failLesson(int gen, String message) {
+        if (gen != lessonGen) {
+            return;
+        }
+        MethodChannel.Result r = exportResult;
+        finishExport();
+        if (r != null) {
+            r.error("export_failed", message, null);
+        }
+    }
+
+    private void startLessonVideo(List<String> images, List<Long> durations, File wav,
+                                  String musicPath, long musicMs, float musicVolume,
+                                  long musicFadeMs, LessonOverlays overlays, int width,
+                                  int height, int fps, long totalMs, String outputPath) {
+        File out = new File(outputPath);
+        File parent = out.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        if (out.exists()) {
+            out.delete();
+        }
+
+        List<EditedMediaItem> pictures = new ArrayList<>();
+        for (int i = 0; i < images.size(); i++) {
+            MediaItem item = new MediaItem.Builder()
+                    .setUri(Uri.fromFile(new File(images.get(i))))
+                    .setImageDurationMs(durations.get(i))
+                    .build();
+            List<Effect> effects = new ArrayList<>();
+            effects.add(Presentation.createForWidthAndHeight(
+                    width, height, Presentation.LAYOUT_SCALE_TO_FIT));
+            pictures.add(new EditedMediaItem.Builder(item)
+                    .setFrameRate(fps)
+                    .setEffects(new Effects(new ArrayList<AudioProcessor>(), effects))
+                    .build());
+        }
+
+        EditedMediaItem narration = new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.fromFile(wav)))
+                .setRemoveVideo(true)
+                .build();
+
+        List<EditedMediaItemSequence> sequences = new ArrayList<>();
+        sequences.add(new EditedMediaItemSequence(pictures));
+        sequences.add(new EditedMediaItemSequence(Collections.singletonList(narration)));
+
+        if (musicPath != null) {
+            long usedMs = Math.min(musicMs, totalMs);
+            MediaItem.Builder mb = new MediaItem.Builder().setUri(Uri.fromFile(new File(musicPath)));
+            if (musicMs > totalMs) {
+                mb.setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                        .setEndPositionMs(totalMs)
+                        .build());
+            }
+            List<AudioProcessor> processors = new ArrayList<>();
+            processors.add(new GainAudioProcessor(
+                    musicVolume, musicFadeMs * 1000L, musicFadeMs * 1000L, usedMs * 1000L));
+            sequences.add(new EditedMediaItemSequence(Collections.singletonList(
+                    new EditedMediaItem.Builder(mb.build())
+                            .setRemoveVideo(true)
+                            .setEffects(new Effects(processors, new ArrayList<Effect>()))
+                            .build())));
+        }
+
+        List<Effect> compositionVideoEffects = new ArrayList<>();
+        compositionVideoEffects.add(Presentation.createForWidthAndHeight(
+                width, height, Presentation.LAYOUT_SCALE_TO_FIT));
+        if (overlays.slotCount() > 0) {
+            compositionVideoEffects.add(new OverlayEffect(overlays.build()));
+        }
+        Composition composition = new Composition.Builder(sequences)
+                .setEffects(new Effects(new ArrayList<AudioProcessor>(), compositionVideoEffects))
+                .build();
+
+        transformer = new Transformer.Builder(appContext)
+                .setVideoMimeType(MimeTypes.VIDEO_H264)
+                .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                .addListener(new Transformer.Listener() {
+                    @Override
+                    public void onCompleted(Composition c, ExportResult info) {
+                        MethodChannel.Result r = exportResult;
+                        String path = exportOutput;
+                        finishExport();
+                        if (r != null) {
+                            r.success(path);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Composition c, ExportResult info, ExportException e) {
+                        MethodChannel.Result r = exportResult;
+                        finishExport();
+                        if (r != null) {
+                            r.error("export_failed",
+                                    e.getMessage() + " (code " + e.errorCode + ")", null);
+                        }
+                    }
+                })
+                .build();
+
+        sendStage("video");
+        mainHandler.removeCallbacks(progressTicker);
+        mainHandler.postDelayed(progressTicker, 500);
+        transformer.start(composition, outputPath);
     }
 
     // ---- Save to Movies ----

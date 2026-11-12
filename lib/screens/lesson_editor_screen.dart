@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'audio_sheet.dart';
 import 'editor_sheets.dart';
+import 'export_screen.dart';
 
 /// Width and height (as fractions of the slide) for an item with the given
 /// picture shape, kept inside the given limits.
@@ -608,6 +609,21 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       appBar: AppBar(
         title: Text(lesson.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+            tooltip: 'Export video',
+            icon: const Icon(Icons.movie_creation_outlined),
+            onPressed: () {
+              _stopPreview();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ExportScreen(
+                    courseId: widget.courseId,
+                    lessonId: widget.lessonId,
+                  ),
+                ),
+              );
+            },
+          ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
