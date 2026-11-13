@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
+import '../media/media_library.dart';
 import '../models.dart';
 import '../theme.dart';
 
@@ -145,7 +146,7 @@ class _AudioSheetState extends State<_AudioSheet> {
 
   Future<void> _importNarration() async {
     try {
-      final path = await KainuwaEncoder.pickAudio();
+      final path = await pickMedia(context, MediaKind.audio);
       if (path == null) return;
       final ms = await KainuwaEncoder.audioDuration(path);
       if (ms <= 0) {
@@ -184,7 +185,7 @@ class _AudioSheetState extends State<_AudioSheet> {
 
   Future<void> _chooseMusic() async {
     try {
-      final path = await KainuwaEncoder.pickAudio();
+      final path = await pickMedia(context, MediaKind.audio);
       if (path == null) return;
       widget.lesson.musicPath = path;
       await widget.onChanged();

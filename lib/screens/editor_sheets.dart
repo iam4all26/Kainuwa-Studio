@@ -3,6 +3,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
 import '../data/asset_catalog.dart';
+import '../media/media_library.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -29,7 +30,7 @@ class _BackgroundSheet extends StatelessWidget {
   Future<void> _pickPhoto(BuildContext context) async {
     final navigator = Navigator.of(context);
     try {
-      final path = await KainuwaEncoder.pickImage();
+      final path = await pickMedia(context, MediaKind.image);
       if (path != null) navigator.pop(BackgroundChoice('file', path));
     } catch (_) {
       // The picker was closed or failed. Stay on this sheet.

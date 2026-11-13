@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   kainuwa_encoder:
     path: packages/kainuwa_encoder
+  photo_manager: ^3.6.4
 
 flutter:
   uses-material-design: true

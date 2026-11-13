@@ -14,6 +14,7 @@ import '../editor/fullscreen_player.dart';
 import '../editor/lesson_player.dart';
 import '../editor/timeline_panel.dart';
 import '../editor/track_visibility.dart';
+import '../media/media_library.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
@@ -389,7 +390,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null) return;
     String? path;
     try {
-      path = await KainuwaEncoder.pickImage();
+      path = await pickMedia(context, MediaKind.image);
     } catch (_) {
       path = null;
     }
@@ -642,7 +643,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _pause();
     String? path;
     try {
-      path = await KainuwaEncoder.pickVideo();
+      path = await pickMedia(context, MediaKind.video);
     } catch (_) {
       path = null;
     }
@@ -783,7 +784,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _pause();
     String? path;
     try {
-      path = await KainuwaEncoder.pickAudio();
+      path = await pickMedia(context, MediaKind.audio);
     } catch (_) {
       path = null;
     }
