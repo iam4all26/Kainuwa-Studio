@@ -8,7 +8,9 @@ import 'package:flutter/rendering.dart' hide Layer;
 import 'package:flutter/services.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
+import '../animation_math.dart';
 import '../app_state.dart';
+import '../editor/track_visibility.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
@@ -162,14 +164,16 @@ class _ExportScreenState extends State<ExportScreen> {
       _set('This lesson has no slides to export.', failed: true);
       return;
     }
-    final scenes = List<Scene>.of(lesson.scenes);
+    final hidden = Set<String>.of(lesson.hiddenTracks);
+    final audioOff = hidden.contains('audio');
+    final scenes = lesson.scenes.map((s) => viewScene(s, hidden)).toList();
     final settings = state.settings;
     final outW = settings.videoWidth;
     final outH = settings.videoHeight;
     final fps = settings.frameRate;
     final ratio = outW / _kStageW;
     final title = lesson.title;
-    final musicPath = lesson.musicPath;
+    final musicPath = audioOff ? '' : lesson.musicPath;
     final musicVolume = lesson.musicVolume;
     final musicFade = lesson.musicFade;
 
@@ -216,7 +220,7 @@ class _ExportScreenState extends State<ExportScreen> {
         final scene = scenes[i];
         await _precache(scene);
 
-        final firstAnimated = scene.layers.indexWhere((l) => l.animIn != 'none');
+        final firstAnimated = scene.layers.indexWhere(layerNeedsOverlay);
         final staticLayers =
             firstAnimated < 0 ? scene.layers : scene.layers.sublist(0, firstAnimated);
         final baseScene = Scene(
@@ -248,19 +252,25 @@ class _ExportScreenState extends State<ExportScreen> {
             final image = await _capture(picture.$3, picture.$1, picture.$2, ratio);
             final path = '${work.path}/scene_${i}_layer_$k.png';
             await _savePng(image, path);
+            final end = layerEndMs(layer, scene.durationMs);
             overlays.add({
               'path': path,
               'cx': layer.cx,
               'cy': layer.cy,
               'anim': layer.animIn,
-              'startMs': layer.animStartMs,
+              'startMs': layer.startMs + layer.animStartMs,
               'durMs': layer.animDurationMs,
+              'showMs': layer.startMs,
+              'hideMs': end,
+              'outAnim': layer.animOut,
+              'outStartMs': end - layer.animOutDurationMs,
+              'outDurMs': layer.animOutDurationMs,
             });
           }
         }
 
         String? narration;
-        if (scene.narrationPath.isNotEmpty) {
+        if (!audioOff && scene.narrationPath.isNotEmpty) {
           if (await File(scene.narrationPath).exists()) {
             narration = scene.narrationPath;
           } else {

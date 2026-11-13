@@ -614,6 +614,13 @@ public class KainuwaEncoderPlugin
                     it.kind = m.get("anim") instanceof String ? (String) m.get("anim") : "none";
                     it.startMs = longOf(m.get("startMs"), 0);
                     it.durMs = longOf(m.get("durMs"), 800);
+                    it.showMs = longOf(m.get("showMs"), 0);
+                    it.hideMs = m.get("hideMs") != null
+                            ? longOf(m.get("hideMs"), Long.MAX_VALUE) : Long.MAX_VALUE;
+                    it.outKind = m.get("outAnim") instanceof String
+                            ? (String) m.get("outAnim") : "none";
+                    it.outStartMs = longOf(m.get("outStartMs"), 0);
+                    it.outDurMs = longOf(m.get("outDurMs"), 500);
                     items.add(it);
                 }
             }

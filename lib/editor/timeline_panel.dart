@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../animation_math.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
@@ -76,6 +77,7 @@ class TimelinePanel extends StatefulWidget {
     required this.onSceneMenu,
     required this.onSceneDuration,
     required this.onEditEnd,
+    required this.onLayerTiming,
     required this.onTrackMenu,
     required this.onToggleHidden,
     required this.onAddTrack,
@@ -97,6 +99,9 @@ class TimelinePanel extends StatefulWidget {
 
   /// Called when a handle drag ends, so the change can be saved.
   final VoidCallback onEditEnd;
+
+  /// An item's start or end was changed on the timeline (live, not yet saved).
+  final VoidCallback onLayerTiming;
   final ValueChanged<String> onTrackMenu;
   final ValueChanged<String> onToggleHidden;
   final VoidCallback onAddTrack;
@@ -188,11 +193,14 @@ class _TimelinePanelState extends State<TimelinePanel> {
       var imageLane = 1;
       var textLane = 0;
       for (final layer in scene.layers) {
+        final dur = scene.durationMs;
+        final from = layer.startMs.clamp(0, math.max(0, dur - 200)).toInt();
+        final to = math.max(from + 200, layerEndMs(layer, dur));
         if (layer.type == 'text') {
           text.add(_Clip(
             kind: 'layer',
-            startMs: start,
-            endMs: end,
+            startMs: start + from,
+            endMs: start + math.min(to, dur),
             lane: textLane++,
             sceneIndex: i,
             layer: layer,
@@ -201,8 +209,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
         } else {
           image.add(_Clip(
             kind: 'layer',
-            startMs: start,
-            endMs: end,
+            startMs: start + from,
+            endMs: start + math.min(to, dur),
             lane: imageLane++,
             sceneIndex: i,
             layer: layer,
@@ -315,6 +323,65 @@ class _TimelinePanelState extends State<TimelinePanel> {
     );
   }
 
+  // ---- handles and moving of a selected item ----
+
+  int _layerStartA = 0;
+  int _layerStartB = 0;
+
+  void _layerDragStart(Layer layer, int sceneMs) {
+    _dragAccum = 0;
+    _layerStartA = layer.startMs;
+    _layerStartB = layerEndMs(layer, sceneMs);
+  }
+
+  double _roundedDelta() => ((_dragAccum / _pps * 1000) / 100).round() * 100.0;
+
+  void _layerTrim(Layer layer, int sceneMs, {required bool left}) {
+    final delta = _roundedDelta().round();
+    if (left) {
+      layer.startMs = (_layerStartA + delta).clamp(0, math.max(0, _layerStartB - 200)).toInt();
+    } else {
+      final end = (_layerStartB + delta).clamp(_layerStartA + 200, sceneMs).toInt();
+      layer.endMs = end >= sceneMs ? -1 : end;
+    }
+    widget.onLayerTiming();
+  }
+
+  void _layerMove(Layer layer, int sceneMs) {
+    var delta = _roundedDelta().round();
+    delta = delta.clamp(-_layerStartA, sceneMs - _layerStartB).toInt();
+    layer.startMs = _layerStartA + delta;
+    final end = _layerStartB + delta;
+    layer.endMs = end >= sceneMs ? -1 : end;
+    widget.onLayerTiming();
+  }
+
+  Widget _layerHandle({required bool left, required Layer layer, required int sceneMs, required double u}) {
+    final width = math.max(24.0, 40 * u);
+    return Positioned(
+      left: left ? 0.0 : null,
+      right: left ? null : 0.0,
+      top: 0,
+      bottom: 0,
+      width: width,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) => _layerDragStart(layer, sceneMs),
+        onHorizontalDragUpdate: (d) {
+          _dragAccum += d.delta.dx;
+          _layerTrim(layer, sceneMs, left: left);
+        },
+        onHorizontalDragEnd: (_) => widget.onEditEnd(),
+        onHorizontalDragCancel: () => widget.onEditEnd(),
+        child: Container(
+          alignment: Alignment.center,
+          color: const Color(0x33000000),
+          child: _grip(u),
+        ),
+      ),
+    );
+  }
+
   // ---- one clip ----
 
   Widget _clipView(_Clip clip, double w, double h, double u) {
@@ -324,6 +391,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
     bool selected = false;
     VoidCallback? onTap;
     VoidCallback? onLong;
+    GestureDragStartCallback? dragStart;
+    GestureDragUpdateCallback? dragUpdate;
+    VoidCallback? dragEnd;
 
     switch (clip.kind) {
       case 'scene':
@@ -354,6 +424,15 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final layer = clip.layer!;
         selected = !widget.sceneSelected && widget.selectedLayerId == layer.id;
         onTap = () => widget.onSelectLayer(clip.sceneIndex, layer.id);
+        if (selected) {
+          final sceneMs = widget.lesson.scenes[clip.sceneIndex].durationMs;
+          dragStart = (_) => _layerDragStart(layer, sceneMs);
+          dragUpdate = (d) {
+            _dragAccum += d.delta.dx;
+            _layerMove(layer, sceneMs);
+          };
+          dragEnd = widget.onEditEnd;
+        }
         final isText = layer.type == 'text';
         final fg = isText ? KColors.ink : Colors.white;
         body = Container(
@@ -406,6 +485,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
               _handle(left: true, index: clip.sceneIndex, u: u),
               _handle(left: false, index: clip.sceneIndex, u: u),
             ],
+            if (clip.kind == 'layer') ...[
+              _layerHandle(left: true, layer: clip.layer!, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
+              _layerHandle(left: false, layer: clip.layer!, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
+            ],
           ],
         ),
       );
@@ -415,6 +498,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLong,
+      onHorizontalDragStart: dragStart,
+      onHorizontalDragUpdate: dragUpdate,
+      onHorizontalDragEnd: dragEnd == null ? null : (_) => dragEnd!(),
       child: view,
     );
   }

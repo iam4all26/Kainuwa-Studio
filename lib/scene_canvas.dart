@@ -19,6 +19,7 @@ class SceneCanvas extends StatefulWidget {
     this.onDelete,
     this.interactive = false,
     this.previewMs,
+    this.ghostAtMs,
   });
 
   final Scene scene;
@@ -36,6 +37,10 @@ class SceneCanvas extends StatefulWidget {
   /// When set, the scene is drawn as it looks at this time (in milliseconds),
   /// with entrance animations applied.
   final int? previewMs;
+
+  /// Editor only: while paused at this time (milliseconds into the slide), items
+  /// that are not on screen at that moment are drawn faded so they can still be edited.
+  final int? ghostAtMs;
 
   @override
   State<SceneCanvas> createState() => _SceneCanvasState();
@@ -298,15 +303,25 @@ class _SceneCanvasState extends State<SceneCanvas> {
     Widget placed = Transform.rotate(angle: layer.rotation, child: content);
     final previewMs = widget.previewMs;
     if (previewMs != null) {
-      final frame = animationFrame(layer.animIn, previewMs, layer.animStartMs, layer.animDurationMs);
+      final frame = layerFrame(layer, previewMs, widget.scene.durationMs);
       if (frame.alpha <= 0) return const SizedBox.shrink();
       placed = Opacity(
         opacity: frame.alpha.clamp(0.0, 1.0).toDouble(),
         child: Transform.translate(
           offset: Offset(frame.dx * width, 0),
-          child: Transform.scale(scale: frame.scale, child: placed),
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.diagonal3Values(frame.scale * frame.scaleX, frame.scale, 1),
+            child: placed,
+          ),
         ),
       );
+    } else if (widget.ghostAtMs != null) {
+      final t = widget.ghostAtMs!;
+      final end = layerEndMs(layer, widget.scene.durationMs);
+      if (t < layer.startMs || t >= end) {
+        placed = Opacity(opacity: 0.25, child: placed);
+      }
     }
 
     return Positioned(
@@ -350,34 +365,112 @@ class SceneBackground extends StatelessWidget {
   }
 }
 
+/// The text style of a text item, drawn at [size] (the slide scales it to fit the box).
+TextStyle layerTextStyle(Layer layer, {double size = 100}) {
+  final color = Color(layer.color);
+  final light = color.computeLuminance() > 0.7 && !layer.bgBox;
+  final decorations = <TextDecoration>[
+    if (layer.underline) TextDecoration.underline,
+    if (layer.strike) TextDecoration.lineThrough,
+  ];
+  return TextStyle(
+    fontSize: size,
+    height: layer.lineHeight,
+    fontWeight: layer.bold ? FontWeight.w800 : FontWeight.w500,
+    fontStyle: layer.italic ? FontStyle.italic : FontStyle.normal,
+    fontFamily: layer.fontFamily.isEmpty ? null : layer.fontFamily,
+    letterSpacing: layer.letterSpacing * size / 72,
+    decoration: decorations.isEmpty ? TextDecoration.none : TextDecoration.combine(decorations),
+    decorationColor: color,
+    color: color,
+    shadows: light ? const [Shadow(color: Color(0x66000000), blurRadius: 8)] : null,
+  );
+}
+
+TextAlign layerTextAlign(Layer layer) {
+  switch (layer.align) {
+    case 'left':
+      return TextAlign.left;
+    case 'right':
+      return TextAlign.right;
+    case 'justify':
+      return TextAlign.justify;
+    default:
+      return TextAlign.center;
+  }
+}
+
+const double _kBoxPadX = 24;
+const double _kBoxPadY = 8;
+
+/// Natural width and height of a text item at a 100 px font, box padding included.
+Size measureLayerText(Layer layer) {
+  final painter = TextPainter(
+    text: TextSpan(text: layer.text.isEmpty ? ' ' : layer.text, style: layerTextStyle(layer)),
+    textDirection: TextDirection.ltr,
+    textAlign: layerTextAlign(layer),
+  )..layout();
+  var w = painter.width;
+  var h = painter.height;
+  painter.dispose();
+  if (layer.bgBox) {
+    w += _kBoxPadX * 2;
+    h += _kBoxPadY * 2;
+  }
+  return Size(math.max(1, w), math.max(1, h));
+}
+
+double layerTextAspect(Layer layer) {
+  final size = measureLayerText(layer);
+  return size.width / size.height;
+}
+
+/// Text size in pixels of the 1280 x 720 video.
+double layerTextSizePx(Layer layer) {
+  final size = measureLayerText(layer);
+  return layer.h * 720 * 100 / size.height;
+}
+
+/// Changes the box so the text has the given size in pixels of the 1280 x 720 video.
+void setLayerTextSizePx(Layer layer, double px) {
+  final size = measureLayerText(layer);
+  final scale = px / 100;
+  layer.h = (size.height * scale / 720).clamp(0.02, 1.6).toDouble();
+  layer.w = (size.width * scale / 1280).clamp(0.02, 1.6).toDouble();
+}
+
+/// Re-fits the box to the text after the text or its style changed, keeping the
+/// text size.
+void refitLayerText(Layer layer, double keepSizePx) {
+  setLayerTextSizePx(layer, keepSizePx);
+}
+
 /// What a single layer looks like, without any gestures.
 class LayerContent extends StatelessWidget {
   const LayerContent({super.key, required this.layer});
 
   final Layer layer;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _body() {
     final color = Color(layer.color);
     switch (layer.type) {
       case 'text':
-        final light = color.computeLuminance() > 0.7;
-        return FittedBox(
-          fit: BoxFit.contain,
-          child: Text(
-            layer.text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 100,
-              height: 1.15,
-              fontWeight: layer.bold ? FontWeight.w800 : FontWeight.w500,
-              color: color,
-              shadows: light
-                  ? const [Shadow(color: Color(0x66000000), blurRadius: 8)]
-                  : null,
-            ),
-          ),
+        Widget text = Text(
+          layer.text,
+          textAlign: layerTextAlign(layer),
+          style: layerTextStyle(layer),
         );
+        if (layer.bgBox) {
+          text = Container(
+            padding: const EdgeInsets.symmetric(horizontal: _kBoxPadX, vertical: _kBoxPadY),
+            decoration: BoxDecoration(
+              color: Color(layer.bgColor),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: text,
+          );
+        }
+        return FittedBox(fit: BoxFit.contain, child: text);
       case 'asset':
         return Image.asset(layer.path, fit: BoxFit.contain, gaplessPlayback: true);
       case 'image':
@@ -407,5 +500,12 @@ class LayerContent extends StatelessWidget {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = _body();
+    if (layer.opacity >= 0.999) return body;
+    return Opacity(opacity: layer.opacity.clamp(0.0, 1.0).toDouble(), child: body);
   }
 }

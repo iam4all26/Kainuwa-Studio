@@ -53,6 +53,9 @@ class EditorHistory {
     lesson.musicPath = copy.musicPath;
     lesson.musicVolume = copy.musicVolume;
     lesson.musicFade = copy.musicFade;
+    lesson.hiddenTracks
+      ..clear()
+      ..addAll(copy.hiddenTracks);
     lesson.scenes
       ..clear()
       ..addAll(copy.scenes);

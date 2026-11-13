@@ -29,6 +29,12 @@ final class LessonOverlays {
         String kind;
         long startMs;
         long durMs;
+        /** On screen from showMs until hideMs (milliseconds into the scene). */
+        long showMs = 0;
+        long hideMs = Long.MAX_VALUE;
+        String outKind = "none";
+        long outStartMs = 0;
+        long outDurMs = 500;
     }
 
     private final List<Long> sceneStartUs = new ArrayList<>();
@@ -108,31 +114,45 @@ final class LessonOverlays {
                 return HIDDEN;
             }
             double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
-            double[] f = frame(item.kind, localMs, item.startMs, item.durMs);
+            double[] f = fullFrame(item, localMs);
             float x = (float) (item.cx * 2f - 1f + f[1] * 2.0);
             float y = (float) (1f - item.cy * 2f);
             return new OverlaySettings.Builder()
                     .setBackgroundFrameAnchor(x, y)
-                    .setScale((float) f[2], (float) f[2])
+                    .setScale((float) (f[2] * f[3]), (float) f[2])
                     .setAlphaScale((float) Math.max(0.0, Math.min(1.0, f[0])))
                     .build();
         }
     }
 
-    /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale. */
+    /** Timing, entrance and exit together. Returns alpha, dx, scale, scaleX. */
+    static double[] fullFrame(Item item, double timeMs) {
+        if (timeMs < item.showMs || timeMs >= item.hideMs) {
+            return new double[]{0, 0, 1, 1};
+        }
+        double[] in = frame(item.kind, timeMs, item.startMs, item.durMs);
+        if (item.outKind == null || item.outKind.equals("none")) {
+            return in;
+        }
+        double[] out = exitFrame(item.outKind, timeMs, item.outStartMs, item.outDurMs);
+        return new double[]{in[0] * out[0], in[1] + out[1], in[2] * out[2], in[3] * out[3]};
+    }
+
+    /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale, scaleX. */
     static double[] frame(String kind, double timeMs, long startMs, long durMs) {
         if (kind == null || kind.equals("none")) {
-            return new double[]{1, 0, 1};
+            return new double[]{1, 0, 1, 1};
         }
         double duration = Math.max(1, durMs);
         double progress = timeMs <= startMs ? 0.0 : Math.min(1.0, (timeMs - startMs) / duration);
         if (kind.equals("appear")) {
-            return new double[]{progress > 0 ? 1 : 0, 0, 1};
+            return new double[]{progress > 0 ? 1 : 0, 0, 1, 1};
         }
         double eased = 1 - Math.pow(1 - progress, 3);
         double alpha = eased;
         double dx = 0;
         double scale = 1;
+        double scaleX = 1;
         switch (kind) {
             case "slide":
                 dx = -0.175 * (1 - eased);
@@ -146,12 +166,37 @@ final class LessonOverlays {
             case "zoom":
                 scale = 1.6 - 0.6 * eased;
                 break;
+            case "draw":
+                alpha = 1;
+                scaleX = Math.max(0.01, eased);
+                break;
             default:
                 break;
         }
         if (progress <= 0) {
             alpha = 0;
         }
-        return new double[]{alpha, dx, Math.max(0.01, scale)};
+        return new double[]{alpha, dx, Math.max(0.01, scale), scaleX};
+    }
+
+    /** Exit animation. Returns alpha, dx, scale, scaleX (same formulas as the editor). */
+    static double[] exitFrame(String kind, double timeMs, long outStartMs, long outDurMs) {
+        double duration = Math.max(1, outDurMs);
+        double p = timeMs <= outStartMs ? 0.0 : Math.min(1.0, (timeMs - outStartMs) / duration);
+        double e = p * p;
+        switch (kind) {
+            case "fade":
+                return new double[]{1 - e, 0, 1, 1};
+            case "slide":
+                return new double[]{1 - e, 0.175 * e, 1, 1};
+            case "pop":
+                return new double[]{1 - e, 0, Math.max(0.01, 1 - 0.5 * e), 1};
+            case "zoom":
+                return new double[]{1 - e, 0, 1 + 0.6 * e, 1};
+            case "draw":
+                return new double[]{1, 0, 1, Math.max(0.01, 1 - e)};
+            default:
+                return new double[]{1, 0, 1, 1};
+        }
     }
 }

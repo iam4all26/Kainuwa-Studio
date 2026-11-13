@@ -33,6 +33,20 @@ class Layer {
     this.animIn = 'none',
     this.animStartMs = 0,
     this.animDurationMs = 800,
+    this.opacity = 1.0,
+    this.startMs = 0,
+    this.endMs = -1,
+    this.animOut = 'none',
+    this.animOutDurationMs = 500,
+    this.italic = false,
+    this.underline = false,
+    this.strike = false,
+    this.fontFamily = '',
+    this.letterSpacing = 0,
+    this.lineHeight = 1.15,
+    this.align = 'center',
+    this.bgBox = false,
+    this.bgColor = 0xCC000000,
   });
 
   final String id;
@@ -52,10 +66,39 @@ class Layer {
   int color;
   bool bold;
 
-  // Stored now, used when animation is added to the editor.
+  /// Entrance animation. animStartMs is a delay after the item appears.
   String animIn;
   int animStartMs;
   int animDurationMs;
+
+  /// 0 (invisible) to 1 (solid).
+  double opacity;
+
+  /// The item is on screen from startMs until endMs (milliseconds into the
+  /// slide). endMs -1 means until the end of the slide.
+  int startMs;
+  int endMs;
+
+  /// Exit animation, played just before the item leaves.
+  String animOut;
+  int animOutDurationMs;
+
+  // Text style
+  bool italic;
+  bool underline;
+  bool strike;
+
+  /// Empty means the default font.
+  String fontFamily;
+
+  /// In pixels of a 72 px text.
+  double letterSpacing;
+  double lineHeight;
+
+  /// left, center, right or justify
+  String align;
+  bool bgBox;
+  int bgColor;
 
   Layer copy() => Layer.fromJson({...toJson(), 'id': newId()});
 
@@ -75,6 +118,20 @@ class Layer {
         'animIn': animIn,
         'animStartMs': animStartMs,
         'animDurationMs': animDurationMs,
+        'opacity': opacity,
+        'startMs': startMs,
+        'endMs': endMs,
+        'animOut': animOut,
+        'animOutDurationMs': animOutDurationMs,
+        'italic': italic,
+        'underline': underline,
+        'strike': strike,
+        'fontFamily': fontFamily,
+        'letterSpacing': letterSpacing,
+        'lineHeight': lineHeight,
+        'align': align,
+        'bgBox': bgBox,
+        'bgColor': bgColor,
       };
 
   factory Layer.fromJson(Map<String, dynamic> json) => Layer(
@@ -93,6 +150,20 @@ class Layer {
         animIn: _str(json['animIn'], 'none'),
         animStartMs: _int(json['animStartMs'], 0),
         animDurationMs: _int(json['animDurationMs'], 800),
+        opacity: _num(json['opacity'], 1.0).clamp(0.0, 1.0).toDouble(),
+        startMs: _int(json['startMs'], 0),
+        endMs: _int(json['endMs'], -1),
+        animOut: _str(json['animOut'], 'none'),
+        animOutDurationMs: _int(json['animOutDurationMs'], 500),
+        italic: json['italic'] is bool ? json['italic'] as bool : false,
+        underline: json['underline'] is bool ? json['underline'] as bool : false,
+        strike: json['strike'] is bool ? json['strike'] as bool : false,
+        fontFamily: _str(json['fontFamily'], ''),
+        letterSpacing: _num(json['letterSpacing'], 0),
+        lineHeight: _num(json['lineHeight'], 1.15),
+        align: _str(json['align'], 'center'),
+        bgBox: json['bgBox'] is bool ? json['bgBox'] as bool : false,
+        bgColor: _int(json['bgColor'], 0xCC000000),
       );
 }
 
@@ -191,7 +262,9 @@ class Lesson {
     this.musicPath = '',
     this.musicVolume = 0.3,
     this.musicFade = true,
-  }) : scenes = scenes ?? <Scene>[];
+    Set<String>? hiddenTracks,
+  })  : scenes = scenes ?? <Scene>[],
+        hiddenTracks = hiddenTracks ?? <String>{};
 
   final String id;
   String title;
@@ -202,6 +275,10 @@ class Lesson {
   double musicVolume;
   bool musicFade;
 
+  /// Tracks switched off with the eye icon (image, text, audio). They are left
+  /// out of the preview and of the exported video.
+  final Set<String> hiddenTracks;
+
   int get durationMs => scenes.fold<int>(0, (sum, s) => sum + s.durationMs);
 
   Map<String, dynamic> toJson() => {
@@ -210,6 +287,7 @@ class Lesson {
         'musicPath': musicPath,
         'musicVolume': musicVolume,
         'musicFade': musicFade,
+        'hiddenTracks': hiddenTracks.toList(),
         'scenes': scenes.map((s) => s.toJson()).toList(),
       };
 
@@ -227,6 +305,9 @@ class Lesson {
       musicPath: _str(json['musicPath'], ''),
       musicVolume: _num(json['musicVolume'], 0.3),
       musicFade: json['musicFade'] is bool ? json['musicFade'] as bool : true,
+      hiddenTracks: json['hiddenTracks'] is List
+          ? (json['hiddenTracks'] as List).whereType<String>().toSet()
+          : <String>{},
       scenes: scenes,
     );
   }

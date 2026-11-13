@@ -6,11 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../app_state.dart';
+import '../editor/add_timeline_sheet.dart';
+import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
 import '../editor/editor_tools.dart';
 import '../editor/fullscreen_player.dart';
 import '../editor/lesson_player.dart';
 import '../editor/timeline_panel.dart';
+import '../editor/track_visibility.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
@@ -57,7 +60,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   bool _sceneSelected = false;
   int _tab = 0;
   final List<String> _order = List<String>.of(kDefaultTrackOrder);
-  final Set<String> _hidden = <String>{};
 
   @override
   void initState() {
@@ -218,40 +220,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
   }
 
-  // ---- text measuring ----
-
-  TextPainter _measure(String text) {
-    return TextPainter(
-      text: TextSpan(
-        text: text,
-        style: const TextStyle(fontSize: 100, fontWeight: FontWeight.w800, height: 1.15),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-  }
-
-  double _textAspect(String text) {
-    final painter = _measure(text);
-    final aspect = painter.width / (painter.height == 0 ? 1 : painter.height);
-    painter.dispose();
-    return aspect <= 0 ? 1 : aspect;
-  }
-
-  (double, double) _textBox(String text) {
-    final painter = _measure(text);
-    final lines = painter.computeLineMetrics().length;
-    final aspect = painter.width / (painter.height == 0 ? 1 : painter.height);
-    painter.dispose();
-    var h = (0.12 * lines).clamp(0.12, 0.7).toDouble();
-    var w = h * (aspect <= 0 ? 1 : aspect) * (9 / 16);
-    if (w > 0.9) {
-      w = 0.9;
-      h = w * (16 / 9) / (aspect <= 0 ? 1 : aspect);
-    }
-    return (w, h);
-  }
-
   // ---- adding things ----
 
   void _addLayer(Scene scene, Layer layer) {
@@ -302,18 +270,50 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       multiline: true,
     );
     if (text == null || !mounted) return;
-    final box = _textBox(text);
-    _addLayer(
-      scene,
-      Layer(
-        id: newId(),
-        type: 'text',
-        w: box.$1,
-        h: box.$2,
-        text: text,
-        color: scene.isDarkBackground ? 0xFFFFFFFF : 0xFF1E1433,
-      ),
+    final layer = Layer(
+      id: newId(),
+      type: 'text',
+      text: text,
+      color: scene.isDarkBackground ? 0xFFFFFFFF : 0xFF1E1433,
     );
+    setLayerTextSizePx(layer, 72);
+    if (layer.w > 0.9) {
+      final f = 0.9 / layer.w;
+      layer.w = 0.9;
+      layer.h = layer.h * f;
+    }
+    _addLayer(scene, layer);
+  }
+
+  Future<void> _addSubtitles() async {
+    final scene = _currentScene();
+    if (scene == null) return;
+    final text = await promptText(
+      context,
+      title: 'Add subtitles',
+      label: 'Caption',
+      confirm: 'Add',
+      maxLength: 200,
+      multiline: true,
+    );
+    if (text == null || !mounted) return;
+    final layer = Layer(
+      id: newId(),
+      type: 'text',
+      text: text,
+      cy: 0.86,
+      color: 0xFFFFFFFF,
+      bold: false,
+      bgBox: true,
+      bgColor: 0xCC000000,
+    );
+    setLayerTextSizePx(layer, 40);
+    if (layer.w > 0.92) {
+      final f = 0.92 / layer.w;
+      layer.w = 0.92;
+      layer.h = layer.h * f;
+    }
+    _addLayer(scene, layer);
   }
 
   Future<void> _addIcon() async {
@@ -384,17 +384,28 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _commit();
   }
 
-  Future<void> _openAnimate() async {
+  Future<void> _openEdit(String tab) async {
     final scene = _currentScene();
     if (scene == null) return;
+    _pause();
     final layer = _selectedLayer(scene);
     if (layer == null) {
       _needItem();
       return;
     }
-    await showAnimateSheet(context, layer, scene.durationMs);
+    await showEditPanel(
+      context,
+      layer: layer,
+      scene: scene,
+      initialTab: tab,
+      onLive: () {
+        if (mounted) setState(() {});
+      },
+    );
     _commit();
   }
+
+  Future<void> _openAnimate() => _openEdit('animation');
 
   Future<void> _setDuration() async {
     final scene = _currentScene();
@@ -449,6 +460,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _duplicateLayer(scene, layer);
       return;
     }
+    _duplicateScene();
+  }
+
+  void _duplicateScene() {
+    final lesson = _lesson();
+    final scene = _currentScene();
+    if (lesson == null || scene == null) return;
+    _pause();
     final index = lesson.scenes.indexOf(scene);
     lesson.scenes.insert(index + 1, scene.duplicate());
     _player?.seek(sceneStartMs(lesson, index + 1));
@@ -509,28 +528,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   Future<void> _adjust() async {
     final scene = _currentScene();
-    if (scene == null) return;
-    _pause();
     final layer = _selectedLayer(scene);
-    if (layer == null) {
-      _needItem();
-      return;
-    }
-    final result = await showAdjustSheet(
-      context,
-      layer,
-      onLive: () {
-        if (mounted) setState(() {});
-      },
-    );
-    if (!mounted) return;
-    if (result == 'text') {
-      await _editText(layer);
-    } else if (result == 'color') {
-      await _changeColor(layer);
-    } else {
-      _commit();
-    }
+    await _openEdit(layer != null && layer.type == 'text' ? 'content' : 'style');
   }
 
   Future<void> _volume() async {
@@ -565,30 +564,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         if (mounted) setState(() {});
       },
     );
-    _commit();
-  }
-
-  Future<void> _editText(Layer layer) async {
-    final text = await promptText(
-      context,
-      title: 'Edit text',
-      label: 'Text',
-      initial: layer.text,
-      maxLength: 200,
-      multiline: true,
-    );
-    if (text == null || !mounted) {
-      _commit();
-      return;
-    }
-    layer.text = text;
-    layer.h = (layer.w * (16 / 9) / _textAspect(text)).clamp(0.03, 1.6).toDouble();
-    _commit();
-  }
-
-  Future<void> _changeColor(Layer layer) async {
-    final value = await pickColor(context);
-    if (value != null) layer.color = value;
     _commit();
   }
 
@@ -693,16 +668,22 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   Future<void> _addTrack() async {
     _pause();
-    final choice = await showAddTrackSheet(context);
+    final choice = await showAddTimelineSheet(context);
     if (choice == null || !mounted) return;
     switch (choice) {
       case 'slide':
         _addScene();
         break;
+      case 'duplicate':
+        _duplicateScene();
+        break;
       case 'text':
         await _addText();
         break;
-      case 'icon':
+      case 'subtitles':
+        await _addSubtitles();
+        break;
+      case 'illustration':
         await _addIcon();
         break;
       case 'image':
@@ -711,26 +692,36 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 'shape':
         await _addShape();
         break;
-      case 'sound':
+      case 'audio':
+      case 'voice':
         await _openAudio();
         break;
+      case 'sfx':
+        _snack('Sound effects on the timeline come in the next batch.');
+        break;
       case 'video':
-        _snack('Importing screen recordings comes in a later batch.');
+      case 'screen':
+        _snack('Video clips and screen recordings come in a later batch.');
+        break;
+      case 'drawing':
+      case 'library':
+        _snack('This option is planned for a later update.');
         break;
     }
   }
 
   void _toggleHidden(String id) {
-    setState(() {
-      if (!_hidden.remove(id)) _hidden.add(id);
-    });
-    _player?.muted = _hidden.contains('audio');
+    final lesson = _lesson();
+    if (lesson == null) return;
+    if (!lesson.hiddenTracks.remove(id)) lesson.hiddenTracks.add(id);
+    _player?.muted = lesson.hiddenTracks.contains('audio');
+    _commit();
   }
 
   Future<void> _trackMenu(String id) async {
     final index = _order.indexOf(id);
     if (index < 0) return;
-    final hidden = _hidden.contains(id);
+    final hidden = _lesson()?.hiddenTracks.contains(id) ?? false;
     final isAudio = id == 'audio';
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -763,10 +754,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 leading: Icon(hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                 title: Text(
                   isAudio
-                      ? (hidden ? 'Unmute in preview' : 'Mute in preview')
-                      : (hidden ? 'Show in preview' : 'Hide in preview'),
+                      ? (hidden ? 'Unmute the track' : 'Mute the track')
+                      : (hidden ? 'Show the track' : 'Hide the track'),
                 ),
-                subtitle: const Text('Affects the preview in the editor only. Export still includes it for now.'),
+                subtitle: const Text('A hidden or muted track is left out of the preview and of the exported video.'),
                 onTap: () => Navigator.of(sheetContext).pop('hide'),
               ),
           ],
@@ -784,21 +775,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       }
     });
     if (action == 'hide') _toggleHidden(id);
-  }
-
-  /// A copy of the scene without the layers of hidden tracks. Layers are shared,
-  /// so editing the copy edits the real scene.
-  Scene _viewScene(Scene scene) {
-    final hideImage = _hidden.contains('image');
-    final hideText = _hidden.contains('text');
-    if (!hideImage && !hideText) return scene;
-    return Scene(
-      id: scene.id,
-      durationMs: scene.durationMs,
-      bgType: hideImage ? 'color' : scene.bgType,
-      bgValue: hideImage ? (0xFFE5E1F3).toString() : scene.bgValue,
-      layers: scene.layers.where((l) => l.type == 'text' ? !hideText : !hideImage).toList(),
-    );
   }
 
   // ---- screen parts ----
@@ -896,10 +872,11 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: SceneCanvas(
-            scene: _viewScene(scene),
+            scene: viewScene(scene, lesson.hiddenTracks),
             selectedId: playing ? null : _selectedId,
             interactive: !playing,
             previewMs: playing ? spot.localMs : null,
+            ghostAtMs: playing ? null : spot.localMs,
             onSelect: _selectLayer,
             onCommit: _commit,
             onDuplicate: (id) {
@@ -1167,6 +1144,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       );
     }
 
+    player.muted = lesson.hiddenTracks.contains('audio');
     final spot = sceneAt(lesson, player.positionMs);
     final scene = lesson.scenes[spot.index];
     final width = math.min(MediaQuery.of(context).size.width, 640.0);
@@ -1190,7 +1168,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         lesson: lesson,
                         player: player,
                         order: _order,
-                        hidden: _hidden,
+                        hidden: lesson.hiddenTracks,
                         selectedLayerId: _selectedId,
                         sceneSelected: _sceneSelected,
                         onSelectScene: _selectScene,
@@ -1198,6 +1176,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         onSceneMenu: _sceneMenu,
                         onSceneDuration: _setSceneDuration,
                         onEditEnd: _commit,
+                        onLayerTiming: () {
+                          if (mounted) setState(() {});
+                        },
                         onTrackMenu: _trackMenu,
                         onToggleHidden: _toggleHidden,
                         onAddTrack: _addTrack,
