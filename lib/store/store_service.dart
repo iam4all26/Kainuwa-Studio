@@ -8,7 +8,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 /// Change this to your GitHub name, or use the Store address button in the app.
 const String kDefaultStoreBase =
-    'https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/245stdstr/main/';
+    'https://raw.githubusercontent.com/Iam4all26/245stdstr/main/';
 
 class StoreItem {
   StoreItem({
