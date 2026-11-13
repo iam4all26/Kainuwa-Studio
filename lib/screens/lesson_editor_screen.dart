@@ -67,6 +67,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   @override
   void initState() {
     super.initState();
+    AppState.editorLandscape = AppScope.read(context).settings.landscape;
+    AppState.setOrientation(landscape: AppState.editorLandscape);
     final lesson = AppScope.read(context).lessonById(widget.courseId, widget.lessonId);
     if (lesson != null) {
       if (lesson.scenes.isEmpty) {
@@ -84,6 +86,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   @override
   void dispose() {
+    AppState.editorLandscape = false;
+    AppState.setOrientation(landscape: false);
     _player?.removeListener(_onPlayer);
     _player?.dispose();
     super.dispose();

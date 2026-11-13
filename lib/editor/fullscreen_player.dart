@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../app_state.dart';
 import 'package:flutter/services.dart';
 
 import '../models.dart';
@@ -31,7 +33,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    AppState.setOrientation(landscape: AppState.editorLandscape);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }

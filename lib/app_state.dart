@@ -26,9 +26,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Locks the screen to the layout chosen in Settings.
+  /// True while the lesson editor is open and the user chose landscape.
+  static bool editorLandscape = false;
+
+  /// The app itself stays in portrait; only the editor can turn to landscape.
   void applyOrientation() {
-    SystemChrome.setPreferredOrientations(settings.landscape
+    setOrientation(landscape: editorLandscape);
+  }
+
+  static void setOrientation({required bool landscape}) {
+    SystemChrome.setPreferredOrientations(landscape
         ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
         : const [DeviceOrientation.portraitUp]);
   }
