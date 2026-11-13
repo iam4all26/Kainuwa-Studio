@@ -186,6 +186,17 @@ class KainuwaEncoder {
     return _channel.invokeMethod<String>('pick', {'mime': 'video/*'});
   }
 
+  /// A small JPEG of the exact video frame at [ms], as bytes, or null.
+  static Future<Uint8List?> videoFrameBytes(String path, int ms) {
+    _init();
+    return _channel.invokeMethod<Uint8List>('videoFrame', {
+      'path': path,
+      'ms': ms,
+      'exact': true,
+      'bytes': true,
+    });
+  }
+
   /// A small picture (JPEG path) of the video at the given time, or null.
   static Future<String?> videoFrame(String path, int ms) {
     _init();

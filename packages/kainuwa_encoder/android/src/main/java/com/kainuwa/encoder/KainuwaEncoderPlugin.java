@@ -215,7 +215,9 @@ public class KainuwaEncoderPlugin
                 break;
             case "videoFrame":
                 videoFrame(String.valueOf((String) call.argument("path")),
-                        (long) num(call, "ms", 0), result);
+                        (long) num(call, "ms", 0),
+                        Boolean.TRUE.equals(call.argument("exact")),
+                        Boolean.TRUE.equals(call.argument("bytes")), result);
                 break;
             case "audioDuration":
                 result.success((int) Math.max(readDurationMs(String.valueOf((String) call.argument("path"))), 0));
@@ -583,13 +585,16 @@ public class KainuwaEncoderPlugin
     private final List<String> lessonVideoPaths = new ArrayList<>();
     private final List<Long> lessonVideoStarts = new ArrayList<>();
 
-    private void videoFrame(final String path, final long ms, final MethodChannel.Result result) {
+    private void videoFrame(final String path, final long ms, final boolean exact,
+                            final boolean asBytes, final MethodChannel.Result result) {
         new Thread(() -> {
-            String out = null;
+            Object out = null;
             MediaMetadataRetriever r = new MediaMetadataRetriever();
             try {
                 r.setDataSource(path);
-                Bitmap b = r.getFrameAtTime(ms * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                Bitmap b = r.getFrameAtTime(ms * 1000L, exact
+                        ? MediaMetadataRetriever.OPTION_CLOSEST
+                        : MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
                 if (b != null) {
                     int w = b.getWidth();
                     int h = b.getHeight();
@@ -597,12 +602,18 @@ public class KainuwaEncoderPlugin
                     Bitmap small = scale < 1f
                             ? Bitmap.createScaledBitmap(b, Math.round(w * scale), Math.round(h * scale), true)
                             : b;
-                    File f = new File(appContext.getCacheDir(),
-                            "vf_" + Math.abs((path + "@" + ms).hashCode()) + ".jpg");
-                    FileOutputStream fo = new FileOutputStream(f);
-                    small.compress(Bitmap.CompressFormat.JPEG, 85, fo);
-                    fo.close();
-                    out = f.getAbsolutePath();
+                    if (asBytes) {
+                        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                        small.compress(Bitmap.CompressFormat.JPEG, 80, bos);
+                        out = bos.toByteArray();
+                    } else {
+                        File f = new File(appContext.getCacheDir(),
+                                "vf_" + Math.abs((path + "@" + ms).hashCode()) + ".jpg");
+                        FileOutputStream fo = new FileOutputStream(f);
+                        small.compress(Bitmap.CompressFormat.JPEG, 85, fo);
+                        fo.close();
+                        out = f.getAbsolutePath();
+                    }
                 }
             } catch (Exception ignored) {
                 out = null;
@@ -613,7 +624,7 @@ public class KainuwaEncoderPlugin
                     // nothing to do
                 }
             }
-            final String res = out;
+            final Object res = out;
             mainHandler.post(() -> result.success(res));
         }).start();
     }

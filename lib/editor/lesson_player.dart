@@ -133,6 +133,30 @@ class LessonPlayer extends ChangeNotifier {
         }
       }
     }
+    var sceneStart = 0;
+    for (final scene in lesson.scenes) {
+      final sceneEnd = sceneStart + scene.durationMs;
+      if (scene.hasVideo) {
+        final id = 'video:${scene.id}';
+        ids.add(id);
+        final audible = !scene.videoMuted && scene.videoVolume > 0;
+        final inside = audible && pos >= sceneStart && pos < sceneEnd;
+        final on = _clipsOn.contains(id);
+        if (inside && !on) {
+          _clipsOn.add(id);
+          KainuwaEncoder.playClip(
+            id,
+            scene.videoPath,
+            seekMs: scene.videoStartMs + (pos - sceneStart),
+            volume: scene.videoVolume.clamp(0.0, 1.0).toDouble(),
+          ).then((_) {}, onError: (_) {});
+        } else if (!inside && on) {
+          _clipsOn.remove(id);
+          KainuwaEncoder.stopClip(id).then((_) {}, onError: (_) {});
+        }
+      }
+      sceneStart = sceneEnd;
+    }
     for (final id in _clipsOn.toList()) {
       if (!ids.contains(id)) {
         _clipsOn.remove(id);

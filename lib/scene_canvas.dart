@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -63,7 +64,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
         final width = constraints.maxWidth;
         final height = constraints.maxHeight;
         final children = <Widget>[
-          Positioned.fill(child: SceneBackground(scene: widget.scene)),
+          Positioned.fill(child: SceneBackground(scene: widget.scene, liveMs: widget.previewMs)),
         ];
         if (widget.interactive) {
           children.add(
@@ -351,13 +352,91 @@ class VideoFrames {
   }
 }
 
-class SceneBackground extends StatelessWidget {
-  const SceneBackground({super.key, required this.scene});
+/// Shows a video as a quick series of frames while the lesson plays.
+class LiveVideoFrame extends StatefulWidget {
+  const LiveVideoFrame({super.key, required this.path, required this.ms});
 
-  final Scene scene;
+  final String path;
+  final int ms;
+
+  @override
+  State<LiveVideoFrame> createState() => _LiveVideoFrameState();
+}
+
+class _LiveVideoFrameState extends State<LiveVideoFrame> {
+  Uint8List? _bytes;
+  bool _busy = false;
+  int _wanted = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _request();
+  }
+
+  @override
+  void didUpdateWidget(LiveVideoFrame old) {
+    super.didUpdateWidget(old);
+    _request();
+  }
+
+  void _request() {
+    _wanted = (widget.ms ~/ 100) * 100;
+    if (!_busy) _fetch();
+  }
+
+  Future<void> _fetch() async {
+    _busy = true;
+    var last = -1;
+    while (mounted) {
+      final target = _wanted;
+      if (target != last) {
+        last = target;
+        Uint8List? data;
+        try {
+          data = await KainuwaEncoder.videoFrameBytes(widget.path, target);
+        } catch (_) {
+          data = null;
+        }
+        if (!mounted) break;
+        if (data != null) setState(() => _bytes = data);
+      }
+      if (_wanted == last) break;
+    }
+    _busy = false;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bytes = _bytes;
+    return ColoredBox(
+      color: Colors.black,
+      child: bytes == null
+          ? const SizedBox.expand()
+          : Image.memory(
+              bytes,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+            ),
+    );
+  }
+}
+
+class SceneBackground extends StatelessWidget {
+  const SceneBackground({super.key, required this.scene, this.liveMs});
+
+  final Scene scene;
+
+  /// While playing: the time inside this slide, so a video shows moving frames.
+  final int? liveMs;
+
+  @override
+  Widget build(BuildContext context) {
+    if (scene.hasVideo && liveMs != null) {
+      return LiveVideoFrame(path: scene.videoPath, ms: scene.videoStartMs + liveMs!);
+    }
     if (scene.hasVideo) {
       return ColoredBox(
         color: Colors.black,
