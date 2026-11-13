@@ -15,6 +15,11 @@ Scene viewScene(Scene scene, Set<String> hidden) {
     narrationMs: scene.narrationMs,
     narrationVolume: scene.narrationVolume,
     narrationClean: scene.narrationClean,
+    videoPath: scene.videoPath,
+    videoStartMs: scene.videoStartMs,
+    videoMs: scene.videoMs,
+    videoVolume: scene.videoVolume,
+    videoMuted: scene.videoMuted,
     layers: scene.layers.where((l) => l.type == 'text' ? !hideText : !hideImage).toList(),
   );
 }

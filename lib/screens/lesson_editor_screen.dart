@@ -486,6 +486,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final second = scene.duplicate();
     second.narrationPath = '';
     second.narrationMs = 0;
+    if (second.hasVideo) second.videoStartMs = scene.videoStartMs + local;
     for (final layer in second.layers) {
       layer.animIn = 'none';
     }
@@ -628,6 +629,111 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       onLive: () {
         if (mounted) setState(() {});
       },
+    );
+    _commit();
+  }
+
+  // ---- video clips ----
+
+  Future<void> _addVideo() async {
+    final lesson = _lesson();
+    final player = _player;
+    if (lesson == null || player == null) return;
+    _pause();
+    String? path;
+    try {
+      path = await KainuwaEncoder.pickVideo();
+    } catch (_) {
+      path = null;
+    }
+    if (path == null || !mounted) return;
+    var ms = 0;
+    try {
+      ms = await KainuwaEncoder.audioDuration(path);
+    } catch (_) {
+      ms = 0;
+    }
+    if (ms <= 0) {
+      _snack('This video could not be read.');
+      return;
+    }
+    final scene = Scene(
+      id: newId(),
+      durationMs: ms,
+      bgType: 'color',
+      bgValue: '4278190080',
+      videoPath: path,
+      videoMs: ms,
+    );
+    final spot = sceneAt(lesson, player.positionMs);
+    lesson.scenes.insert(spot.index + 1, scene);
+    player.seek(sceneStartMs(lesson, spot.index + 1));
+    _selectedId = null;
+    _selectedAudioId = null;
+    _soundSel = null;
+    _sceneSelected = true;
+    _commit();
+  }
+
+  Future<void> _videoSettings() async {
+    final scene = _currentScene();
+    if (scene == null || !scene.hasVideo) return;
+    _pause();
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheet) {
+          final maxStart = math.max(0, scene.videoMs - 1000);
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Video clip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Play the original sound'),
+                  value: !scene.videoMuted,
+                  onChanged: (v) {
+                    setSheet(() => scene.videoMuted = !v);
+                    if (mounted) setState(() {});
+                  },
+                ),
+                Text('Original sound volume: ${(scene.videoVolume * 100).round()} percent'),
+                Slider(
+                  value: scene.videoVolume.clamp(0.0, 2.0).toDouble(),
+                  min: 0,
+                  max: 2,
+                  divisions: 20,
+                  onChanged: scene.videoMuted
+                      ? null
+                      : (v) => setSheet(() => scene.videoVolume = v),
+                ),
+                Text('Start the clip at: ${(scene.videoStartMs / 1000).toStringAsFixed(1)} seconds'),
+                Slider(
+                  value: scene.videoStartMs.clamp(0, maxStart).toDouble(),
+                  min: 0,
+                  max: math.max(1, maxStart).toDouble(),
+                  onChanged: maxStart <= 0
+                      ? null
+                      : (v) => setSheet(() {
+                            scene.videoStartMs = v.round();
+                            final room = scene.videoMs - scene.videoStartMs;
+                            if (scene.durationMs > room) scene.durationMs = math.max(1000, room);
+                          }),
+                ),
+                const Text(
+                  'Drag the end of the clip on the timeline to shorten it.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
     _commit();
   }
@@ -911,8 +1017,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _addAudioClip('sfx');
         break;
       case 'video':
+        await _addVideo();
+        break;
       case 'screen':
-        _snack('Video clips and screen recordings come in a later batch.');
+        _snack('Screen recording: record your screen with the phone recorder, then add the file with Add Video.');
         break;
       case 'drawing':
       case 'library':
@@ -1246,6 +1354,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.layers_outlined, 'Layer', _openLayers),
         (Icons.tune, 'Adjust', _adjust),
         (Icons.speed, 'Speed', _speed),
+        (Icons.delete_outline, 'Delete', _deleteSelection),
+      ]);
+    } else if (_sceneSelected && scene != null && scene.hasVideo) {
+      tools.addAll([
+        (Icons.content_cut, 'Split', _split),
+        (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
+        (Icons.videocam_outlined, 'Video', _videoSettings),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_sceneSelected) {

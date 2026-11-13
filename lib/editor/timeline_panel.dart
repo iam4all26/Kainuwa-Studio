@@ -199,11 +199,23 @@ class _TimelinePanelState extends State<TimelinePanel> {
     final image = <_Clip>[];
     final text = <_Clip>[];
     final audio = <_Clip>[];
+    final video = <_Clip>[];
     var start = 0;
     var anyNarration = false;
     for (var i = 0; i < lesson.scenes.length; i++) {
       final scene = lesson.scenes[i];
       final end = start + scene.durationMs;
+      if (scene.hasVideo) {
+        video.add(_Clip(
+          kind: 'scene',
+          startMs: start,
+          endMs: end,
+          lane: 0,
+          sceneIndex: i,
+          scene: scene,
+          label: 'Video',
+        ));
+      }
       image.add(_Clip(
         kind: 'scene',
         startMs: start,
@@ -291,7 +303,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         seed: ac.path.hashCode,
       ));
     }
-    return {'image': image, 'text': text, 'audio': audio, 'video': <_Clip>[]};
+    return {'image': image, 'text': text, 'audio': audio, 'video': video};
   }
 
   int _lanes(List<_Clip> clips) {

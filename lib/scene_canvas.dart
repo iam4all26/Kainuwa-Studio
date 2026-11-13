@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'animation_math.dart';
 import 'models.dart';
@@ -334,6 +335,22 @@ class _SceneCanvasState extends State<SceneCanvas> {
   }
 }
 
+/// Frames of video clips, cached so a thumbnail is only read once.
+class VideoFrames {
+  VideoFrames._();
+  static final Map<String, Future<String?>> _cache = {};
+
+  static Future<String?> frame(String path, int ms) {
+    return _cache.putIfAbsent('$path@$ms', () async {
+      try {
+        return await KainuwaEncoder.videoFrame(path, ms);
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+}
+
 class SceneBackground extends StatelessWidget {
   const SceneBackground({super.key, required this.scene});
 
@@ -341,6 +358,27 @@ class SceneBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (scene.hasVideo) {
+      return ColoredBox(
+        color: Colors.black,
+        child: FutureBuilder<String?>(
+          future: VideoFrames.frame(scene.videoPath, scene.videoStartMs),
+          builder: (context, snap) {
+            final file = snap.data;
+            if (file == null) {
+              return const Center(child: Icon(Icons.videocam, color: Colors.white54, size: 32));
+            }
+            return Image.file(
+              File(file),
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+            );
+          },
+        ),
+      );
+    }
     switch (scene.bgType) {
       case 'asset':
         return Image.asset(

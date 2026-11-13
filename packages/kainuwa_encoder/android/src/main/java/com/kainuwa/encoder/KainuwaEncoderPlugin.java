@@ -213,6 +213,10 @@ public class KainuwaEncoderPlugin
             case "recordingLevel":
                 recordingLevel(result);
                 break;
+            case "videoFrame":
+                videoFrame(String.valueOf((String) call.argument("path")),
+                        (long) num(call, "ms", 0), result);
+                break;
             case "audioDuration":
                 result.success((int) Math.max(readDurationMs(String.valueOf((String) call.argument("path"))), 0));
                 break;
@@ -576,6 +580,43 @@ public class KainuwaEncoderPlugin
 
     @SuppressWarnings("unchecked")
     private int lessonBitrate = 0;
+    private final List<String> lessonVideoPaths = new ArrayList<>();
+    private final List<Long> lessonVideoStarts = new ArrayList<>();
+
+    private void videoFrame(final String path, final long ms, final MethodChannel.Result result) {
+        new Thread(() -> {
+            String out = null;
+            MediaMetadataRetriever r = new MediaMetadataRetriever();
+            try {
+                r.setDataSource(path);
+                Bitmap b = r.getFrameAtTime(ms * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (b != null) {
+                    int w = b.getWidth();
+                    int h = b.getHeight();
+                    float scale = Math.min(1f, 640f / Math.max(w, h));
+                    Bitmap small = scale < 1f
+                            ? Bitmap.createScaledBitmap(b, Math.round(w * scale), Math.round(h * scale), true)
+                            : b;
+                    File f = new File(appContext.getCacheDir(),
+                            "vf_" + Math.abs((path + "@" + ms).hashCode()) + ".jpg");
+                    FileOutputStream fo = new FileOutputStream(f);
+                    small.compress(Bitmap.CompressFormat.JPEG, 85, fo);
+                    fo.close();
+                    out = f.getAbsolutePath();
+                }
+            } catch (Exception ignored) {
+                out = null;
+            } finally {
+                try {
+                    r.release();
+                } catch (Exception ignored) {
+                    // nothing to do
+                }
+            }
+            final String res = out;
+            mainHandler.post(() -> result.success(res));
+        }).start();
+    }
 
     private void exportLesson(MethodCall call, MethodChannel.Result result) {
         if (transformer != null || exportResult != null) {
@@ -619,6 +660,8 @@ public class KainuwaEncoderPlugin
         final List<String> images = new ArrayList<>();
         final List<Long> durations = new ArrayList<>();
         final LessonOverlays overlays = new LessonOverlays();
+        lessonVideoPaths.clear();
+        lessonVideoStarts.clear();
         long totalMs = 0;
         for (Map<String, Object> sc : scenes) {
             Object img = sc.get("image");
@@ -628,6 +671,9 @@ public class KainuwaEncoderPlugin
                 return;
             }
             images.add((String) img);
+            Object vid = sc.get("video");
+            lessonVideoPaths.add(vid instanceof String && !((String) vid).isEmpty() ? (String) vid : null);
+            lessonVideoStarts.add(longOf(sc.get("videoStartMs"), 0));
             durations.add(dur);
             totalMs += dur;
 
@@ -755,17 +801,33 @@ public class KainuwaEncoderPlugin
 
         List<EditedMediaItem> pictures = new ArrayList<>();
         for (int i = 0; i < images.size(); i++) {
-            MediaItem item = new MediaItem.Builder()
-                    .setUri(Uri.fromFile(new File(images.get(i))))
-                    .setImageDurationMs(durations.get(i))
-                    .build();
+            String videoPath = i < lessonVideoPaths.size() ? lessonVideoPaths.get(i) : null;
+            MediaItem item;
+            if (videoPath != null) {
+                long from = lessonVideoStarts.get(i);
+                item = new MediaItem.Builder()
+                        .setUri(Uri.fromFile(new File(videoPath)))
+                        .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                                .setStartPositionMs(from)
+                                .setEndPositionMs(from + durations.get(i))
+                                .build())
+                        .build();
+            } else {
+                item = new MediaItem.Builder()
+                        .setUri(Uri.fromFile(new File(images.get(i))))
+                        .setImageDurationMs(durations.get(i))
+                        .build();
+            }
             List<Effect> effects = new ArrayList<>();
             effects.add(Presentation.createForWidthAndHeight(
                     width, height, Presentation.LAYOUT_SCALE_TO_FIT));
-            pictures.add(new EditedMediaItem.Builder(item)
+            EditedMediaItem.Builder pictureBuilder = new EditedMediaItem.Builder(item)
                     .setFrameRate(fps)
-                    .setEffects(new Effects(new ArrayList<AudioProcessor>(), effects))
-                    .build());
+                    .setEffects(new Effects(new ArrayList<AudioProcessor>(), effects));
+            if (videoPath != null) {
+                pictureBuilder.setRemoveAudio(true);
+            }
+            pictures.add(pictureBuilder.build());
         }
 
         EditedMediaItem narration = new EditedMediaItem.Builder(

@@ -181,7 +181,10 @@ class _ExportScreenState extends State<ExportScreen> {
     }
     final hidden = Set<String>.of(lesson.hiddenTracks);
     final audioOff = hidden.contains('audio');
-    final scenes = lesson.scenes.map((s) => viewScene(s, hidden)).toList();
+    final scenes = lesson.scenes.map((s) {
+      final v = viewScene(s, hidden);
+      return identical(v, s) ? s.duplicate() : v;
+    }).toList();
     final outH = _quality;
     final outW = _qualities[_quality]!.$1;
     final fps = _fps;
@@ -243,10 +246,18 @@ class _ExportScreenState extends State<ExportScreen> {
 
       final specs = <Map<String, Object?>>[];
       var missingNarration = 0;
+      var offsetMs = 0;
       for (var i = 0; i < scenes.length; i++) {
         _guard();
         _setProgress(0, i / scenes.length);
         final scene = scenes[i];
+        final videoOk = scene.hasVideo && await File(scene.videoPath).exists();
+        if (!videoOk && scene.hasVideo) {
+          scene.videoPath = '';
+        }
+        if (scene.hasVideo && scene.videoMs > 0) {
+          scene.durationMs = math.max(500, math.min(scene.durationMs, scene.videoMs - scene.videoStartMs));
+        }
         await _precache(scene);
 
         final firstAnimated = scene.layers.indexWhere(layerNeedsOverlay);
@@ -255,8 +266,8 @@ class _ExportScreenState extends State<ExportScreen> {
         final baseScene = Scene(
           id: 'export_base',
           durationMs: scene.durationMs,
-          bgType: scene.bgType,
-          bgValue: scene.bgValue,
+          bgType: scene.hasVideo ? 'color' : scene.bgType,
+          bgValue: scene.hasVideo ? '0' : scene.bgValue,
           layers: List<Layer>.of(staticLayers),
         );
         final baseImage = await _capture(
@@ -273,6 +284,33 @@ class _ExportScreenState extends State<ExportScreen> {
         await _savePng(baseImage, basePath);
 
         final overlays = <Map<String, Object?>>[];
+        if (scene.hasVideo) {
+          // The slide's own items sit on top of the video as a transparent picture.
+          overlays.add({
+            'path': basePath,
+            'cx': 0.5,
+            'cy': 0.5,
+            'anim': 'none',
+            'startMs': 0,
+            'durMs': 0,
+            'showMs': 0,
+            'hideMs': null,
+            'outAnim': 'none',
+            'outStartMs': 0,
+            'outDurMs': 0,
+          });
+          if (!scene.videoMuted && scene.videoVolume > 0) {
+            clipMaps.add({
+              'path': scene.videoPath,
+              'startMs': offsetMs,
+              'trimMs': scene.videoStartMs,
+              'durMs': scene.durationMs,
+              'volume': scene.videoVolume,
+              'fadeInMs': 0,
+              'fadeOutMs': 0,
+            });
+          }
+        }
         if (firstAnimated >= 0) {
           for (var k = firstAnimated; k < scene.layers.length; k++) {
             _guard();
@@ -313,7 +351,10 @@ class _ExportScreenState extends State<ExportScreen> {
           'volume': scene.narrationVolume,
           'clean': scene.narrationClean,
           'overlays': overlays,
+          'video': scene.hasVideo ? scene.videoPath : null,
+          'videoStartMs': scene.videoStartMs,
         });
+        offsetMs += scene.durationMs;
       }
 
       if (mounted) setState(() => _stageChild = null);

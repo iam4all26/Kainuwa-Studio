@@ -96,6 +96,9 @@ final class LessonAudioMixer {
                 try {
                     pcm = decode(clip.path, (long) trim + dur, control);
                 } catch (IOException e) {
+                    if (String.valueOf(e.getMessage()).contains("no sound")) {
+                        continue;
+                    }
                     throw e;
                 } catch (Exception e) {
                     throw new IOException("Could not read an audio clip: " + e.getMessage());

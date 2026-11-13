@@ -180,6 +180,18 @@ class KainuwaEncoder {
     return _channel.invokeMethod<String>('pick', {'mime': 'image/*'});
   }
 
+  /// Opens the system file picker for video. Returns a local copy path, or null if cancelled.
+  static Future<String?> pickVideo() {
+    _init();
+    return _channel.invokeMethod<String>('pick', {'mime': 'video/*'});
+  }
+
+  /// A small picture (JPEG path) of the video at the given time, or null.
+  static Future<String?> videoFrame(String path, int ms) {
+    _init();
+    return _channel.invokeMethod<String>('videoFrame', {'path': path, 'ms': ms});
+  }
+
   /// Opens the system file picker for audio. Returns a local copy path, or null if cancelled.
   static Future<String?> pickAudio() {
     _init();

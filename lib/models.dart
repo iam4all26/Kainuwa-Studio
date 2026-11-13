@@ -178,6 +178,11 @@ class Scene {
     this.narrationMs = 0,
     this.narrationVolume = 1.0,
     this.narrationClean = true,
+    this.videoPath = '',
+    this.videoStartMs = 0,
+    this.videoMs = 0,
+    this.videoVolume = 1.0,
+    this.videoMuted = false,
     List<Layer>? layers,
   }) : layers = layers ?? <Layer>[];
 
@@ -196,6 +201,15 @@ class Scene {
   /// Clean the voice (cut rumble, quiet the gaps) when the lesson is exported.
   bool narrationClean;
   final List<Layer> layers;
+
+  /// A video clip that plays as this slide's background. Empty means none.
+  String videoPath;
+  int videoStartMs;
+  int videoMs;
+  double videoVolume;
+  bool videoMuted;
+
+  bool get hasVideo => videoPath.isNotEmpty;
 
   bool get isDarkBackground {
     switch (bgType) {
@@ -217,6 +231,11 @@ class Scene {
         narrationMs: narrationMs,
         narrationVolume: narrationVolume,
         narrationClean: narrationClean,
+        videoPath: videoPath,
+        videoStartMs: videoStartMs,
+        videoMs: videoMs,
+        videoVolume: videoVolume,
+        videoMuted: videoMuted,
         layers: layers.map((l) => l.copy()).toList(),
       );
 
@@ -229,6 +248,11 @@ class Scene {
         'narrationMs': narrationMs,
         'narrationVolume': narrationVolume,
         'narrationClean': narrationClean,
+        'videoPath': videoPath,
+        'videoStartMs': videoStartMs,
+        'videoMs': videoMs,
+        'videoVolume': videoVolume,
+        'videoMuted': videoMuted,
         'layers': layers.map((l) => l.toJson()).toList(),
       };
 
@@ -249,6 +273,11 @@ class Scene {
       narrationMs: _int(json['narrationMs'], 0),
       narrationVolume: _num(json['narrationVolume'], 1.0),
       narrationClean: json['narrationClean'] is bool ? json['narrationClean'] as bool : true,
+      videoPath: _str(json['videoPath'], ''),
+      videoStartMs: _int(json['videoStartMs'], 0),
+      videoMs: _int(json['videoMs'], 0),
+      videoVolume: _num(json['videoVolume'], 1.0),
+      videoMuted: json['videoMuted'] is bool ? json['videoMuted'] as bool : false,
       layers: layers,
     );
   }
