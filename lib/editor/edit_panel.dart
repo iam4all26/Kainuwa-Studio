@@ -338,7 +338,7 @@ class _EditPanelState extends State<_EditPanel> {
   }
 
   Widget _styleTab() {
-    final colorable = _isText || l.type == 'shape';
+    final colorable = _isText || l.type == 'shape' || (l.type == 'image' && l.shape == 'tint');
     return Column(
       children: [
         if (colorable)

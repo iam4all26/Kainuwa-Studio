@@ -512,7 +512,7 @@ class LayerContent extends StatelessWidget {
       case 'asset':
         return Image.asset(layer.path, fit: BoxFit.contain, gaplessPlayback: true);
       case 'image':
-        return Image.file(
+        final picture = Image.file(
           File(layer.path),
           fit: BoxFit.contain,
           gaplessPlayback: true,
@@ -521,6 +521,10 @@ class LayerContent extends StatelessWidget {
             child: Icon(Icons.broken_image_outlined),
           ),
         );
+        if (layer.shape == 'tint') {
+          return ColorFiltered(colorFilter: ColorFilter.mode(color, BlendMode.srcIn), child: picture);
+        }
+        return picture;
       case 'shape':
         switch (layer.shape) {
           case 'circle':

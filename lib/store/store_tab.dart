@@ -126,7 +126,7 @@ class _StoreTabState extends State<StoreTab> {
         width: 96,
         height: 64,
         decoration: box,
-        child: Icon(item.type == 'font' ? Icons.font_download_outlined : Icons.image_outlined),
+        child: Icon(item.type == 'font' ? Icons.font_download_outlined : (item.type == 'background' ? Icons.image_outlined : Icons.category_outlined)),
       );
     }
     return ClipRRect(
@@ -197,7 +197,8 @@ class _StoreTabState extends State<StoreTab> {
 
   @override
   Widget build(BuildContext context) {
-    final type = _tab == 0 ? 'font' : 'background';
+    const types = ['font', 'background', 'shape', 'icon'];
+    final type = types[_tab];
     final shown = _items.where((i) => i.type == type).toList();
     Widget body;
     if (_loading && !_loaded) {
@@ -247,9 +248,11 @@ class _StoreTabState extends State<StoreTab> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
               children: [
-                for (final entry in const [(0, 'Fonts'), (1, 'Backgrounds')])
+                for (final entry in const [(0, 'Fonts'), (1, 'Backgrounds'), (2, 'Shapes'), (3, 'Icons')])
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
@@ -259,6 +262,7 @@ class _StoreTabState extends State<StoreTab> {
                     ),
                   ),
               ],
+            ),
             ),
           ),
           Expanded(child: body),

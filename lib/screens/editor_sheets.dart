@@ -272,6 +272,12 @@ Future<String?> showShapeSheet(BuildContext context) {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(sheetContext).pop('store'),
+              icon: const Icon(Icons.storefront_outlined),
+              label: const Text('Store shapes and icons'),
+            ),
           ],
         ),
       ),

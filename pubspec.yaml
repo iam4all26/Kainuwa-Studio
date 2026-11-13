@@ -12,6 +12,8 @@ dependencies:
   kainuwa_encoder:
     path: packages/kainuwa_encoder
   photo_manager: ^3.6.4
+  flutter_svg: ^2.0.10+1
+  vector_graphics: ^1.1.11+1
 
 flutter:
   uses-material-design: true

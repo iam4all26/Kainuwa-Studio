@@ -16,6 +16,8 @@ import '../editor/timeline_panel.dart';
 import '../editor/track_visibility.dart';
 import '../media/media_library.dart';
 import '../models.dart';
+import '../store/store_graphics_sheet.dart';
+import '../svg/svg_raster.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -399,10 +401,36 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       path = null;
     }
     if (path == null || !mounted) return;
+    if (path.toLowerCase().endsWith('.svg')) {
+      await _addSvg(scene, path, tint: false);
+      return;
+    }
     final aspect = await _imageAspect(path);
     if (!mounted) return;
     final box = fitBox(aspect, maxW: 0.6, maxH: 0.8);
     _addLayer(scene, Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: path));
+  }
+
+  Future<void> _addSvg(Scene scene, String svgPath, {required bool tint}) async {
+    final raster = await rasterizeSvg(svgPath);
+    if (!mounted) return;
+    if (raster == null) {
+      _snack('That SVG could not be read.');
+      return;
+    }
+    final box = fitBox(raster.aspect, maxW: 0.4, maxH: 0.5);
+    _addLayer(
+      scene,
+      Layer(
+        id: newId(),
+        type: 'image',
+        shape: tint ? 'tint' : 'rect',
+        color: 0xFFF6C101,
+        w: box.$1,
+        h: box.$2,
+        path: raster.path,
+      ),
+    );
   }
 
   Future<void> _addShape() async {
@@ -410,6 +438,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null) return;
     final kind = await showShapeSheet(context);
     if (kind == null) return;
+    if (kind == 'store') {
+      if (!mounted) return;
+      final item = await showStoreGraphicsSheet(context);
+      if (item == null || !mounted) return;
+      await _addSvg(scene, item.path, tint: item.type == 'icon');
+      return;
+    }
     final box = kind == 'circle'
         ? fitBox(1.0, maxW: 0.25, maxH: 0.45)
         : fitBox(1.6, maxW: 0.4, maxH: 0.4);
