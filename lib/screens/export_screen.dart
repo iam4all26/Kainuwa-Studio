@@ -174,6 +174,21 @@ class _ExportScreenState extends State<ExportScreen> {
     final ratio = outW / _kStageW;
     final title = lesson.title;
     final musicPath = audioOff ? '' : lesson.musicPath;
+    final clipMaps = <Map<String, Object?>>[];
+    if (!audioOff) {
+      for (final clip in lesson.audioClips) {
+        if (clip.path.isEmpty || !await File(clip.path).exists()) continue;
+        clipMaps.add({
+          'path': clip.path,
+          'startMs': clip.startMs,
+          'trimMs': clip.trimMs,
+          'durMs': clip.durationMs,
+          'volume': clip.volume,
+          'fadeInMs': clip.fadeInMs,
+          'fadeOutMs': clip.fadeOutMs,
+        });
+      }
+    }
     final musicVolume = lesson.musicVolume;
     final musicFade = lesson.musicFade;
 
@@ -305,6 +320,7 @@ class _ExportScreenState extends State<ExportScreen> {
         width: outW,
         height: outH,
         fps: fps,
+        clips: clipMaps,
       );
       try {
         await work.delete(recursive: true);

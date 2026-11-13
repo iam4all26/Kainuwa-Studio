@@ -56,6 +56,9 @@ class EditorHistory {
     lesson.hiddenTracks
       ..clear()
       ..addAll(copy.hiddenTracks);
+    lesson.audioClips
+      ..clear()
+      ..addAll(copy.audioClips);
     lesson.scenes
       ..clear()
       ..addAll(copy.scenes);

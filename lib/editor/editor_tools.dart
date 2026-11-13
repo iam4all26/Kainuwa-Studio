@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models.dart';
@@ -304,6 +306,160 @@ class _LayersSheetState extends State<_LayersSheet> {
                   },
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Extra audio clips on the Audio track
+// ---------------------------------------------------------------------------
+
+/// What to add from the Sound button. Returns narration, clip or sfx.
+Future<String?> showSoundChooser(BuildContext context) {
+  Widget option(BuildContext c, IconData icon, String title, String subtitle, String value) {
+    return ListTile(
+      leading: Icon(icon, color: KColors.purple),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      onTap: () => Navigator.of(c).pop(value),
+    );
+  }
+
+  return showModalBottomSheet<String>(
+    context: context,
+    builder: (c) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: _sheetTitle('Sound'),
+          ),
+          option(c, Icons.mic_none, 'Narration and lesson music', 'Record or import the narration of this slide, or set the music of the lesson', 'narration'),
+          option(c, Icons.library_music_outlined, 'Music or audio clip', 'Place an audio file on the timeline at the playhead', 'clip'),
+          option(c, Icons.graphic_eq, 'Sound effect', 'Place a short sound at the playhead', 'sfx'),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Settings of one audio clip. Returns duplicate or delete when one of those
+/// buttons was tapped, otherwise null.
+Future<String?> showAudioClipSheet(
+  BuildContext context, {
+  required AudioClip clip,
+  required VoidCallback onLive,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _AudioClipSheet(clip: clip, onLive: onLive),
+  );
+}
+
+class _AudioClipSheet extends StatefulWidget {
+  const _AudioClipSheet({required this.clip, required this.onLive});
+
+  final AudioClip clip;
+  final VoidCallback onLive;
+
+  @override
+  State<_AudioClipSheet> createState() => _AudioClipSheetState();
+}
+
+class _AudioClipSheetState extends State<_AudioClipSheet> {
+  String _seconds(int ms) => '${(ms / 1000).toStringAsFixed(1)} s';
+
+  @override
+  Widget build(BuildContext context) {
+    final clip = widget.clip;
+    final maxFade = math.max(0.0, math.min(5000.0, clip.durationMs / 2));
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sheetTitle(clip.label.isEmpty ? 'Audio clip' : clip.label),
+            Text(
+              'Starts at ${_seconds(clip.startMs)} and plays for ${_seconds(clip.durationMs)}. Drag it on the timeline to move it, and drag its ends to trim it.',
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final kind in const [('music', 'Music'), ('sfx', 'Effect'), ('voice', 'Voice')])
+                  ChoiceChip(
+                    label: Text(kind.$2),
+                    selected: clip.kind == kind.$1,
+                    onSelected: (_) {
+                      setState(() => clip.kind = kind.$1);
+                      widget.onLive();
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('Volume ${(clip.volume * 100).round()}%'),
+            Slider(
+              value: clip.volume.clamp(0.0, 1.0).toDouble(),
+              divisions: 20,
+              onChanged: (v) {
+                setState(() => clip.volume = v);
+                widget.onLive();
+              },
+            ),
+            Text('Fade in ${_seconds(clip.fadeInMs)}'),
+            Slider(
+              value: math.min(clip.fadeInMs.toDouble(), maxFade),
+              max: math.max(1.0, maxFade),
+              divisions: maxFade >= 200 ? (maxFade / 100).round() : null,
+              onChanged: maxFade < 100
+                  ? null
+                  : (v) {
+                      setState(() => clip.fadeInMs = (v / 100).round() * 100);
+                      widget.onLive();
+                    },
+            ),
+            Text('Fade out ${_seconds(clip.fadeOutMs)}'),
+            Slider(
+              value: math.min(clip.fadeOutMs.toDouble(), maxFade),
+              max: math.max(1.0, maxFade),
+              divisions: maxFade >= 200 ? (maxFade / 100).round() : null,
+              onChanged: maxFade < 100
+                  ? null
+                  : (v) {
+                      setState(() => clip.fadeOutMs = (v / 100).round() * 100);
+                      widget.onLive();
+                    },
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.copy_all_outlined),
+                    label: const Text('Duplicate'),
+                    onPressed: () => Navigator.of(context).pop('duplicate'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete'),
+                    onPressed: () => Navigator.of(context).pop('delete'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

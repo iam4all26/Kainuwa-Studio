@@ -8,6 +8,7 @@ import '../scene_canvas.dart';
 import '../theme.dart';
 import 'editor_tools.dart';
 import 'lesson_player.dart';
+import 'peaks_cache.dart';
 
 /// The four tracks of the multitrack timeline, in their default order.
 const List<String> kDefaultTrackOrder = ['image', 'text', 'audio', 'video'];
@@ -47,6 +48,7 @@ class _Clip {
     required this.sceneIndex,
     this.layer,
     this.scene,
+    this.audio,
     this.label = '',
     this.seed = 1,
   });
@@ -59,6 +61,7 @@ class _Clip {
   final int sceneIndex;
   final Layer? layer;
   final Scene? scene;
+  final AudioClip? audio;
   final String label;
   final int seed;
 }
@@ -71,13 +74,16 @@ class TimelinePanel extends StatefulWidget {
     required this.order,
     required this.hidden,
     required this.selectedLayerId,
+    required this.selectedAudioId,
     required this.sceneSelected,
     required this.onSelectScene,
     required this.onSelectLayer,
+    required this.onSelectAudio,
     required this.onSceneMenu,
     required this.onSceneDuration,
     required this.onEditEnd,
     required this.onLayerTiming,
+    required this.onAudioChanged,
     required this.onTrackMenu,
     required this.onToggleHidden,
     required this.onAddTrack,
@@ -89,9 +95,11 @@ class TimelinePanel extends StatefulWidget {
   final List<String> order;
   final Set<String> hidden;
   final String? selectedLayerId;
+  final String? selectedAudioId;
   final bool sceneSelected;
   final ValueChanged<int> onSelectScene;
   final void Function(int sceneIndex, String layerId) onSelectLayer;
+  final ValueChanged<String> onSelectAudio;
   final ValueChanged<int> onSceneMenu;
 
   /// Live change of a scene length while a handle is dragged.
@@ -102,6 +110,9 @@ class TimelinePanel extends StatefulWidget {
 
   /// An item's start or end was changed on the timeline (live, not yet saved).
   final VoidCallback onLayerTiming;
+
+  /// An extra audio clip was moved or trimmed (live, not yet saved).
+  final VoidCallback onAudioChanged;
   final ValueChanged<String> onTrackMenu;
   final ValueChanged<String> onToggleHidden;
   final VoidCallback onAddTrack;
@@ -126,6 +137,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
   void initState() {
     super.initState();
     widget.player.addListener(_follow);
+    PeaksCache.instance.addListener(_peaksReady);
+  }
+
+  void _peaksReady() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -140,6 +156,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   @override
   void dispose() {
     widget.player.removeListener(_follow);
+    PeaksCache.instance.removeListener(_peaksReady);
     _scroll.dispose();
     super.dispose();
   }
@@ -243,6 +260,29 @@ class _TimelinePanelState extends State<TimelinePanel> {
         sceneIndex: 0,
         label: 'Music',
         seed: lesson.musicPath.hashCode,
+      ));
+    }
+    // extra clips of the Audio track, packed into lanes below the rest
+    final firstLane = (anyNarration ? 1 : 0) + (lesson.musicPath.isNotEmpty ? 1 : 0);
+    final laneEnds = <int>[];
+    final sorted = List<AudioClip>.of(lesson.audioClips)..sort((a, b) => a.startMs.compareTo(b.startMs));
+    for (final ac in sorted) {
+      var lane = laneEnds.indexWhere((end) => end <= ac.startMs);
+      if (lane < 0) {
+        laneEnds.add(ac.endMs);
+        lane = laneEnds.length - 1;
+      } else {
+        laneEnds[lane] = ac.endMs;
+      }
+      audio.add(_Clip(
+        kind: 'audioclip',
+        startMs: ac.startMs,
+        endMs: math.max(ac.startMs + 200, ac.endMs),
+        lane: firstLane + lane,
+        sceneIndex: 0,
+        audio: ac,
+        label: ac.label,
+        seed: ac.path.hashCode,
       ));
     }
     return {'image': image, 'text': text, 'audio': audio, 'video': <_Clip>[]};
@@ -382,6 +422,72 @@ class _TimelinePanelState extends State<TimelinePanel> {
     );
   }
 
+  // ---- extra audio clips: move and trim ----
+
+  int _aStart = 0;
+  int _aTrim = 0;
+  int _aDur = 0;
+
+  void _audioDragStart(AudioClip ac) {
+    _dragAccum = 0;
+    _aStart = ac.startMs;
+    _aTrim = ac.trimMs;
+    _aDur = ac.durationMs;
+  }
+
+  void _audioMove(AudioClip ac) {
+    final total = widget.lesson.durationMs;
+    ac.startMs = (_aStart + _roundedDelta().round()).clamp(0, math.max(0, total - 300)).toInt();
+    widget.onAudioChanged();
+  }
+
+  void _audioTrim(AudioClip ac, {required bool left}) {
+    final delta = _roundedDelta().round();
+    if (left) {
+      final low = math.max(-_aTrim, -_aStart);
+      final high = _aDur - 300;
+      if (high >= low) {
+        final applied = delta.clamp(low, high).toInt();
+        ac.trimMs = _aTrim + applied;
+        ac.startMs = _aStart + applied;
+        ac.durationMs = _aDur - applied;
+      }
+    } else {
+      final high = math.max(300, ac.sourceMs - ac.trimMs);
+      ac.durationMs = (_aDur + delta).clamp(300, high).toInt();
+    }
+    final half = ac.durationMs ~/ 2;
+    if (ac.fadeInMs > half) ac.fadeInMs = half;
+    if (ac.fadeOutMs > half) ac.fadeOutMs = half;
+    widget.onAudioChanged();
+  }
+
+  Widget _audioHandle({required bool left, required AudioClip ac, required double u}) {
+    final width = math.max(24.0, 40 * u);
+    return Positioned(
+      left: left ? 0.0 : null,
+      right: left ? null : 0.0,
+      top: 0,
+      bottom: 0,
+      width: width,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) => _audioDragStart(ac),
+        onHorizontalDragUpdate: (d) {
+          _dragAccum += d.delta.dx;
+          _audioTrim(ac, left: left);
+        },
+        onHorizontalDragEnd: (_) => widget.onEditEnd(),
+        onHorizontalDragCancel: () => widget.onEditEnd(),
+        child: Container(
+          alignment: Alignment.center,
+          color: const Color(0x33000000),
+          child: _grip(u),
+        ),
+      ),
+    );
+  }
+
   // ---- one clip ----
 
   Widget _clipView(_Clip clip, double w, double h, double u) {
@@ -455,16 +561,67 @@ class _TimelinePanelState extends State<TimelinePanel> {
           ),
         );
         break;
+      case 'audioclip':
+        {
+          final ac = clip.audio!;
+          selected = widget.selectedAudioId == ac.id;
+          onTap = () => widget.onSelectAudio(ac.id);
+          final color = ac.kind == 'sfx'
+              ? const Color(0xFFD9822B)
+              : (ac.kind == 'voice' ? KColors.clipAudio : KColors.clipMusic);
+          final from = ac.sourceMs <= 0 ? 0.0 : ac.trimMs / ac.sourceMs;
+          final to = ac.sourceMs <= 0 ? 1.0 : (ac.trimMs + ac.durationMs) / ac.sourceMs;
+          body = Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: color),
+              CustomPaint(
+                painter: _WavePainter(
+                  seed: clip.seed,
+                  peaks: PeaksCache.instance.peaksFor(ac.path),
+                  from: from,
+                  to: to,
+                ),
+              ),
+              Positioned(
+                left: 6,
+                top: 2,
+                right: 6,
+                child: Text(
+                  clip.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: math.max(9.5, 20 * u),
+                    fontWeight: FontWeight.w700,
+                    shadows: const [Shadow(color: Color(0xAA000000), blurRadius: 3)],
+                  ),
+                ),
+              ),
+            ],
+          );
+          if (selected) {
+            dragStart = (_) => _audioDragStart(ac);
+            dragUpdate = (d) {
+              _dragAccum += d.delta.dx;
+              _audioMove(ac);
+            };
+            dragEnd = widget.onEditEnd;
+          }
+        }
+        break;
       default:
         final music = clip.kind == 'music';
         onTap = () {
           widget.onSelectScene(clip.sceneIndex);
         };
+        final path = music ? widget.lesson.musicPath : (clip.scene?.narrationPath ?? '');
         body = Stack(
           fit: StackFit.expand,
           children: [
             ColoredBox(color: music ? KColors.clipMusic : KColors.clipAudio),
-            CustomPaint(painter: _WavePainter(seed: clip.seed)),
+            CustomPaint(painter: _WavePainter(seed: clip.seed, peaks: PeaksCache.instance.peaksFor(path))),
           ],
         );
     }
@@ -484,6 +641,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
             if (clip.kind == 'scene') ...[
               _handle(left: true, index: clip.sceneIndex, u: u),
               _handle(left: false, index: clip.sceneIndex, u: u),
+            ],
+            if (clip.kind == 'audioclip') ...[
+              _audioHandle(left: true, ac: clip.audio!, u: u),
+              _audioHandle(left: false, ac: clip.audio!, u: u),
             ],
             if (clip.kind == 'layer') ...[
               _layerHandle(left: true, layer: clip.layer!, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
@@ -882,11 +1043,15 @@ class _RulerPainter extends CustomPainter {
       oldDelegate.pps != pps || oldDelegate.u != u;
 }
 
-/// A look-alike waveform. It is drawn from the file name, not from the sound itself.
+/// A waveform. It uses the real loudness of the file when it is known, and a
+/// look-alike drawn from the file name while it is still being read.
 class _WavePainter extends CustomPainter {
-  _WavePainter({required this.seed});
+  _WavePainter({required this.seed, this.peaks, this.from = 0, this.to = 1});
 
   final int seed;
+  final List<double>? peaks;
+  final double from;
+  final double to;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -896,17 +1061,29 @@ class _WavePainter extends CustomPainter {
       ..strokeWidth = 2.2;
     final mid = size.height / 2;
     final count = (size.width / 5).floor();
+    final data = peaks;
     for (var i = 0; i < count; i++) {
-      final r = (((i * 2654435761) ^ (seed * 40503)) >> 3) & 0xFF;
-      final env = 0.35 + 0.65 * (math.sin(i * 0.23 + (seed & 7)) * 0.5 + 0.5);
-      final amp = math.max(2.0, (r / 255.0) * env * (size.height * 0.42));
+      double amp;
+      if (data != null && data.isNotEmpty) {
+        final f = count <= 1 ? from : from + (to - from) * (i / (count - 1));
+        final index = (f * (data.length - 1)).round().clamp(0, data.length - 1).toInt();
+        amp = math.max(2.0, math.sqrt(data[index]) * size.height * 0.46);
+      } else {
+        final r = (((i * 2654435761) ^ (seed * 40503)) >> 3) & 0xFF;
+        final env = 0.35 + 0.65 * (math.sin(i * 0.23 + (seed & 7)) * 0.5 + 0.5);
+        amp = math.max(2.0, (r / 255.0) * env * (size.height * 0.42));
+      }
       final x = 4.0 + i * 5.0;
       canvas.drawLine(Offset(x, mid - amp), Offset(x, mid + amp), paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _WavePainter oldDelegate) => oldDelegate.seed != seed;
+  bool shouldRepaint(covariant _WavePainter oldDelegate) =>
+      oldDelegate.seed != seed ||
+      oldDelegate.peaks != peaks ||
+      oldDelegate.from != from ||
+      oldDelegate.to != to;
 }
 
 class _DashedBorderPainter extends CustomPainter {

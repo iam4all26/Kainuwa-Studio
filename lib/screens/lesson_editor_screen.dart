@@ -57,6 +57,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   EditorHistory? _history;
 
   String? _selectedId;
+  String? _selectedAudioId;
   bool _sceneSelected = false;
   int _tab = 0;
   final List<String> _order = List<String>.of(kDefaultTrackOrder);
@@ -133,6 +134,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   void _selectLayer(String? id) {
     setState(() {
       _selectedId = id;
+      _selectedAudioId = null;
       _sceneSelected = false;
     });
   }
@@ -150,6 +152,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _seekToScene(lesson, index);
     setState(() {
       _selectedId = null;
+      _selectedAudioId = null;
       _sceneSelected = true;
     });
   }
@@ -160,6 +163,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _seekToScene(lesson, sceneIndex);
     setState(() {
       _selectedId = id;
+      _selectedAudioId = null;
       _sceneSelected = false;
     });
   }
@@ -419,6 +423,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   // ---- toolbar: Split, Duplicate, Delete, Layer, Adjust, Volume, Speed ----
 
   void _split() {
+    if (_selectedAudioId != null) {
+      _splitAudio();
+      return;
+    }
     final lesson = _lesson();
     final player = _player;
     if (lesson == null || player == null) return;
@@ -451,6 +459,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   void _duplicateSelection() {
+    if (_selectedAudioId != null) {
+      _duplicateAudio();
+      return;
+    }
     final lesson = _lesson();
     final scene = _currentScene();
     if (lesson == null || scene == null) return;
@@ -477,6 +489,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   void _deleteSelection() {
+    if (_selectedAudioId != null) {
+      _deleteAudio();
+      return;
+    }
     final lesson = _lesson();
     final scene = _currentScene();
     if (lesson == null || scene == null) return;
@@ -533,6 +549,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   Future<void> _volume() async {
+    if (_selectedAudioId != null) {
+      await _audioSettings();
+      return;
+    }
     final lesson = _lesson();
     final scene = _currentScene();
     if (lesson == null || scene == null) return;
@@ -565,6 +585,149 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       },
     );
     _commit();
+  }
+
+  // ---- extra audio clips ----
+
+  AudioClip? _selectedAudio() {
+    final lesson = _lesson();
+    final id = _selectedAudioId;
+    if (lesson == null || id == null) return null;
+    for (final clip in lesson.audioClips) {
+      if (clip.id == id) return clip;
+    }
+    return null;
+  }
+
+  void _selectAudio(String id) {
+    setState(() {
+      _selectedAudioId = id;
+      _selectedId = null;
+      _sceneSelected = false;
+    });
+  }
+
+  Future<void> _openSound() async {
+    final choice = await showSoundChooser(context);
+    if (choice == null || !mounted) return;
+    if (choice == 'narration') {
+      await _openAudio();
+    } else {
+      await _addAudioClip(choice == 'sfx' ? 'sfx' : 'music');
+    }
+  }
+
+  String _clipName(String path) {
+    var name = path.split('/').last;
+    final dot = name.lastIndexOf('.');
+    if (dot > 0) name = name.substring(0, dot);
+    return name.length > 28 ? name.substring(0, 28) : name;
+  }
+
+  Future<void> _addAudioClip(String kind) async {
+    final lesson = _lesson();
+    final player = _player;
+    if (lesson == null || player == null) return;
+    _pause();
+    String? path;
+    try {
+      path = await KainuwaEncoder.pickAudio();
+    } catch (_) {
+      path = null;
+    }
+    if (path == null || !mounted) return;
+    var sourceMs = 0;
+    try {
+      sourceMs = await KainuwaEncoder.audioDuration(path);
+    } catch (_) {
+      sourceMs = 0;
+    }
+    if (!mounted) return;
+    if (sourceMs <= 0) {
+      _snack('That audio file could not be read.');
+      return;
+    }
+    final total = lesson.durationMs;
+    final start = math.min(player.positionMs, math.max(0, total - 1000));
+    final clip = AudioClip(
+      id: newId(),
+      path: path,
+      label: _clipName(path),
+      kind: kind,
+      startMs: start,
+      durationMs: math.min(sourceMs, math.max(1000, total - start)),
+      sourceMs: sourceMs,
+      volume: kind == 'music' ? 0.5 : 1.0,
+    );
+    lesson.audioClips.add(clip);
+    _selectAudio(clip.id);
+    _commit();
+  }
+
+  void _splitAudio() {
+    final lesson = _lesson();
+    final clip = _selectedAudio();
+    final player = _player;
+    if (lesson == null || clip == null || player == null) return;
+    _pause();
+    final local = player.positionMs - clip.startMs;
+    if (local < 300 || clip.durationMs - local < 300) {
+      _snack('Move the playhead inside the clip, at least 0.3 seconds from its edges, to split it.');
+      return;
+    }
+    final second = clip.copy();
+    second.startMs = clip.startMs + local;
+    second.trimMs = clip.trimMs + local;
+    second.durationMs = clip.durationMs - local;
+    second.fadeInMs = 0;
+    clip.durationMs = local;
+    clip.fadeOutMs = 0;
+    lesson.audioClips.add(second);
+    _selectAudio(second.id);
+    _commit();
+  }
+
+  void _duplicateAudio() {
+    final lesson = _lesson();
+    final clip = _selectedAudio();
+    if (lesson == null || clip == null) return;
+    _pause();
+    final copy = clip.copy();
+    copy.startMs = math.min(clip.endMs, math.max(0, lesson.durationMs - 300));
+    lesson.audioClips.add(copy);
+    _selectAudio(copy.id);
+    _commit();
+  }
+
+  void _deleteAudio() {
+    final lesson = _lesson();
+    final clip = _selectedAudio();
+    if (lesson == null || clip == null) return;
+    _pause();
+    lesson.audioClips.remove(clip);
+    setState(() => _selectedAudioId = null);
+    _commit();
+  }
+
+  Future<void> _audioSettings() async {
+    final clip = _selectedAudio();
+    if (clip == null) return;
+    _pause();
+    final action = await showAudioClipSheet(
+      context,
+      clip: clip,
+      onLive: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    if (action == 'duplicate') {
+      _duplicateAudio();
+    } else if (action == 'delete') {
+      _deleteAudio();
+    } else {
+      _commit();
+    }
   }
 
   // ---- scenes and tracks ----
@@ -693,11 +856,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _addShape();
         break;
       case 'audio':
+        await _openSound();
+        break;
       case 'voice':
         await _openAudio();
         break;
       case 'sfx':
-        _snack('Sound effects on the timeline come in the next batch.');
+        await _addAudioClip('sfx');
         break;
       case 'video':
       case 'screen':
@@ -1051,7 +1216,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _openAdd();
         break;
       case 3:
-        await _openAudio();
+        await _openSound();
         break;
       case 4:
         await _openAnimate();
@@ -1170,13 +1335,18 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         order: _order,
                         hidden: lesson.hiddenTracks,
                         selectedLayerId: _selectedId,
+                        selectedAudioId: _selectedAudioId,
                         sceneSelected: _sceneSelected,
                         onSelectScene: _selectScene,
                         onSelectLayer: _selectLayerFromTimeline,
+                        onSelectAudio: _selectAudio,
                         onSceneMenu: _sceneMenu,
                         onSceneDuration: _setSceneDuration,
                         onEditEnd: _commit,
                         onLayerTiming: () {
+                          if (mounted) setState(() {});
+                        },
+                        onAudioChanged: () {
                           if (mounted) setState(() {});
                         },
                         onTrackMenu: _trackMenu,

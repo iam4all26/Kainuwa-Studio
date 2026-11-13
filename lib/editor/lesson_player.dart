@@ -52,6 +52,9 @@ class LessonPlayer extends ChangeNotifier {
 
   int _baseMs = 0;
   int _audioSceneIndex = -1;
+  final Set<String> _clipsOn = <String>{};
+  final Map<String, double> _clipVol = <String, double>{};
+  int _lastVolMs = -1000;
   bool _disposed = false;
 
   int get totalMs => lesson.durationMs;
@@ -66,6 +69,7 @@ class LessonPlayer extends ChangeNotifier {
     }
     positionMs = next;
     _syncAudio();
+    _syncClips();
     notifyListeners();
   }
 
@@ -82,10 +86,74 @@ class LessonPlayer extends ChangeNotifier {
     }
   }
 
+  /// Volume of a clip at [pos], with its fades.
+  double clipGain(AudioClip clip, int pos) {
+    var g = clip.volume;
+    final local = pos - clip.startMs;
+    if (clip.fadeInMs > 0 && local < clip.fadeInMs) {
+      g *= math.max(0, local) / clip.fadeInMs;
+    }
+    final remaining = clip.endMs - pos;
+    if (clip.fadeOutMs > 0 && remaining < clip.fadeOutMs) {
+      g *= math.max(0, remaining) / clip.fadeOutMs;
+    }
+    return g.clamp(0.0, 1.0).toDouble();
+  }
+
+  /// Starts and stops the extra clips of the Audio track around the playhead.
+  void _syncClips() {
+    if (muted) {
+      _stopClips();
+      return;
+    }
+    final pos = positionMs;
+    final ids = <String>{};
+    for (final clip in lesson.audioClips) {
+      ids.add(clip.id);
+      final inside = clip.path.isNotEmpty && pos >= clip.startMs && pos < clip.endMs;
+      final on = _clipsOn.contains(clip.id);
+      if (inside && !on) {
+        _clipsOn.add(clip.id);
+        final g = clipGain(clip, pos);
+        _clipVol[clip.id] = g;
+        KainuwaEncoder.playClip(
+          clip.id,
+          clip.path,
+          seekMs: clip.trimMs + (pos - clip.startMs),
+          volume: g,
+        ).then((_) {}, onError: (_) {});
+      } else if (!inside && on) {
+        _clipsOn.remove(clip.id);
+        KainuwaEncoder.stopClip(clip.id).then((_) {}, onError: (_) {});
+      } else if (inside && pos - _lastVolMs >= 100) {
+        final g = clipGain(clip, pos);
+        if ((g - (_clipVol[clip.id] ?? g)).abs() > 0.01) {
+          _clipVol[clip.id] = g;
+          KainuwaEncoder.setClipVolume(clip.id, g).then((_) {}, onError: (_) {});
+        }
+      }
+    }
+    for (final id in _clipsOn.toList()) {
+      if (!ids.contains(id)) {
+        _clipsOn.remove(id);
+        KainuwaEncoder.stopClip(id).then((_) {}, onError: (_) {});
+      }
+    }
+    if (pos - _lastVolMs >= 100 || pos < _lastVolMs) _lastVolMs = pos;
+  }
+
+  void _stopClips() {
+    if (_clipsOn.isEmpty) return;
+    _clipsOn.clear();
+    _clipVol.clear();
+    KainuwaEncoder.stopClips().then((_) {}, onError: (_) {});
+  }
+
   void _finish() {
     _ticker.stop();
     playing = false;
     _audioSceneIndex = -1;
+    _stopClips();
     KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
     notifyListeners();
   }
@@ -99,6 +167,7 @@ class LessonPlayer extends ChangeNotifier {
     _ticker.stop();
     _ticker.start();
     _syncAudio();
+    _syncClips();
     notifyListeners();
   }
 
@@ -108,6 +177,7 @@ class LessonPlayer extends ChangeNotifier {
     playing = false;
     _audioSceneIndex = -1;
     KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
+    _stopClips();
     notifyListeners();
   }
 
@@ -120,8 +190,10 @@ class LessonPlayer extends ChangeNotifier {
       _ticker.stop();
       _baseMs = positionMs;
       _audioSceneIndex = -1;
+      _stopClips();
       _ticker.start();
       _syncAudio();
+      _syncClips();
     }
     notifyListeners();
   }
@@ -162,6 +234,7 @@ class LessonPlayer extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _ticker.dispose();
+    KainuwaEncoder.stopClips().then((_) {}, onError: (_) {});
     KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
     super.dispose();
   }

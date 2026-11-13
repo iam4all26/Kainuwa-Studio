@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
@@ -38,7 +39,115 @@ final class LessonAudioMixer {
         boolean clean;
     }
 
+    /** An extra sound placed on the lesson timeline (music, sound effect, voice). */
+    static final class Clip {
+        String path;
+        long startMs;     // where it starts on the lesson timeline
+        long trimMs;      // how far into the file it starts playing
+        long durMs;       // how long it plays
+        float volume = 1f;
+        long fadeInMs;
+        long fadeOutMs;
+    }
+
+    /** A control that never cancels and ignores progress. */
+    static final Control NONE = new Control() {
+        @Override
+        public boolean cancelled() {
+            return false;
+        }
+
+        @Override
+        public void progress(int percent) {
+        }
+    };
+
     private LessonAudioMixer() {
+    }
+
+    private static long frames(long ms) {
+        return Math.round(ms * RATE / 1000.0);
+    }
+
+    /**
+     * Adds extra clips into a finished lesson WAV (written by [mix]), each with its
+     * own start, volume and fades. The file keeps its length.
+     */
+    static void addClips(File wav, List<Clip> clips, Control control) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(wav, "rw")) {
+            long len = raf.length();
+            int total = (int) Math.max(0, (len - 44) / 2);
+            byte[] data = new byte[total * 2];
+            raf.seek(44);
+            raf.readFully(data);
+            ShortBuffer sb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
+            for (int c = 0; c < clips.size(); c++) {
+                if (control.cancelled()) {
+                    throw new IOException("Export cancelled.");
+                }
+                Clip clip = clips.get(c);
+                int trim = (int) frames(Math.max(0, clip.trimMs));
+                int dur = (int) frames(Math.max(0, clip.durMs));
+                int start = (int) frames(Math.max(0, clip.startMs));
+                if (dur <= 0 || start >= total) {
+                    continue;
+                }
+                short[] pcm;
+                try {
+                    pcm = decode(clip.path, (long) trim + dur, control);
+                } catch (IOException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new IOException("Could not read an audio clip: " + e.getMessage());
+                }
+                int n = Math.min(dur, pcm.length - trim);
+                if (n <= 0) {
+                    continue;
+                }
+                int fadeIn = (int) frames(Math.max(0, clip.fadeInMs));
+                int fadeOut = (int) frames(Math.max(0, clip.fadeOutMs));
+                for (int i = 0; i < n; i++) {
+                    int idx = start + i;
+                    if (idx >= total) {
+                        break;
+                    }
+                    double g = clip.volume;
+                    if (fadeIn > 0 && i < fadeIn) {
+                        g *= i / (double) fadeIn;
+                    }
+                    int remaining = dur - i;
+                    if (fadeOut > 0 && remaining < fadeOut) {
+                        g *= remaining / (double) fadeOut;
+                    }
+                    int v = sb.get(idx) + (int) Math.round(pcm[trim + i] * g);
+                    sb.put(idx, (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, v)));
+                }
+            }
+            raf.seek(44);
+            raf.write(data);
+        }
+    }
+
+    /** Loudness along a file, [bins] values from 0 to 1. Only the first 5 minutes are read. */
+    static float[] peaks(String path, int bins) throws IOException {
+        short[] pcm = decode(path, RATE * 300L, NONE);
+        float[] out = new float[bins];
+        if (pcm.length == 0) {
+            return out;
+        }
+        for (int b = 0; b < bins; b++) {
+            int from = (int) ((long) pcm.length * b / bins);
+            int to = (int) ((long) pcm.length * (b + 1) / bins);
+            int max = 0;
+            for (int i = from; i < Math.max(to, from + 1) && i < pcm.length; i++) {
+                int a = Math.abs((int) pcm[i]);
+                if (a > max) {
+                    max = a;
+                }
+            }
+            out[b] = Math.min(1f, max / 32768f);
+        }
+        return out;
     }
 
     static void mix(List<Spec> specs, File out, Control control) throws IOException {

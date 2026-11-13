@@ -89,6 +89,40 @@ class KainuwaEncoder {
     await _channel.invokeMethod<void>('stopAudio');
   }
 
+  /// Plays an extra clip next to other sounds, starting [seekMs] into the file.
+  static Future<void> playClip(String id, String path, {int seekMs = 0, double volume = 1.0}) async {
+    _init();
+    await _channel.invokeMethod<bool>('playClip', {
+      'id': id,
+      'path': path,
+      'seekMs': seekMs,
+      'volume': volume,
+    });
+  }
+
+  static Future<void> setClipVolume(String id, double volume) async {
+    _init();
+    await _channel.invokeMethod<void>('setClipVolume', {'id': id, 'volume': volume});
+  }
+
+  static Future<void> stopClip(String id) async {
+    _init();
+    await _channel.invokeMethod<void>('stopClip', {'id': id});
+  }
+
+  static Future<void> stopClips() async {
+    _init();
+    await _channel.invokeMethod<void>('stopClips');
+  }
+
+  /// Loudness along an audio file: [bins] values from 0 to 1 (first 5 minutes).
+  static Future<List<double>> audioPeaks(String path, {int bins = 160}) async {
+    _init();
+    final result = await _channel.invokeMethod<List<dynamic>>('audioPeaks', {'path': path, 'bins': bins});
+    if (result == null) return const <double>[];
+    return result.map((v) => (v as num).toDouble()).toList();
+  }
+
   /// Whole-lesson export stage: 'audio' (preparing narration), then 'video'.
   static Stream<String> get stage {
     _init();
@@ -114,9 +148,11 @@ class KainuwaEncoder {
     int width = 1280,
     int height = 720,
     int fps = 30,
+    List<Map<String, Object?>> clips = const [],
   }) async {
     _init();
     final result = await _channel.invokeMethod<String>('exportLesson', {
+      'clips': clips,
       'scenes': scenes,
       'workDir': workDir,
       'output': outputPath,

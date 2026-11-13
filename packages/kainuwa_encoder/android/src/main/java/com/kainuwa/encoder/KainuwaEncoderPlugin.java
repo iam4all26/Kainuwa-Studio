@@ -139,6 +139,7 @@ public class KainuwaEncoderPlugin
         exportResult = null;
         mainHandler.removeCallbacks(progressTicker);
         stopPlayerQuietly();
+        stopAllClips();
         releaseRecorderQuietly();
         if (channel != null) {
             channel.setMethodCallHandler(null);
@@ -219,6 +220,25 @@ public class KainuwaEncoderPlugin
             case "stopAudio":
                 stopPlayerQuietly();
                 result.success(null);
+                break;
+            case "playClip":
+                playClip((String) call.argument("id"), (String) call.argument("path"),
+                        longOf((Object) call.argument("seekMs"), 0), num(call, "volume", 1.0), result);
+                break;
+            case "setClipVolume":
+                setClipVolume((String) call.argument("id"), num(call, "volume", 1.0));
+                result.success(null);
+                break;
+            case "stopClip":
+                stopClipQuietly((String) call.argument("id"));
+                result.success(null);
+                break;
+            case "stopClips":
+                stopAllClips();
+                result.success(null);
+                break;
+            case "audioPeaks":
+                audioPeaks((String) call.argument("path"), (int) num(call, "bins", 64), result);
                 break;
             case "filesDir":
                 result.success(appContext.getFilesDir().getAbsolutePath());
@@ -571,6 +591,24 @@ public class KainuwaEncoderPlugin
         final int fps = (int) num(call, "fps", 30);
         final float musicVolume = (float) num(call, "musicVolume", 0.3);
         final long musicFadeMs = (long) num(call, "musicFadeMs", 0);
+        final List<LessonAudioMixer.Clip> clips = new ArrayList<>();
+        final List<Map<String, Object>> rawClips = call.argument("clips");
+        if (rawClips != null) {
+            for (Map<String, Object> m : rawClips) {
+                if (!(m.get("path") instanceof String)) {
+                    continue;
+                }
+                LessonAudioMixer.Clip c = new LessonAudioMixer.Clip();
+                c.path = (String) m.get("path");
+                c.startMs = longOf(m.get("startMs"), 0);
+                c.trimMs = longOf(m.get("trimMs"), 0);
+                c.durMs = longOf(m.get("durMs"), 0);
+                c.volume = (float) doubleOf(m.get("volume"), 1.0);
+                c.fadeInMs = longOf(m.get("fadeInMs"), 0);
+                c.fadeOutMs = longOf(m.get("fadeOutMs"), 0);
+                clips.add(c);
+            }
+        }
 
         final List<LessonAudioMixer.Spec> specs = new ArrayList<>();
         final List<String> images = new ArrayList<>();
@@ -641,7 +679,7 @@ public class KainuwaEncoderPlugin
                     throw new IOException("Could not create the export folder.");
                 }
                 final File wav = new File(dir, "narration.wav");
-                LessonAudioMixer.mix(specs, wav, new LessonAudioMixer.Control() {
+                final LessonAudioMixer.Control control = new LessonAudioMixer.Control() {
                     @Override
                     public boolean cancelled() {
                         return gen != lessonGen;
@@ -655,7 +693,11 @@ public class KainuwaEncoderPlugin
                             }
                         });
                     }
-                });
+                };
+                LessonAudioMixer.mix(specs, wav, control);
+                if (!clips.isEmpty()) {
+                    LessonAudioMixer.addClips(wav, clips, control);
+                }
                 long musicMs = 0;
                 if (musicPath != null) {
                     musicMs = readDurationMs(musicPath);
@@ -1060,6 +1102,112 @@ public class KainuwaEncoderPlugin
             player = null;
             result.error("play_failed", String.valueOf(e.getMessage()), null);
         }
+    }
+
+    // ---- Extra clips for the editor preview (several can play at once) ----
+
+    private final java.util.Map<String, MediaPlayer> clipPlayers = new java.util.HashMap<>();
+
+    private void playClip(final String id, String path, final long seekMs, double volume,
+                          MethodChannel.Result result) {
+        if (id == null || path == null) {
+            result.error("bad_arguments", "A clip id and file path are required.", null);
+            return;
+        }
+        stopClipQuietly(id);
+        try {
+            final MediaPlayer p = new MediaPlayer();
+            p.setDataSource(path);
+            float v = (float) Math.max(0.0, Math.min(1.0, volume));
+            p.setVolume(v, v);
+            p.setOnPreparedListener(mp -> {
+                try {
+                    if (seekMs > 0) {
+                        mp.seekTo((int) seekMs);
+                    }
+                    mp.start();
+                } catch (Exception ignored) {
+                    // nothing to do
+                }
+            });
+            p.setOnCompletionListener(mp -> releaseClip(id, mp));
+            p.setOnErrorListener((mp, what, extra) -> {
+                releaseClip(id, mp);
+                return true;
+            });
+            clipPlayers.put(id, p);
+            p.prepareAsync();
+            result.success(true);
+        } catch (Exception e) {
+            result.error("play_failed", String.valueOf(e.getMessage()), null);
+        }
+    }
+
+    private void releaseClip(String id, MediaPlayer mp) {
+        try {
+            mp.release();
+        } catch (Exception ignored) {
+            // nothing to do
+        }
+        if (clipPlayers.get(id) == mp) {
+            clipPlayers.remove(id);
+        }
+    }
+
+    private void setClipVolume(String id, double volume) {
+        MediaPlayer p = id == null ? null : clipPlayers.get(id);
+        if (p == null) {
+            return;
+        }
+        float v = (float) Math.max(0.0, Math.min(1.0, volume));
+        try {
+            p.setVolume(v, v);
+        } catch (Exception ignored) {
+            // nothing to do
+        }
+    }
+
+    private void stopClipQuietly(String id) {
+        MediaPlayer p = id == null ? null : clipPlayers.remove(id);
+        if (p != null) {
+            try {
+                p.stop();
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+            try {
+                p.release();
+            } catch (Exception ignored) {
+                // nothing to do
+            }
+        }
+    }
+
+    private void stopAllClips() {
+        for (String id : new java.util.ArrayList<>(clipPlayers.keySet())) {
+            stopClipQuietly(id);
+        }
+    }
+
+    private void audioPeaks(final String path, final int bins, final MethodChannel.Result result) {
+        if (path == null) {
+            result.error("bad_arguments", "A file path is required.", null);
+            return;
+        }
+        final int count = Math.max(8, Math.min(2000, bins));
+        worker.execute(() -> {
+            try {
+                final float[] values = LessonAudioMixer.peaks(path, count);
+                final List<Double> out = new ArrayList<>();
+                for (float f : values) {
+                    out.add((double) f);
+                }
+                mainHandler.post(() -> result.success(out));
+            } catch (Throwable e) {
+                final String message = String.valueOf(e.getMessage());
+                mainHandler.post(() -> result.error("peaks_failed", message, null));
+            }
+        });
     }
 
     private void releasePlayer(MediaPlayer mp) {

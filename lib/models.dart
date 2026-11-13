@@ -254,6 +254,77 @@ class Scene {
   }
 }
 
+/// A sound placed on the lesson timeline: music, a sound effect or a voice clip.
+class AudioClip {
+  AudioClip({
+    required this.id,
+    required this.path,
+    this.label = '',
+    this.kind = 'music',
+    this.startMs = 0,
+    this.trimMs = 0,
+    this.durationMs = 1000,
+    this.sourceMs = 1000,
+    this.volume = 1.0,
+    this.fadeInMs = 0,
+    this.fadeOutMs = 0,
+  });
+
+  final String id;
+  String path;
+  String label;
+
+  /// music, sfx or voice
+  String kind;
+
+  /// Where the clip starts on the lesson timeline.
+  int startMs;
+
+  /// How far into the file the clip starts playing (trimmed from the start).
+  int trimMs;
+
+  /// How long the clip plays.
+  int durationMs;
+
+  /// Length of the whole file.
+  int sourceMs;
+  double volume;
+  int fadeInMs;
+  int fadeOutMs;
+
+  int get endMs => startMs + durationMs;
+
+  AudioClip copy() => AudioClip.fromJson({...toJson(), 'id': newId()});
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'path': path,
+        'label': label,
+        'kind': kind,
+        'startMs': startMs,
+        'trimMs': trimMs,
+        'durationMs': durationMs,
+        'sourceMs': sourceMs,
+        'volume': volume,
+        'fadeInMs': fadeInMs,
+        'fadeOutMs': fadeOutMs,
+      };
+
+  factory AudioClip.fromJson(Map<String, dynamic> json) => AudioClip(
+        id: _str(json['id'], newId()),
+        path: _str(json['path'], ''),
+        label: _str(json['label'], ''),
+        kind: _str(json['kind'], 'music'),
+        startMs: _int(json['startMs'], 0),
+        trimMs: _int(json['trimMs'], 0),
+        durationMs: _int(json['durationMs'], 1000),
+        sourceMs: _int(json['sourceMs'], 1000),
+        volume: _num(json['volume'], 1.0).clamp(0.0, 1.0).toDouble(),
+        fadeInMs: _int(json['fadeInMs'], 0),
+        fadeOutMs: _int(json['fadeOutMs'], 0),
+      );
+}
+
 class Lesson {
   Lesson({
     required this.id,
@@ -263,8 +334,10 @@ class Lesson {
     this.musicVolume = 0.3,
     this.musicFade = true,
     Set<String>? hiddenTracks,
+    List<AudioClip>? audioClips,
   })  : scenes = scenes ?? <Scene>[],
-        hiddenTracks = hiddenTracks ?? <String>{};
+        hiddenTracks = hiddenTracks ?? <String>{},
+        audioClips = audioClips ?? <AudioClip>[];
 
   final String id;
   String title;
@@ -279,6 +352,10 @@ class Lesson {
   /// out of the preview and of the exported video.
   final Set<String> hiddenTracks;
 
+  /// Extra sounds on the Audio track, besides the narration of each slide and
+  /// the lesson music.
+  final List<AudioClip> audioClips;
+
   int get durationMs => scenes.fold<int>(0, (sum, s) => sum + s.durationMs);
 
   Map<String, dynamic> toJson() => {
@@ -288,6 +365,7 @@ class Lesson {
         'musicVolume': musicVolume,
         'musicFade': musicFade,
         'hiddenTracks': hiddenTracks.toList(),
+        'audioClips': audioClips.map((c) => c.toJson()).toList(),
         'scenes': scenes.map((s) => s.toJson()).toList(),
       };
 
@@ -308,6 +386,11 @@ class Lesson {
       hiddenTracks: json['hiddenTracks'] is List
           ? (json['hiddenTracks'] as List).whereType<String>().toSet()
           : <String>{},
+      audioClips: [
+        if (json['audioClips'] is List)
+          for (final item in json['audioClips'] as List)
+            if (item is Map<String, dynamic>) AudioClip.fromJson(item),
+      ],
       scenes: scenes,
     );
   }
