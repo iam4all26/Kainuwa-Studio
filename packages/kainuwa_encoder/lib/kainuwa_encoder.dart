@@ -148,6 +148,7 @@ class KainuwaEncoder {
     int width = 1280,
     int height = 720,
     int fps = 30,
+    int bitrate = 0,
     List<Map<String, Object?>> clips = const [],
   }) async {
     _init();
@@ -162,6 +163,7 @@ class KainuwaEncoder {
       'width': width,
       'height': height,
       'fps': fps,
+      'bitrate': bitrate,
     });
     return result ?? outputPath;
   }

@@ -44,6 +44,20 @@ class _ExportScreenState extends State<ExportScreen> {
   double _stageH = _kStageH;
   int _stageSerial = 0;
 
+  // Choices made on this screen for this export.
+  int _quality = 720; // output height: 480, 720, 1080 or 1440
+  int _fps = 30;
+  double _mbps = 8;
+  final TextEditingController _nameCtl = TextEditingController();
+  bool _nameReady = false;
+
+  static const Map<int, (int, String, String, double)> _qualities = {
+    480: (854, 'SD', 'Smaller file', 3),
+    720: (1280, 'HD', 'Recommended', 8),
+    1080: (1920, 'Full HD', 'Best for sharing', 12),
+    1440: (2560, '2K', 'Sharpest, slow', 20),
+  };
+
   bool _busy = false;
   bool _cancelled = false;
   bool _failed = false;
@@ -55,6 +69,7 @@ class _ExportScreenState extends State<ExportScreen> {
 
   @override
   void dispose() {
+    _nameCtl.dispose();
     if (_busy) {
       _cancelled = true;
       KainuwaEncoder.cancelExport();
@@ -167,10 +182,9 @@ class _ExportScreenState extends State<ExportScreen> {
     final hidden = Set<String>.of(lesson.hiddenTracks);
     final audioOff = hidden.contains('audio');
     final scenes = lesson.scenes.map((s) => viewScene(s, hidden)).toList();
-    final settings = state.settings;
-    final outW = settings.videoWidth;
-    final outH = settings.videoHeight;
-    final fps = settings.frameRate;
+    final outH = _quality;
+    final outW = _qualities[_quality]!.$1;
+    final fps = _fps;
     final ratio = outW / _kStageW;
     final title = lesson.title;
     final musicPath = audioOff ? '' : lesson.musicPath;
@@ -320,6 +334,7 @@ class _ExportScreenState extends State<ExportScreen> {
         width: outW,
         height: outH,
         fps: fps,
+        bitrate: (_mbps * 1000000).round(),
         clips: clipMaps,
       );
       try {
@@ -356,7 +371,8 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   Future<void> _save(String output, String title, int missingNarration) async {
-    final name = 'Kainuwa_${_safeName(title)}.mp4';
+    final typed = _safeName(_nameCtl.text.trim().isEmpty ? title : _nameCtl.text.trim());
+    final name = '$typed.mp4';
     final note = missingNarration > 0
         ? ' $missingNarration slide(s) had a narration file that could not be found and are silent.'
         : '';
@@ -411,7 +427,6 @@ class _ExportScreenState extends State<ExportScreen> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final lesson = state.lessonById(widget.courseId, widget.lessonId);
-    final settings = state.settings;
     final media = MediaQuery.of(context);
 
     final stage = MediaQuery(
@@ -435,29 +450,172 @@ class _ExportScreenState extends State<ExportScreen> {
       ),
     );
 
+    if (lesson != null && !_nameReady) {
+      _nameCtl.text = 'Kainuwa_${_safeName(lesson.title)}';
+      _nameReady = true;
+    }
+    final seconds = lesson == null ? 0 : (lesson.durationMs / 1000);
+    final estMb = seconds * _mbps / 8 + seconds * 0.016;
+
+    Widget card(Widget child) => Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [BoxShadow(color: Color(0x143B0F8C), blurRadius: 10, offset: Offset(0, 2))],
+          ),
+          child: child,
+        );
+    Widget label(String t) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple)),
+        );
+
+    final tiles = <Widget>[];
+    for (final entry in _qualities.entries) {
+      final q = entry.key;
+      final info = entry.value;
+      final on = q == _quality;
+      tiles.add(
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: _busy
+              ? null
+              : () => setState(() {
+                    _quality = q;
+                    _mbps = info.$4;
+                  }),
+          child: Container(
+            width: 150,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: on ? KColors.lavender : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: on ? KColors.purple : const Color(0xFFD9D0F0), width: on ? 2 : 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('${q}p', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 6),
+                    Text(info.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    if (on) const Icon(Icons.check_circle, size: 18, color: KColors.purple),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text('${info.$1} x $q', style: const TextStyle(fontSize: 12)),
+                Text(info.$3, style: TextStyle(fontSize: 11, color: q == 720 ? KColors.purple : Colors.black54)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final content = ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          lesson?.title ?? 'Lesson',
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        card(Row(
+          children: [
+            const Icon(Icons.movie_creation_outlined, color: KColors.purple, size: 30),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(lesson?.title ?? 'Lesson',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  if (lesson != null)
+                    Text('${sceneCountText(lesson.scenes.length)}  -  ${formatClock(lesson.durationMs)}  -  about ${estMb.toStringAsFixed(estMb < 10 ? 1 : 0)} MB'),
+                ],
+              ),
+            ),
+          ],
+        )),
+        card(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            label('File name'),
+            TextField(
+              controller: _nameCtl,
+              enabled: !_busy,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                suffixText: '.mp4',
+              ),
+            ),
+          ],
+        )),
+        card(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            label('Quality'),
+            Wrap(spacing: 10, runSpacing: 10, children: tiles),
+          ],
+        )),
+        card(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            label('Format'),
+            const Text('MP4 (H.264 video, AAC sound)'),
+            const SizedBox(height: 14),
+            label('Frame rate'),
+            DropdownButton<int>(
+              value: _fps,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: 24, child: Text('24 FPS (Cinematic)')),
+                DropdownMenuItem(value: 30, child: Text('30 FPS (Smooth)')),
+              ],
+              onChanged: _busy ? null : (v) => setState(() => _fps = v ?? 30),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Video bitrate', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple)),
+                ),
+                Text('${_mbps.round()} Mbps', style: const TextStyle(fontWeight: FontWeight.w700)),
+              ],
+            ),
+            Slider(
+              value: _mbps,
+              min: 1,
+              max: 30,
+              divisions: 29,
+              onChanged: _busy ? null : (v) => setState(() => _mbps = v),
+            ),
+            const Text(
+              'Higher bitrate looks sharper and makes a bigger file.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        )),
+        card(Row(
+          children: [
+            const Icon(Icons.folder_outlined, color: KColors.purple),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('Save to: Internal Storage / Movies / Kainuwa Studio'),
+            ),
+          ],
+        )),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Keep the app open and the phone awake until the export finishes. '
+            'Long lessons take a long time; try a short lesson first.',
+            style: TextStyle(fontSize: 13),
+          ),
         ),
-        const SizedBox(height: 4),
-        if (lesson != null)
-          Text('${sceneCountText(lesson.scenes.length)} - ${formatClock(lesson.durationMs)}'),
-        const SizedBox(height: 12),
-        Text(
-          'Video: ${settings.videoWidth} x ${settings.videoHeight}, ${settings.frameRate} frames per second. '
-          'Change this in Settings.',
-          style: const TextStyle(fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Keep the app open and the phone awake until the export finishes. '
-          'Long lessons take a long time; try a short lesson first.',
-          style: TextStyle(fontSize: 13),
-        ),
-        const SizedBox(height: 20),
         if (_busy) ...[
           LinearProgressIndicator(value: _progress <= 0 ? null : _progress, minHeight: 8),
           const SizedBox(height: 6),
@@ -465,22 +623,32 @@ class _ExportScreenState extends State<ExportScreen> {
           const SizedBox(height: 12),
         ],
         if (_status.isNotEmpty)
-          Text(
-            _status,
-            style: TextStyle(
-              color: _failed ? Theme.of(context).colorScheme.error : KColors.ink,
-              fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              _status,
+              style: TextStyle(
+                color: _failed ? Theme.of(context).colorScheme.error : KColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        const SizedBox(height: 16),
         if (!_busy)
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: KColors.gold,
+              foregroundColor: KColors.ink,
+            ),
             onPressed: lesson == null ? null : _start,
             icon: const Icon(Icons.movie_creation_outlined),
-            label: const Text('Export video'),
+            label: const Text('Export Video'),
           ),
         if (_busy && _phase != 99)
-          OutlinedButton(onPressed: _cancel, child: const Text('Cancel export')),
+          OutlinedButton(onPressed: _cancel, child: const Text('Cancel')),
+        if (!_busy) ...[
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Cancel')),
+        ],
         if (_unsavedVideo != null && !_busy) ...[
           const SizedBox(height: 8),
           FilledButton(onPressed: _retrySave, child: const Text('Save video')),
@@ -491,7 +659,7 @@ class _ExportScreenState extends State<ExportScreen> {
     return PopScope(
       canPop: !_busy,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Export lesson')),
+        appBar: AppBar(title: const Text('Export Video')),
         body: Stack(
           clipBehavior: Clip.none,
           children: [

@@ -32,6 +32,8 @@ import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.VideoEncoderSettings;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
@@ -573,6 +575,8 @@ public class KainuwaEncoderPlugin
     }
 
     @SuppressWarnings("unchecked")
+    private int lessonBitrate = 0;
+
     private void exportLesson(MethodCall call, MethodChannel.Result result) {
         if (transformer != null || exportResult != null) {
             result.error("busy", "An export is already running.", null);
@@ -589,6 +593,7 @@ public class KainuwaEncoderPlugin
         final int width = (int) num(call, "width", 1280);
         final int height = (int) num(call, "height", 720);
         final int fps = (int) num(call, "fps", 30);
+        lessonBitrate = (int) num(call, "bitrate", 0);
         final float musicVolume = (float) num(call, "musicVolume", 0.3);
         final long musicFadeMs = (long) num(call, "musicFadeMs", 0);
         final List<LessonAudioMixer.Clip> clips = new ArrayList<>();
@@ -800,7 +805,15 @@ public class KainuwaEncoderPlugin
                 .setEffects(new Effects(new ArrayList<AudioProcessor>(), compositionVideoEffects))
                 .build();
 
-        transformer = new Transformer.Builder(appContext)
+        Transformer.Builder lessonBuilder = new Transformer.Builder(appContext);
+        if (lessonBitrate > 0) {
+            lessonBuilder.setEncoderFactory(new DefaultEncoderFactory.Builder(appContext)
+                    .setRequestedVideoEncoderSettings(
+                            new VideoEncoderSettings.Builder().setBitrate(lessonBitrate).build())
+                    .setEnableFallback(true)
+                    .build());
+        }
+        transformer = lessonBuilder
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
                 .addListener(new Transformer.Listener() {

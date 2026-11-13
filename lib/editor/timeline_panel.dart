@@ -76,6 +76,8 @@ class TimelinePanel extends StatefulWidget {
     required this.selectedLayerId,
     required this.selectedAudioId,
     required this.sceneSelected,
+    required this.selectedSound,
+    required this.onSelectSound,
     required this.onSelectScene,
     required this.onSelectLayer,
     required this.onSelectAudio,
@@ -97,6 +99,10 @@ class TimelinePanel extends StatefulWidget {
   final String? selectedLayerId;
   final String? selectedAudioId;
   final bool sceneSelected;
+
+  /// 'music' or 'narration:<scene index>' when a sound strip is selected.
+  final String? selectedSound;
+  final void Function(String kind, int sceneIndex) onSelectSound;
   final ValueChanged<int> onSelectScene;
   final void Function(int sceneIndex, String layerId) onSelectLayer;
   final ValueChanged<String> onSelectAudio;
@@ -613,8 +619,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
         break;
       default:
         final music = clip.kind == 'music';
+        final soundKey = music ? 'music' : 'narration:${clip.sceneIndex}';
+        selected = widget.selectedSound == soundKey;
         onTap = () {
-          widget.onSelectScene(clip.sceneIndex);
+          widget.onSelectSound(music ? 'music' : 'narration', clip.sceneIndex);
         };
         final path = music ? widget.lesson.musicPath : (clip.scene?.narrationPath ?? '');
         body = Stack(

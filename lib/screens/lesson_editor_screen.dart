@@ -59,6 +59,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   String? _selectedId;
   String? _selectedAudioId;
   bool _sceneSelected = false;
+  String? _soundSel; // 'music' or 'narration:<scene index>'
   int _tab = 0;
   final List<String> _order = List<String>.of(kDefaultTrackOrder);
 
@@ -135,6 +136,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     setState(() {
       _selectedId = id;
       _selectedAudioId = null;
+      _soundSel = null;
       _sceneSelected = false;
     });
   }
@@ -153,8 +155,44 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     setState(() {
       _selectedId = null;
       _selectedAudioId = null;
+      _soundSel = null;
       _sceneSelected = true;
     });
+  }
+
+  void _selectSound(String kind, int index) {
+    final lesson = _lesson();
+    if (lesson == null || index >= lesson.scenes.length) return;
+    _seekToScene(lesson, index);
+    setState(() {
+      _selectedId = null;
+      _selectedAudioId = null;
+      _sceneSelected = false;
+      _soundSel = kind == 'music' ? 'music' : 'narration:$index';
+    });
+  }
+
+  int? _soundScene() {
+    final key = _soundSel;
+    if (key == null || !key.startsWith('narration:')) return null;
+    return int.tryParse(key.substring(10));
+  }
+
+  void _deleteSound() {
+    final lesson = _lesson();
+    if (lesson == null || _soundSel == null) return;
+    _pause();
+    if (_soundSel == 'music') {
+      lesson.musicPath = '';
+    } else {
+      final i = _soundScene();
+      if (i != null && i < lesson.scenes.length) {
+        lesson.scenes[i].narrationPath = '';
+        lesson.scenes[i].narrationMs = 0;
+      }
+    }
+    _soundSel = null;
+    _commit();
   }
 
   void _selectLayerFromTimeline(int sceneIndex, String id) {
@@ -164,6 +202,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     setState(() {
       _selectedId = id;
       _selectedAudioId = null;
+      _soundSel = null;
       _sceneSelected = false;
     });
   }
@@ -179,6 +218,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _player?.clampToLesson();
       setState(() {
         _selectedId = null;
+        _soundSel = null;
         _sceneSelected = false;
       });
       await AppScope.read(context).persist();
@@ -194,6 +234,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _player?.clampToLesson();
       setState(() {
         _selectedId = null;
+        _soundSel = null;
         _sceneSelected = false;
       });
       await AppScope.read(context).persist();
@@ -489,6 +530,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   void _deleteSelection() {
+    if (_soundSel != null) {
+      _deleteSound();
+      return;
+    }
     if (_selectedAudioId != null) {
       _deleteAudio();
       return;
@@ -602,6 +647,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   void _selectAudio(String id) {
     setState(() {
       _selectedAudioId = id;
+      _soundSel = null;
       _selectedId = null;
       _sceneSelected = false;
     });
@@ -1179,15 +1225,39 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   Widget _toolCard(double u) {
-    final tools = <(IconData, String, VoidCallback)>[
-      (Icons.content_cut, 'Split', _split),
-      (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
-      (Icons.delete_outline, 'Delete', _deleteSelection),
-      (Icons.layers_outlined, 'Layer', _openLayers),
-      (Icons.tune, 'Adjust', _adjust),
-      (Icons.volume_up_outlined, 'Volume', _volume),
-      (Icons.speed, 'Speed', _speed),
-    ];
+    final tools = <(IconData, String, VoidCallback)>[];
+    final scene = _currentScene();
+    final layer = _selectedLayer(scene);
+    if (_selectedAudioId != null) {
+      tools.addAll([
+        (Icons.content_cut, 'Split', _split),
+        (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
+        (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.delete_outline, 'Delete', _deleteSelection),
+      ]);
+    } else if (_soundSel != null) {
+      tools.addAll([
+        (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.delete_outline, 'Delete', _deleteSelection),
+      ]);
+    } else if (layer != null) {
+      tools.addAll([
+        (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
+        (Icons.layers_outlined, 'Layer', _openLayers),
+        (Icons.tune, 'Adjust', _adjust),
+        (Icons.speed, 'Speed', _speed),
+        (Icons.delete_outline, 'Delete', _deleteSelection),
+      ]);
+    } else if (_sceneSelected) {
+      tools.addAll([
+        (Icons.content_cut, 'Split', _split),
+        (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
+        (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.delete_outline, 'Delete', _deleteSelection),
+      ]);
+    } else {
+      return const SizedBox(height: 8);
+    }
     final children = <Widget>[];
     for (var i = 0; i < tools.length; i++) {
       if (i > 0) children.add(_toolDivider(u));
@@ -1337,6 +1407,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         selectedLayerId: _selectedId,
                         selectedAudioId: _selectedAudioId,
                         sceneSelected: _sceneSelected,
+                        selectedSound: _soundSel,
+                        onSelectSound: _selectSound,
                         onSelectScene: _selectScene,
                         onSelectLayer: _selectLayerFromTimeline,
                         onSelectAudio: _selectAudio,

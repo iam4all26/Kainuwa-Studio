@@ -10,7 +10,6 @@ class SettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final settings = state.settings;
 
     return SafeArea(
       child: ListView(
@@ -22,42 +21,8 @@ class SettingsTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Export defaults',
-            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple),
-          ),
-          const SizedBox(height: 8),
-          const Text('Video size'),
-          const SizedBox(height: 4),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 720, label: Text('1280 x 720')),
-              ButtonSegment(value: 1080, label: Text('1920 x 1080')),
-            ],
-            selected: {settings.videoHeight},
-            onSelectionChanged: (s) =>
-                state.updateSettings(settings.copyWith(videoHeight: s.first)),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '1920 x 1080 gives sharper video but exports more slowly and warms the phone.',
-            style: TextStyle(fontSize: 12),
-          ),
-          const SizedBox(height: 16),
-          const Text('Frame rate'),
-          const SizedBox(height: 4),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 24, label: Text('24 per second')),
-              ButtonSegment(value: 30, label: Text('30 per second')),
-            ],
-            selected: {settings.frameRate},
-            onSelectionChanged: (s) =>
-                state.updateSettings(settings.copyWith(frameRate: s.first)),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'These choices are used when you export a lesson (the video icon in the lesson editor).',
-            style: TextStyle(fontSize: 12),
+            'Video quality, frame rate and file name are chosen on the Export screen of each lesson.',
+            style: TextStyle(fontSize: 13),
           ),
           const Divider(height: 32),
           const Text(
