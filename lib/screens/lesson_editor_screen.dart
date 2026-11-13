@@ -1121,7 +1121,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final top = MediaQuery.of(context).padding.top;
     final history = _history;
     return Container(
-      color: KColors.accent,
+      color: KColors.deepPurple,
       padding: EdgeInsets.only(top: top),
       child: SizedBox(
         height: math.max(52.0, _s(u, 113)),
@@ -1517,7 +1517,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final spot = sceneAt(lesson, player.positionMs);
     final scene = lesson.scenes[spot.index];
     final width = math.min(MediaQuery.of(context).size.width, 640.0);
-    final u = width / 941.0;
+    final u = math.min(width / 941.0, MediaQuery.of(context).size.height / 1700.0);
 
     return Scaffold(
       backgroundColor: KColors.editorPanel,
