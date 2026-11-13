@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../animation_math.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
+import '../store/store_service.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -20,6 +21,12 @@ const List<(String, String)> kFontFamilies = [
   ('cursive', 'Cursive'),
   ('casual', 'Casual'),
 ];
+
+/// Built-in fonts plus the fonts downloaded from the store.
+List<(String, String)> fontChoices() => [
+      ...kFontFamilies,
+      for (final f in StoreService.instance.ofType('font')) (f.family, f.name),
+    ];
 
 /// The edit panel for the selected item. Changes are applied straight away and
 /// [onLive] is called after each one so the slide behind the panel updates.
@@ -301,9 +308,9 @@ class _EditPanelState extends State<_EditPanel> {
               decoration: BoxDecoration(color: const Color(0xFF2A2150), borderRadius: BorderRadius.circular(12)),
               child: DropdownButton<String>(
                 isExpanded: true,
-                value: kFontFamilies.any((f) => f.$1 == l.fontFamily) ? l.fontFamily : '',
+                value: fontChoices().any((f) => f.$1 == l.fontFamily) ? l.fontFamily : '',
                 items: [
-                  for (final f in kFontFamilies)
+                  for (final f in fontChoices())
                     DropdownMenuItem<String>(
                       value: f.$1,
                       child: Text(f.$2, style: TextStyle(fontFamily: f.$1.isEmpty ? null : f.$1)),

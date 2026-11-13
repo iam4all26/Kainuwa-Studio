@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
@@ -5,6 +7,7 @@ import '../animation_math.dart';
 import '../data/asset_catalog.dart';
 import '../media/media_library.dart';
 import '../models.dart';
+import '../store/store_service.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -37,6 +40,38 @@ class _BackgroundSheet extends StatelessWidget {
     }
   }
 
+  List<Widget> _downloaded(BuildContext context) {
+    final items = StoreService.instance.ofType('background');
+    if (items.isEmpty) return const [];
+    return [
+      const SizedBox(height: 16),
+      const Text('From the store', style: TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final item in items)
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => Navigator.of(context).pop(BackgroundChoice('file', item.path)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.file(
+                  File(item.path),
+                  width: 110,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  cacheWidth: 300,
+                  errorBuilder: (_, __, ___) => const SizedBox(width: 110, height: 70),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -56,6 +91,7 @@ class _BackgroundSheet extends StatelessWidget {
           ColorSwatches(
             onPick: (value) => Navigator.of(context).pop(BackgroundChoice('color', '$value')),
           ),
+          ..._downloaded(context),
           const SizedBox(height: 16),
           const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),

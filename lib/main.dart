@@ -4,10 +4,12 @@ import 'package:flutter/services.dart';
 import 'app_state.dart';
 import 'screens/splash_screen.dart';
 import 'storage.dart';
+import 'store/store_service.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await StoreService.instance.init();
   runApp(const KainuwaStudioApp());
 }
 

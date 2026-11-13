@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../store/store_tab.dart';
 import 'assets_tab.dart';
 import 'courses_tab.dart';
 import 'settings_tab.dart';
@@ -21,19 +22,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
       body: IndexedStack(
         index: _index,
         children: [
           CoursesTab(
-            onOpenSettings: () => setState(() => _index = 3),
+            onOpenSettings: () => setState(() => _index = 4),
             onOpenTemplates: () => setState(() => _index = 1),
           ),
           const TemplatesTab(),
           const AssetsTab(),
+          StoreTab(active: _index == 3),
           const SettingsTab(),
         ],
       ),
@@ -55,6 +57,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.photo_library_outlined),
             selectedIcon: Icon(Icons.photo_library),
             label: 'Assets',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.storefront_outlined),
+            selectedIcon: Icon(Icons.storefront),
+            label: 'Store',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
