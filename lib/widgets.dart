@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'theme.dart';
 
@@ -133,24 +134,445 @@ Future<bool> confirmDialog(
 }
 
 /// A row of color circles. Returns the chosen ARGB number, or null.
-Future<int?> pickColor(BuildContext context, {String title = 'Choose a color'}) {
+Future<int?> pickColor(
+  BuildContext context, {
+  String title = 'Text Color',
+  int initial = 0xFF7351FF,
+}) {
   return showModalBottomSheet<int>(
     context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ColorPanel(title: title, initial: initial),
+  );
+}
+
+class _ColorPanel extends StatefulWidget {
+  const _ColorPanel({required this.title, required this.initial});
+
+  final String title;
+  final int initial;
+
+  @override
+  State<_ColorPanel> createState() => _ColorPanelState();
+}
+
+class _ColorPanelState extends State<_ColorPanel> {
+  late HSVColor _hsv;
+  late double _alpha;
+  int _tab = 0;
+  late final TextEditingController _hex;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = Color(widget.initial);
+    _hsv = HSVColor.fromColor(c);
+    _alpha = ((widget.initial >> 24) & 0xFF) / 255.0;
+    _hex = TextEditingController();
+    _syncHex();
+  }
+
+  @override
+  void dispose() {
+    _hex.dispose();
+    super.dispose();
+  }
+
+  int get _rgb => _hsv.toColor().value & 0xFFFFFF;
+  int get _argb => ((_alpha * 255).round() << 24) | _rgb;
+  int _channel(int shift) => (_rgb >> shift) & 0xFF;
+
+  void _syncHex() {
+    _hex.text = '#${_rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
+
+  void _setRgb(int rgb) {
+    setState(() {
+      _hsv = HSVColor.fromColor(Color(0xFF000000 | rgb));
+      _syncHex();
+    });
+  }
+
+  void _setHsv(HSVColor v) {
+    setState(() {
+      _hsv = v;
+      _syncHex();
+    });
+  }
+
+  void _setChannel(int shift, int value) {
+    final v = value.clamp(0, 255);
+    final rgb = (_rgb & ~(0xFF << shift)) | (v << shift);
+    _setRgb(rgb);
+  }
+
+  static const List<int> _presets = [
+    0xFFFFFFFF, 0xFF000000, 0xFFE5232B, 0xFFFB8C1B, 0xFFFFD21F, 0xFF22C55E, 0xFF2EE6E6,
+    0xFF2563EB, 0xFF7351FF, 0xFFEC4EC0, 0xFFE0148C, 0xFFF9A8D4, 0xFF9CA3AF,
+  ];
+
+  Widget _swatch(int argb, {double size = 44}) {
+    final selected = (argb & 0xFFFFFF) == _rgb;
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: () => _setRgb(argb & 0xFFFFFF),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Color(argb),
+          shape: BoxShape.circle,
+          border: Border.all(color: selected ? Colors.white : const Color(0x33FFFFFF), width: selected ? 3 : 1),
+        ),
+        child: selected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+      ),
+    );
+  }
+
+  Widget _stepper(String label, int shift) {
+    final value = _channel(shift);
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.only(left: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF241C48),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF3D3266)),
+        ),
+        child: Row(
           children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            ColorSwatches(onPick: (value) => Navigator.of(sheetContext).pop(value)),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 6),
+            Expanded(child: Text('$value', style: const TextStyle(fontSize: 16))),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: () => _setChannel(shift, value + 1),
+                  child: const Icon(Icons.keyboard_arrow_up, size: 22),
+                ),
+                InkWell(
+                  onTap: () => _setChannel(shift, value - 1),
+                  child: const Icon(Icons.keyboard_arrow_down, size: 22),
+                ),
+              ],
+            ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _picker() {
+    return SizedBox(
+      height: 150,
+      child: Row(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, c) {
+                void update(Offset p) {
+                  final hue = (p.dx / c.maxWidth).clamp(0.0, 1.0) * 360;
+                  final value = 1 - (p.dy / c.maxHeight).clamp(0.0, 1.0);
+                  _setHsv(HSVColor.fromAHSV(1, hue >= 360 ? 359.9 : hue, _hsv.saturation, value));
+                }
+
+                return GestureDetector(
+                  onPanDown: (d) => update(d.localPosition),
+                  onPanUpdate: (d) => update(d.localPosition),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            gradient: LinearGradient(
+                              colors: [
+                                for (var h = 0; h <= 360; h += 60)
+                                  HSVColor.fromAHSV(1, h.toDouble(), _hsv.saturation, 1).toColor(),
+                              ],
+                            ),
+                          ),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x00000000), Color(0xFF000000)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: (_hsv.hue / 360) * c.maxWidth - 11,
+                        top: (1 - _hsv.value) * c.maxHeight - 11,
+                        child: IgnorePointer(
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 40,
+            child: LayoutBuilder(
+              builder: (context, c) {
+                void update(Offset p) {
+                  final sat = (p.dy / c.maxHeight).clamp(0.0, 1.0);
+                  _setHsv(HSVColor.fromAHSV(1, _hsv.hue, sat, _hsv.value));
+                }
+
+                return GestureDetector(
+                  onPanDown: (d) => update(d.localPosition),
+                  onPanUpdate: (d) => update(d.localPosition),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.white, HSVColor.fromAHSV(1, _hsv.hue, 1, _hsv.value).toColor()],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 2,
+                        right: 2,
+                        top: _hsv.saturation * c.maxHeight - 9,
+                        child: IgnorePointer(
+                          child: Container(
+                            height: 18,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: Colors.white, width: 2.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _solid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Preset Colors', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final c in _presets) _swatch(c),
+            InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => setState(() => _tab = 2),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0x66FFFFFF), width: 1.5),
+                ),
+                child: const Icon(Icons.add),
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 28),
+        const Text('Color Picker', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        _picker(),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Container(
+              width: 56,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Color(_argb),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('HEX', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _hex,
+                autocorrect: false,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy_outlined, size: 20),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: _hex.text)),
+                  ),
+                ),
+                onChanged: (text) {
+                  final clean = text.replaceAll('#', '').trim();
+                  final n = clean.length == 6 ? int.tryParse(clean, radix: 16) : null;
+                  if (n != null) {
+                    setState(() => _hsv = HSVColor.fromColor(Color(0xFF000000 | n)));
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(children: [_stepper('R', 16), _stepper('G', 8), _stepper('B', 0)]),
+        const SizedBox(height: 14),
+        const Text('Opacity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        Row(
+          children: [
+            Expanded(
+              child: Slider(value: _alpha, onChanged: (v) => setState(() => _alpha = v)),
+            ),
+            Container(
+              width: 70,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF241C48),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF3D3266)),
+              ),
+              child: Text('${(_alpha * 100).round()}%', style: const TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _palette() {
+    final colors = <int>[];
+    for (final lightness in const [0.82, 0.62, 0.42, 0.26]) {
+      for (var h = 0; h < 360; h += 30) {
+        colors.add(HSLColor.fromAHSL(1, h.toDouble(), 0.85, lightness).toColor().value);
+      }
+    }
+    for (var g = 0; g < 12; g++) {
+      final v = (g * 255 / 11).round();
+      colors.add(0xFF000000 | (v << 16) | (v << 8) | v);
+    }
+    return Wrap(spacing: 10, runSpacing: 10, children: [for (final c in colors) _swatch(c, size: 38)]);
+  }
+
+  Widget _gradientNote() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 28),
+      child: Text('Gradient colors are not available yet. Use Solid or Palette.'),
+    );
+  }
+
+  Widget _tabButton(int index, IconData icon, String label) {
+    final on = _tab == index;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _tab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: on ? const Color(0xFF7351FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18),
+              const SizedBox(width: 6),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height;
+    return Container(
+      constraints: BoxConstraints(maxHeight: height * 0.92),
+      decoration: const BoxDecoration(
+        color: Color(0xFF181230),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
+              child: Row(
+                children: [
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                  Expanded(
+                    child: Text(widget.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  ),
+                  IconButton(icon: const Icon(Icons.check), onPressed: () => Navigator.of(context).pop(_argb)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF241C48),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    _tabButton(0, Icons.circle, 'Solid'),
+                    _tabButton(1, Icons.gradient, 'Gradient'),
+                    _tabButton(2, Icons.palette_outlined, 'Palette'),
+                  ],
+                ),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                child: _tab == 0 ? _solid() : (_tab == 1 ? _gradientNote() : _palette()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class ColorSwatches extends StatelessWidget {

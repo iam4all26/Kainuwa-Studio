@@ -144,16 +144,16 @@ class _EditPanelState extends State<_EditPanel> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        color: const Color(0xCCFFFFFF),
+        color: const Color(0xCC1A1333),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3DAFA)),
+        border: Border.all(color: const Color(0xFF3D3266)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: KColors.deepPurple),
+              Icon(icon, size: 18, color: KColors.accent),
               const SizedBox(width: 6),
               Text(
                 title,
@@ -182,7 +182,7 @@ class _EditPanelState extends State<_EditPanel> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 3),
         child: Material(
-          color: on ? KColors.purple : const Color(0xFFF1ECFD),
+          color: on ? KColors.purple : const Color(0xFF2A2150),
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
@@ -221,7 +221,7 @@ class _EditPanelState extends State<_EditPanel> {
       children: [
         InkWell(
           onTap: () async {
-            final value = await pickColor(context);
+            final value = await pickColor(context, initial: argb, title: _isText ? 'Text Color' : 'Color');
             if (value != null) onColor(value);
           },
           child: Container(
@@ -230,7 +230,7 @@ class _EditPanelState extends State<_EditPanel> {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFCFC3F0)),
+              border: Border.all(color: const Color(0xFF3D3266)),
             ),
           ),
         ),
@@ -262,7 +262,7 @@ class _EditPanelState extends State<_EditPanel> {
               isDense: true,
               counterText: '',
               filled: true,
-              fillColor: const Color(0xFFF1ECFD),
+              fillColor: const Color(0xFF2A2150),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
             onChanged: (v) {
@@ -298,7 +298,7 @@ class _EditPanelState extends State<_EditPanel> {
           DropdownButtonHideUnderline(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(color: const Color(0xFFF1ECFD), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF2A2150), borderRadius: BorderRadius.circular(12)),
               child: DropdownButton<String>(
                 isExpanded: true,
                 value: kFontFamilies.any((f) => f.$1 == l.fontFamily) ? l.fontFamily : '',
@@ -339,7 +339,7 @@ class _EditPanelState extends State<_EditPanel> {
             _isText ? 'Text Color' : 'Color',
             Icons.water_drop_outlined,
             _colorEditor(l.color, (v) {
-              l.color = (0xFF << 24) | (v & 0xFFFFFF);
+              l.color = v;
               _changed();
             }),
           ),
@@ -815,7 +815,7 @@ class _EditPanelState extends State<_EditPanel> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF7F3FF), Color(0xFFE9E0FB)],
+          colors: [Color(0xFF211A3F), Color(0xFF251C47)],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -827,7 +827,7 @@ class _EditPanelState extends State<_EditPanel> {
             Container(
               width: 44,
               height: 5,
-              decoration: BoxDecoration(color: const Color(0xFFB9AEDB), borderRadius: BorderRadius.circular(3)),
+              decoration: BoxDecoration(color: const Color(0xFF5A4C8E), borderRadius: BorderRadius.circular(3)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 8, 6),
@@ -852,7 +852,7 @@ class _EditPanelState extends State<_EditPanel> {
                           _isText
                               ? 'Customize the selected text on the slide'
                               : 'Customize the selected item on the slide',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF5B5575)),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6)),
                         ),
                       ],
                     ),
@@ -870,7 +870,7 @@ class _EditPanelState extends State<_EditPanel> {
               child: Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: const Color(0xCCFFFFFF),
+                  color: const Color(0xCC1A1333),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -1010,7 +1010,7 @@ class _NumFieldState extends State<_NumField> {
         width: 28,
         height: 32,
         alignment: Alignment.center,
-        child: Icon(icon, size: 18, color: KColors.deepPurple),
+        child: Icon(icon, size: 18, color: KColors.accent),
       ),
     );
   }
@@ -1042,7 +1042,7 @@ class _NumFieldState extends State<_NumField> {
               suffixText: widget.suffix.isEmpty ? null : widget.suffix,
               suffixStyle: const TextStyle(fontSize: 10),
               filled: true,
-              fillColor: const Color(0xFFF1ECFD),
+              fillColor: const Color(0xFF2A2150),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             ),
             onChanged: _typed,
@@ -1122,7 +1122,7 @@ class _HexFieldState extends State<_HexField> {
           counterText: '',
           contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           filled: true,
-          fillColor: const Color(0xFFF1ECFD),
+          fillColor: const Color(0xFF2A2150),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
         ),
         onChanged: _typed,

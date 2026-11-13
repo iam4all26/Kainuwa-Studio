@@ -58,7 +58,7 @@ class _AddTimelineSheet extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Material(
-          color: Color.alphaBlend(accent.withAlpha(28), const Color(0xFFF7F3FF)),
+          color: Color.alphaBlend(accent.withAlpha(28), const Color(0xFF211A3F)),
           borderRadius: BorderRadius.circular(16),
           elevation: 0.5,
           child: InkWell(
@@ -81,12 +81,6 @@ class _AddTimelineSheet extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: KColors.ink),
                         ),
-                        Text(
-                          subtitle,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF4F4968), height: 1.2),
-                        ),
                       ],
                     ),
                   ),
@@ -105,7 +99,7 @@ class _AddTimelineSheet extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Material(
-          color: const Color(0xFFF7F3FF),
+          color: const Color(0xFF211A3F),
           borderRadius: BorderRadius.circular(14),
           elevation: 0.5,
           child: InkWell(
@@ -141,7 +135,7 @@ class _AddTimelineSheet extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF6F1FF), Color(0xFFE6DCFA)],
+            colors: [Color(0xFF1A1333), Color(0xFF251C47)],
           ),
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
@@ -156,7 +150,7 @@ class _AddTimelineSheet extends StatelessWidget {
                   child: Container(
                     width: 44,
                     height: 5,
-                    decoration: BoxDecoration(color: const Color(0xFFB9AEDB), borderRadius: BorderRadius.circular(3)),
+                    decoration: BoxDecoration(color: const Color(0xFF5A4C8E), borderRadius: BorderRadius.circular(3)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -179,10 +173,6 @@ class _AddTimelineSheet extends StatelessWidget {
                           Text(
                             'Add to Timeline',
                             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: KColors.ink),
-                          ),
-                          Text(
-                            'Choose what to add to your video at the current position.',
-                            style: TextStyle(fontSize: 12.5, color: Color(0xFF4F4968)),
                           ),
                         ],
                       ),

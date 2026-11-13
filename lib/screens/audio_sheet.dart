@@ -216,7 +216,7 @@ class _AudioSheetState extends State<_AudioSheet> {
           const SizedBox(height: 16),
           const Text(
             'Narration for this scene',
-            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple),
+            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent),
           ),
           const SizedBox(height: 8),
           if (_recording) ...[
@@ -329,7 +329,7 @@ class _AudioSheetState extends State<_AudioSheet> {
           const Divider(height: 32),
           const Text(
             'Music for the whole lesson',
-            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple),
+            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent),
           ),
           const SizedBox(height: 8),
           if (lesson.musicPath.isEmpty)

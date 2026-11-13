@@ -161,7 +161,7 @@ class LessonsScreen extends StatelessWidget {
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor: KColors.lavender,
-                            foregroundColor: KColors.deepPurple,
+                            foregroundColor: KColors.accent,
                             child: Text('${index + 1}'),
                           ),
                           title: Text(

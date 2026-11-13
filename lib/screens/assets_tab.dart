@@ -119,7 +119,7 @@ class _AssetGrid extends StatelessWidget {
           onTap: () => _preview(context, item),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: KColors.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: KColors.lavender),
             ),

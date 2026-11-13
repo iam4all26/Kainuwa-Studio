@@ -7,20 +7,24 @@ class KColors {
 
   static const Color deepPurple = Color(0xFF41038B);
   static const Color purple = Color(0xFF6D28D9);
-  static const Color lavender = Color(0xFFEDE7FF);
-  static const Color background = Color(0xFFF7F4FF);
+  static const Color lavender = Color(0xFF2B2152);
+  static const Color background = Color(0xFF0F0B1E);
+  static const Color surface = Color(0xFF1A1431);
+  static const Color accent = Color(0xFFB9A0FF);
+  static const Color onGold = Color(0xFF1E1433);
   static const Color gold = Color(0xFFF6C101);
-  static const Color ink = Color(0xFF1E1433);
+  static const Color ink = Color(0xFFEFEAFF);
 
   // Lesson editor (multitrack timeline) colors, sampled from the mockup.
-  static const Color editorPanel = Color(0xFFF6F4FD);
-  static const Color editorStrip = Color(0xFFE0D9F7);
-  static const Color editorLabel = Color(0xFFF8F7FE);
-  static const Color editorCard = Color(0xFFFAF8FE);
+  static const Color editorPanel = Color(0xFF13102A);
+  static const Color editorStrip = Color(0xFF241C48);
+  static const Color editorLabel = Color(0xFF1C1638);
+  static const Color editorCard = Color(0xFF1C1638);
   static const Color editorNav = Color(0xFF6B10D1);
+  static const Color editorNavIcon = Color(0xFFB794F6);
   static const Color editorPlay = Color(0xFF7514DF);
   static const Color editorPlayhead = Color(0xFF8E1BDC);
-  static const Color editorToolIcon = Color(0xFF3B2F6E);
+  static const Color editorToolIcon = Color(0xFFD8CCFF);
   static const Color editorExport = Color(0xFFFCBE12);
   static const Color clipText = Color(0xFFFDC018);
   static const Color clipAudio = Color(0xFF03A845);
@@ -30,19 +34,27 @@ class KColors {
 }
 
 ThemeData buildTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: KColors.purple).copyWith(
-    primary: KColors.purple,
+  final scheme = ColorScheme.fromSeed(
+    seedColor: KColors.purple,
+    brightness: Brightness.dark,
+  ).copyWith(
+    primary: const Color(0xFF8B5CF6),
     onPrimary: Colors.white,
     secondary: KColors.gold,
-    onSecondary: KColors.ink,
+    onSecondary: KColors.onGold,
+    surface: KColors.surface,
+    onSurface: KColors.ink,
     primaryContainer: KColors.lavender,
-    onPrimaryContainer: KColors.deepPurple,
+    onPrimaryContainer: KColors.accent,
   );
 
   return ThemeData(
     useMaterial3: true,
+    brightness: Brightness.dark,
     colorScheme: scheme,
     scaffoldBackgroundColor: KColors.background,
+    canvasColor: KColors.surface,
+    bottomSheetTheme: const BottomSheetThemeData(backgroundColor: KColors.surface),
     appBarTheme: const AppBarTheme(
       backgroundColor: KColors.deepPurple,
       foregroundColor: Colors.white,
@@ -50,7 +62,7 @@ ThemeData buildTheme() {
       systemOverlayStyle: SystemUiOverlayStyle.light,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: KColors.surface,
       indicatorColor: KColors.lavender,
       labelTextStyle: WidgetStateProperty.all(
         const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),

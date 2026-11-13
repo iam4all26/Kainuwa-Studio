@@ -167,7 +167,7 @@ class _PickGrid extends StatelessWidget {
           onTap: () => Navigator.of(context).pop(item),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: KColors.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: KColors.lavender),
             ),

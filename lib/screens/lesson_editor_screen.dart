@@ -1121,7 +1121,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final top = MediaQuery.of(context).padding.top;
     final history = _history;
     return Container(
-      color: KColors.deepPurple,
+      color: KColors.accent,
       padding: EdgeInsets.only(top: top),
       child: SizedBox(
         height: math.max(52.0, _s(u, 113)),
@@ -1328,8 +1328,30 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
   }
 
+  Widget _bodyLayout({
+    required double u,
+    required Widget preview,
+    required Widget transport,
+    required Widget timeline,
+  }) {
+    final landscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final gap = SizedBox(height: _s(u, 16, 8));
+    final scrollingTimeline = SingleChildScrollView(child: Column(children: [timeline, gap]));
+    if (landscape) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 5, child: SingleChildScrollView(child: Column(children: [preview, transport]))),
+          Expanded(flex: 6, child: scrollingTimeline),
+        ],
+      );
+    }
+    // Preview and transport stay in place; only the timeline scrolls.
+    return Column(children: [preview, transport, Expanded(child: scrollingTimeline)]);
+  }
+
   Widget _toolDivider(double u) {
-    return Container(width: 1, height: _s(u, 70, 30), color: const Color(0xFFE3DDF3));
+    return Container(width: 1, height: _s(u, 70, 30), color: const Color(0xFF3D3266));
   }
 
   Widget _toolCard(double u) {
@@ -1353,6 +1375,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.layers_outlined, 'Layer', _openLayers),
         (Icons.tune, 'Adjust', _adjust),
+        (Icons.auto_awesome_outlined, 'Animate', _openAnimate),
         (Icons.speed, 'Speed', _speed),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
@@ -1404,9 +1427,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _openSound();
         break;
       case 4:
-        await _openAnimate();
-        break;
-      case 5:
         await _setDuration();
         break;
     }
@@ -1420,14 +1440,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       (Icons.wallpaper, 'Background'),
       (Icons.add_box_outlined, 'Add'),
       (Icons.mic_none, 'Sound'),
-      (Icons.auto_awesome_outlined, 'Animate'),
       (Icons.timer_outlined, 'Time'),
     ];
     return Container(
       padding: EdgeInsets.fromLTRB(_s(u, 12, 4), _s(u, 14, 4), _s(u, 12, 4), _s(u, 12, 4) + bottom),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Color(0x143B0F8C), blurRadius: 10, offset: Offset(0, -2))],
+        color: KColors.editorCard,
+        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, -2))],
       ),
       child: Row(
         children: [
@@ -1449,7 +1468,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                       Icon(
                         items[i].$1,
                         size: _s(u, 50, 24),
-                        color: _tab == i ? Colors.white : KColors.editorNav,
+                        color: _tab == i ? Colors.white : KColors.editorNavIcon,
                       ),
                       SizedBox(height: _s(u, 6, 2)),
                       FittedBox(
@@ -1461,7 +1480,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                           style: TextStyle(
                             fontSize: _s(u, 26, 10.5),
                             fontWeight: FontWeight.w600,
-                            color: _tab == i ? Colors.white : KColors.editorNav,
+                            color: _tab == i ? Colors.white : KColors.editorNavIcon,
                           ),
                         ),
                       ),
@@ -1509,12 +1528,11 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             children: [
               _header(lesson, u),
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _preview(lesson, scene, spot, u),
-                      _transport(lesson, u),
-                      TimelinePanel(
+                child: _bodyLayout(
+                  u: u,
+                  preview: _preview(lesson, scene, spot, u),
+                  transport: _transport(lesson, u),
+                  timeline: TimelinePanel(
                         lesson: lesson,
                         player: player,
                         order: _order,
@@ -1541,9 +1559,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         onAddTrack: _addTrack,
                         onAddScene: _addScene,
                       ),
-                      SizedBox(height: _s(u, 16, 8)),
-                    ],
-                  ),
                 ),
               ),
               _toolCard(u),

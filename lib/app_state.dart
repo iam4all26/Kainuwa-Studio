@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'models.dart';
@@ -21,7 +22,15 @@ class AppState extends ChangeNotifier {
       loadError = e.toString();
     }
     loaded = true;
+    applyOrientation();
     notifyListeners();
+  }
+
+  /// Locks the screen to the layout chosen in Settings.
+  void applyOrientation() {
+    SystemChrome.setPreferredOrientations(settings.landscape
+        ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+        : const [DeviceOrientation.portraitUp]);
   }
 
   Course? courseById(String id) {
@@ -113,6 +122,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> updateSettings(AppSettings next) async {
     settings = next;
+    applyOrientation();
     notifyListeners();
     try {
       await _storage.saveSettings(next);

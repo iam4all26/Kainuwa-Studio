@@ -50,6 +50,7 @@ class _ExportScreenState extends State<ExportScreen> {
   double _mbps = 8;
   final TextEditingController _nameCtl = TextEditingController();
   bool _nameReady = false;
+  bool _defaultsReady = false;
 
   static const Map<int, (int, String, String, double)> _qualities = {
     480: (854, 'SD', 'Smaller file', 3),
@@ -491,6 +492,12 @@ class _ExportScreenState extends State<ExportScreen> {
       ),
     );
 
+    if (!_defaultsReady) {
+      _quality = _qualities.containsKey(state.settings.videoHeight) ? state.settings.videoHeight : 720;
+      _fps = state.settings.frameRate;
+      _mbps = _qualities[_quality]!.$4;
+      _defaultsReady = true;
+    }
     if (lesson != null && !_nameReady) {
       _nameCtl.text = 'Kainuwa_${_safeName(lesson.title)}';
       _nameReady = true;
@@ -503,7 +510,7 @@ class _ExportScreenState extends State<ExportScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: KColors.surface,
             borderRadius: BorderRadius.circular(18),
             boxShadow: const [BoxShadow(color: Color(0x143B0F8C), blurRadius: 10, offset: Offset(0, 2))],
           ),
@@ -511,7 +518,7 @@ class _ExportScreenState extends State<ExportScreen> {
         );
     Widget label(String t) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple)),
+          child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
         );
 
     final tiles = <Widget>[];
@@ -532,9 +539,9 @@ class _ExportScreenState extends State<ExportScreen> {
             width: 150,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
-              color: on ? KColors.lavender : Colors.white,
+              color: on ? KColors.lavender : KColors.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: on ? KColors.purple : const Color(0xFFD9D0F0), width: on ? 2 : 1),
+              border: Border.all(color: on ? KColors.purple : const Color(0xFF3D3266), width: on ? 2 : 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -622,7 +629,7 @@ class _ExportScreenState extends State<ExportScreen> {
             Row(
               children: [
                 const Expanded(
-                  child: Text('Video bitrate', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.deepPurple)),
+                  child: Text('Video bitrate', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
                 ),
                 Text('${_mbps.round()} Mbps', style: const TextStyle(fontWeight: FontWeight.w700)),
               ],
@@ -678,7 +685,7 @@ class _ExportScreenState extends State<ExportScreen> {
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: KColors.gold,
-              foregroundColor: KColors.ink,
+              foregroundColor: KColors.onGold,
             ),
             onPressed: lesson == null ? null : _start,
             icon: const Icon(Icons.movie_creation_outlined),

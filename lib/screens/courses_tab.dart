@@ -74,13 +74,13 @@ class CoursesTab extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: KColors.deepPurple,
+                      color: KColors.accent,
                     ),
                   ),
                 ),
                 IconButton(
                   onPressed: onOpenSettings,
-                  icon: const Icon(Icons.settings, color: KColors.deepPurple),
+                  icon: const Icon(Icons.settings, color: KColors.accent),
                 ),
               ],
             ),
@@ -93,7 +93,7 @@ class CoursesTab extends StatelessWidget {
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: KColors.gold,
-                      foregroundColor: KColors.ink,
+                      foregroundColor: KColors.onGold,
                     ),
                     onPressed: () => _create(context),
                     icon: const Icon(Icons.add),

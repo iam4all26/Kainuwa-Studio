@@ -469,26 +469,38 @@ class Course {
 }
 
 class AppSettings {
-  const AppSettings({this.videoHeight = 720, this.frameRate = 30});
+  const AppSettings({
+    this.videoHeight = 720,
+    this.frameRate = 30,
+    this.orientation = 'portrait',
+  });
 
   final int videoHeight;
   final int frameRate;
 
+  /// portrait or landscape
+  final String orientation;
+
+  bool get landscape => orientation == 'landscape';
+
   int get videoWidth => videoHeight == 1080 ? 1920 : 1280;
 
-  AppSettings copyWith({int? videoHeight, int? frameRate}) => AppSettings(
+  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation}) => AppSettings(
         videoHeight: videoHeight ?? this.videoHeight,
         frameRate: frameRate ?? this.frameRate,
+        orientation: orientation ?? this.orientation,
       );
 
   Map<String, dynamic> toJson() => {
         'videoHeight': videoHeight,
         'frameRate': frameRate,
+        'orientation': orientation,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
         videoHeight: _int(json['videoHeight'], 720) == 1080 ? 1080 : 720,
         frameRate: _int(json['frameRate'], 30) == 24 ? 24 : 30,
+        orientation: _str(json['orientation'], 'portrait') == 'landscape' ? 'landscape' : 'portrait',
       );
 }
 

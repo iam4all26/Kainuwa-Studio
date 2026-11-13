@@ -558,7 +558,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
           dragEnd = widget.onEditEnd;
         }
         final isText = layer.type == 'text';
-        final fg = isText ? KColors.ink : Colors.white;
+        final fg = isText ? KColors.onGold : Colors.white;
         body = Container(
           color: isText ? KColors.clipText : KColors.clipPicture,
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -812,7 +812,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
               child: Center(
                 child: Text(
                   'Screen recordings will appear here',
-                  style: TextStyle(fontSize: math.max(10.0, 22 * u), color: const Color(0xFF8C80B8)),
+                  style: TextStyle(fontSize: math.max(10.0, 22 * u), color: const Color(0xFFA89DD0)),
                 ),
               ),
             ));
@@ -926,7 +926,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
           GestureDetector(
             onTap: widget.onAddTrack,
             child: CustomPaint(
-              painter: _DashedBorderPainter(color: const Color(0xFF9A8FC2), radius: math.max(8.0, 16 * u)),
+              painter: _DashedBorderPainter(color: const Color(0xFF6F63A6), radius: math.max(8.0, 16 * u)),
               child: SizedBox(
                 width: math.max(labelW - 6 * u, 80),
                 height: addH,
@@ -964,7 +964,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
               behavior: HitTestBehavior.opaque,
               onTap: () => widget.onTrackMenu(id),
               child: Center(
-                child: Icon(Icons.menu, size: math.max(16.0, 34 * u), color: const Color(0xFF5B4A8A)),
+                child: Icon(Icons.menu, size: math.max(16.0, 34 * u), color: const Color(0xFF9C8FD0)),
               ),
             ),
           ));
@@ -1026,7 +1026,7 @@ class _RulerPainter extends CustomPainter {
     }
     final minor = step / 5.0;
     final tickPaint = Paint()
-      ..color = const Color(0xFF9B93B8)
+      ..color = const Color(0xFF8E84B8)
       ..strokeWidth = math.max(1.0, 2 * u);
     final seconds = size.width / pps;
     final count = (seconds / minor).ceil() + 1;
@@ -1045,7 +1045,7 @@ class _RulerPainter extends CustomPainter {
           text: TextSpan(
             text: label,
             style: TextStyle(
-              color: const Color(0xFF3A3358),
+              color: const Color(0xFFB5ABD6),
               fontSize: math.max(10.0, 24 * u),
               fontWeight: FontWeight.w500,
             ),
