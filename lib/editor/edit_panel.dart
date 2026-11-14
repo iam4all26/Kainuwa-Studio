@@ -902,12 +902,51 @@ class _EditPanelState extends State<_EditPanel> {
     );
   }
 
+  String _animSub = 'in';
+
+  Widget _sub(String key, Widget child) => _animSub == key ? child : const SizedBox.shrink();
+
+  Widget _animSubBar() {
+    final items = <(String, String, IconData)>[
+      ('in', 'In', Icons.login),
+      ('overall', 'Overall', Icons.autorenew),
+      ('out', 'Out', Icons.logout),
+      ('hand', 'Hand', Icons.pan_tool_outlined),
+      if (_isText) ('text', 'Text', Icons.text_fields),
+      ('time', 'Timing', Icons.timer_outlined),
+    ];
+    if (!items.any((i) => i.$1 == _animSub)) _animSub = 'in';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final i in items)
+            ChoiceChip(
+              avatar: Icon(i.$3, size: 16, color: _animSub == i.$1 ? Colors.white : KColors.accent),
+              label: Text(i.$2),
+              selected: _animSub == i.$1,
+              selectedColor: KColors.purple,
+              labelStyle: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _animSub == i.$1 ? Colors.white : KColors.ink,
+              ),
+              showCheckmark: false,
+              onSelected: (_) => setState(() => _animSub = i.$1),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _animationTab() {
     final sceneMs = widget.scene.durationMs;
     final end = layerEndMs(l, sceneMs);
     return Column(
       children: [
-        _card(
+        _animSubBar(),
+        _sub('time', _card(
           'On screen',
           Icons.timer_outlined,
           Column(
@@ -965,8 +1004,8 @@ class _EditPanelState extends State<_EditPanel> {
               ),
             ],
           ),
-        ),
-        _card(
+        )),
+        _sub('in', _card(
           'In animation',
           Icons.login,
           Column(
@@ -1014,14 +1053,14 @@ class _EditPanelState extends State<_EditPanel> {
                 ),
             ],
           ),
-        ),
-        _card(
+        )),
+        _sub('hand', _card(
           'Hand reveal',
           Icons.pan_tool_outlined,
           HandPicker(layer: l, onChanged: _changed),
-        ),
+        )),
         if (_isText)
-          _card(
+          _sub('text', _card(
             'Text animation',
             Icons.text_fields,
             Column(
@@ -1087,8 +1126,8 @@ class _EditPanelState extends State<_EditPanel> {
                 ],
               ],
             ),
-          ),
-        _card(
+          )),
+        _sub('overall', _card(
           'Overall animation',
           Icons.autorenew,
           Column(
@@ -1137,8 +1176,8 @@ class _EditPanelState extends State<_EditPanel> {
               ],
             ],
           ),
-        ),
-        _card(
+        )),
+        _sub('out', _card(
           'Out animation',
           Icons.logout,
           Column(
@@ -1174,7 +1213,7 @@ class _EditPanelState extends State<_EditPanel> {
               ),
             ],
           ),
-        ),
+        )),
       ],
     );
   }
@@ -1282,15 +1321,9 @@ class _EditPanelState extends State<_EditPanel> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(t.$3, size: 17, color: _tab == t.$1 ? Colors.white : KColors.deepPurple),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    t.$2,
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: _tab == t.$1 ? Colors.white : KColors.ink,
-                                    ),
+                                  Tooltip(
+                                    message: t.$2,
+                                    child: Icon(t.$3, size: 24, color: _tab == t.$1 ? Colors.white : KColors.deepPurple),
                                   ),
                                 ],
                               ),

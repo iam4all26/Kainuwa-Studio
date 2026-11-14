@@ -384,7 +384,8 @@ class _SceneCanvasState extends State<SceneCanvas> {
       final t = widget.ghostAtMs!;
       final end = layerEndMs(layer, widget.scene.durationMs);
       if (t < layer.startMs || t >= end) {
-        placed = Opacity(opacity: 0.25, child: placed);
+        // Items that are not on screen at this moment are not shown at all.
+        return const SizedBox.shrink();
       }
     }
 
