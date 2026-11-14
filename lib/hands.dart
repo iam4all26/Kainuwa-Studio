@@ -102,7 +102,7 @@ HandState handStateAt(Layer l, int tMs) {
   return HandState(1, false, endX, endY);
 }
 
-int handTotalMs(Layer l) => kHandEnterMs + math.max(1, l.handMs) + kHandExitMs;
+int handTotalMs(Layer l) => kHandEnterMs + math.max<int>(1, l.handMs) + kHandExitMs;
 
 /// Shows only the left part of its child.
 class FractionClipper extends CustomClipper<Rect> {
