@@ -65,6 +65,7 @@ class _ExportScreenState extends State<ExportScreen> {
   int _phase = 0; // 0 drawing, 1 narration, 2 video
   double _progress = 0;
   String _status = '';
+  DateTime? _startedAt;
   String? _unsavedVideo;
   String _unsavedName = '';
 
@@ -88,11 +89,13 @@ class _ExportScreenState extends State<ExportScreen> {
 
   void _setProgress(int phase, double fraction) {
     if (!mounted) return;
-    const starts = [0.0, 0.2, 0.35];
-    const spans = [0.2, 0.15, 0.65];
+    const starts = [0.0, 0.25, 0.35];
+    const spans = [0.25, 0.10, 0.65];
+    final value = starts[phase] + spans[phase] * fraction.clamp(0.0, 1.0).toDouble();
     setState(() {
       _phase = phase;
-      _progress = starts[phase] + spans[phase] * fraction.clamp(0.0, 1.0).toDouble();
+      // The bar only ever moves forward.
+      if (value > _progress) _progress = value;
     });
   }
 
@@ -217,6 +220,7 @@ class _ExportScreenState extends State<ExportScreen> {
       _unsavedVideo = null;
       _phase = 0;
       _progress = 0;
+      _startedAt = DateTime.now();
       _status = 'Drawing slides. Keep this screen open.';
     });
 
@@ -465,6 +469,145 @@ class _ExportScreenState extends State<ExportScreen> {
 
   // ---- Screen ----
 
+  /// Small pictures of the slides, so the person sees what is being exported.
+  Widget _thumbnails(List<Scene> scenes) {
+    const w = 96.0;
+    const h = 54.0;
+    final shown = scenes.take(12).toList();
+    final more = scenes.length - shown.length;
+    final media = MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling);
+    return SizedBox(
+      height: h,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: shown.length + (more > 0 ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          if (i >= shown.length) {
+            return Container(
+              width: w,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: KColors.lavender,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('+$more more', style: const TextStyle(fontSize: 12)),
+            );
+          }
+          final scene = shown[i];
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: w,
+              height: h,
+              child: IgnorePointer(
+                child: MediaQuery(
+                  data: media,
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: _kStageW,
+                      height: _kStageH,
+                      child: SceneCanvas(scene: scene),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _elapsed() {
+    final t = _startedAt;
+    if (t == null) return '';
+    final sec = DateTime.now().difference(t).inSeconds;
+    final m = (sec ~/ 60).toString().padLeft(2, '0');
+    final r = (sec % 60).toString().padLeft(2, '0');
+    return '$m:$r';
+  }
+
+  Widget _progressCard() {
+    final pct = (_progress * 100).clamp(0, 100).round();
+    const steps = ['Slides', 'Sound', 'Video'];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: KColors.lavender,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$pct%', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1)),
+              const Spacer(),
+              Text(_elapsed(), style: const TextStyle(fontSize: 13, color: Colors.white60)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              height: 12,
+              child: Stack(
+                children: [
+                  const Positioned.fill(child: ColoredBox(color: Color(0x33FFFFFF))),
+                  Positioned.fill(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: _progress.clamp(0.0, 1.0)),
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOut,
+                      builder: (context, v, _) => FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: v <= 0 ? 0.0 : v,
+                        child: const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [KColors.purple, KColors.gold]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (var i = 0; i < steps.length; i++) ...[
+                if (i > 0) const SizedBox(width: 14),
+                Icon(
+                  i < _phase
+                      ? Icons.check_circle
+                      : (i == _phase ? Icons.timelapse : Icons.radio_button_unchecked),
+                  size: 16,
+                  color: i <= _phase ? KColors.gold : Colors.white38,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  steps[i],
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: i == _phase ? FontWeight.w700 : FontWeight.w500,
+                    color: i <= _phase ? Colors.white : Colors.white54,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
@@ -527,38 +670,47 @@ class _ExportScreenState extends State<ExportScreen> {
       final info = entry.value;
       final on = q == _quality;
       tiles.add(
-        InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: _busy
-              ? null
-              : () => setState(() {
-                    _quality = q;
-                    _mbps = info.$4;
-                  }),
-          child: Container(
-            width: 150,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: on ? KColors.lavender : KColors.surface,
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(left: tiles.isEmpty ? 0 : 6),
+            child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: on ? KColors.purple : const Color(0xFF3D3266), width: on ? 2 : 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              onTap: _busy
+                  ? null
+                  : () => setState(() {
+                        _quality = q;
+                        _mbps = info.$4;
+                      }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                decoration: BoxDecoration(
+                  color: on ? KColors.lavender : KColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: on ? KColors.purple : const Color(0xFF3D3266), width: on ? 2 : 1),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('${q}p', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                    const SizedBox(width: 6),
-                    Text(info.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    if (on) const Icon(Icons.check_circle, size: 18, color: KColors.purple),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('${q}p', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(info.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('${info.$1}x$q', style: const TextStyle(fontSize: 10, color: Colors.white60)),
+                    ),
+                    const SizedBox(height: 4),
+                    Icon(on ? Icons.check_circle : Icons.circle_outlined,
+                        size: 16, color: on ? KColors.purple : Colors.white24),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text('${info.$1} x $q', style: const TextStyle(fontSize: 12)),
-                Text(info.$3, style: TextStyle(fontSize: 11, color: q == 720 ? KColors.purple : Colors.black54)),
-              ],
+              ),
             ),
           ),
         ),
@@ -568,23 +720,32 @@ class _ExportScreenState extends State<ExportScreen> {
     final content = ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        card(Row(
+        card(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.movie_creation_outlined, color: KColors.purple, size: 30),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(lesson?.title ?? 'Lesson',
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  if (lesson != null)
-                    Text('${sceneCountText(lesson.scenes.length)}  -  ${formatClock(lesson.durationMs)}  -  about ${estMb.toStringAsFixed(estMb < 10 ? 1 : 0)} MB'),
-                ],
-              ),
+            Row(
+              children: [
+                const Icon(Icons.movie_creation_outlined, color: KColors.purple, size: 30),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(lesson?.title ?? 'Lesson',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      if (lesson != null)
+                        Text('${sceneCountText(lesson.scenes.length)}  -  ${formatClock(lesson.durationMs)}  -  about ${estMb.toStringAsFixed(estMb < 10 ? 1 : 0)} MB'),
+                    ],
+                  ),
+                ),
+              ],
             ),
+            if (lesson != null && lesson.scenes.isNotEmpty && !_busy) ...[
+              const SizedBox(height: 12),
+              _thumbnails(lesson.scenes),
+            ],
           ],
         )),
         card(Column(
@@ -606,7 +767,12 @@ class _ExportScreenState extends State<ExportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             label('Quality'),
-            Wrap(spacing: 10, runSpacing: 10, children: tiles),
+            Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: tiles),
+            const SizedBox(height: 8),
+            Text(
+              '${_qualities[_quality]!.$3}${_quality == 720 ? '' : '  (720p is recommended)'}',
+              style: const TextStyle(fontSize: 12, color: Colors.white60),
+            ),
           ],
         )),
         card(Column(
@@ -665,9 +831,7 @@ class _ExportScreenState extends State<ExportScreen> {
           ),
         ),
         if (_busy) ...[
-          LinearProgressIndicator(value: _progress <= 0 ? null : _progress, minHeight: 8),
-          const SizedBox(height: 6),
-          Text('${(_progress * 100).round()} percent'),
+          _progressCard(),
           const SizedBox(height: 12),
         ],
         if (_status.isNotEmpty)
