@@ -51,6 +51,8 @@ class Layer {
     this.textAnimMs = 0,
     this.hand = '',
     this.handMs = 2500,
+    this.animLoop = 'none',
+    this.animLoopMs = 0,
     this.cropL = 0,
     this.cropT = 0,
     this.cropR = 0,
@@ -120,6 +122,11 @@ class Layer {
   String hand;
   int handMs;
 
+  /// Overall animation that keeps going while the item is on screen (spin, shake, pulse...).
+  /// animLoopMs is the time of one round, 0 for the default of that kind.
+  String animLoop;
+  int animLoopMs;
+
   /// Picture crop: the fraction cut from each side (0 to 0.8).
   double cropL;
   double cropT;
@@ -168,6 +175,8 @@ class Layer {
         'textAnimMs': textAnimMs,
         'hand': hand,
         'handMs': handMs,
+        'animLoop': animLoop,
+        'animLoopMs': animLoopMs,
         'cropL': cropL,
         'cropT': cropT,
         'cropR': cropR,
@@ -210,6 +219,8 @@ class Layer {
         textAnimMs: _int(json['textAnimMs'], 0),
         hand: _str(json['hand'], ''),
         handMs: _int(json['handMs'], 2500),
+        animLoop: _str(json['animLoop'], 'none'),
+        animLoopMs: _int(json['animLoopMs'], 0),
         cropL: _num(json['cropL'], 0),
         cropT: _num(json['cropT'], 0),
         cropR: _num(json['cropR'], 0),

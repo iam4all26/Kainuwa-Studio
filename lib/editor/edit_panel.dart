@@ -41,6 +41,7 @@ Future<void> showEditPanel(
   required Scene scene,
   required String initialTab,
   required VoidCallback onLive,
+  required ValueChanged<Layer?> onDemo,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -50,8 +51,15 @@ Future<void> showEditPanel(
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
       child: FractionallySizedBox(
-        heightFactor: 0.62,
-        child: _EditPanel(layer: layer, scene: scene, initialTab: initialTab, onLive: onLive),
+        // The Animate tab is shorter so the slide stays visible above it.
+        heightFactor: initialTab == 'animation' ? 0.5 : 0.62,
+        child: _EditPanel(
+          layer: layer,
+          scene: scene,
+          initialTab: initialTab,
+          onLive: onLive,
+          onDemo: onDemo,
+        ),
       ),
     ),
   );
@@ -63,12 +71,16 @@ class _EditPanel extends StatefulWidget {
     required this.scene,
     required this.initialTab,
     required this.onLive,
+    required this.onDemo,
   });
 
   final Layer layer;
   final Scene scene;
   final String initialTab;
   final VoidCallback onLive;
+
+  /// Asks the editor to play this item's animations on the canvas (null to stop).
+  final ValueChanged<Layer?> onDemo;
 
   @override
   State<_EditPanel> createState() => _EditPanelState();
@@ -88,6 +100,11 @@ class _EditPanelState extends State<_EditPanel> {
     super.initState();
     _tab = widget.initialTab;
     if (!_tabs.any((t) => t.$1 == _tab)) _tab = _tabs.first.$1;
+    if (_tab == 'animation') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onDemo(l);
+      });
+    }
     if ((l.type == 'image' || l.type == 'asset') && l.srcAspect <= 0) {
       _loadAspect().then((a) {
         l.srcAspect = a;
@@ -279,6 +296,7 @@ class _EditPanelState extends State<_EditPanel> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDemo(null));
     _text.dispose();
     super.dispose();
   }
@@ -294,6 +312,7 @@ class _EditPanelState extends State<_EditPanel> {
   void _changed() {
     setState(() {});
     widget.onLive();
+    if (_tab == 'animation') widget.onDemo(l);
   }
 
   /// Applies a text style change and keeps the text the same size.
@@ -927,7 +946,7 @@ class _EditPanelState extends State<_EditPanel> {
           ),
         ),
         _card(
-          'Entrance',
+          'In animation',
           Icons.login,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1049,7 +1068,57 @@ class _EditPanelState extends State<_EditPanel> {
             ),
           ),
         _card(
-          'Exit',
+          'Overall animation',
+          Icons.autorenew,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final kind in kLoopKinds)
+                    ChoiceChip(
+                      label: Text(loopLabel(kind)),
+                      selected: l.animLoop == kind,
+                      onSelected: (_) {
+                        l.animLoop = kind;
+                        _changed();
+                      },
+                    ),
+                ],
+              ),
+              if (l.animLoop != 'none') ...[
+                const SizedBox(height: 8),
+                _labeled(
+                  'Time for one round',
+                  _NumField(
+                    value: loopPeriodMs(l) / 1000,
+                    min: 0.2,
+                    max: 20,
+                    step: 0.1,
+                    decimals: 1,
+                    suffix: 's',
+                    width: 60,
+                    onChanged: (v) {
+                      l.animLoopMs = (v * 1000).round();
+                      _changed();
+                    },
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Keeps going the whole time the item is on screen.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        _card(
+          'Out animation',
           Icons.logout,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1176,7 +1245,10 @@ class _EditPanelState extends State<_EditPanel> {
                       Expanded(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(() => _tab = t.$1),
+                          onTap: () {
+                            setState(() => _tab = t.$1);
+                            widget.onDemo(t.$1 == 'animation' ? l : null);
+                          },
                           child: Container(
                             height: 38,
                             decoration: BoxDecoration(

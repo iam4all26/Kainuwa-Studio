@@ -211,6 +211,12 @@ class KainuwaEncoder {
     return _channel.invokeMethod<void>('videoPlay', {'ms': ms});
   }
 
+  /// Playback speed of the open video (1.0 normal), used to catch up with the sound.
+  static Future<void> videoSpeed(double speed) {
+    _init();
+    return _channel.invokeMethod<void>('videoSpeed', {'speed': speed});
+  }
+
   static Future<void> videoSeek(int ms) {
     _init();
     return _channel.invokeMethod<void>('videoSeek', {'ms': ms});

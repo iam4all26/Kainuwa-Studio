@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../app_state.dart';
+import '../demo_plan.dart';
 import '../editor/add_timeline_sheet.dart';
 import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
@@ -92,6 +94,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     WidgetsBinding.instance.removeObserver(this);
     AppState.editorLandscape = false;
     AppState.setOrientation(landscape: false);
+    _demoPending?.cancel();
+    _demoTimer?.cancel();
+    _demoMs.dispose();
     _player?.removeListener(_onPlayer);
     _player?.dispose();
     super.dispose();
@@ -121,6 +126,45 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   void _pause() => _player?.pause();
+
+  // ---- live demo of an item's animations on the canvas (while the Animate panel is open) ----
+
+  final ValueNotifier<int?> _demoMs = ValueNotifier<int?>(null);
+  String? _demoId;
+  Timer? _demoTimer;
+  Timer? _demoPending;
+  final Stopwatch _demoClock = Stopwatch();
+
+  void _onDemo(Layer? layer) {
+    _demoPending?.cancel();
+    if (layer == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _stopDemo());
+      return;
+    }
+    // Wait a moment so dragging a slider does not restart the demo on every step.
+    _demoPending = Timer(const Duration(milliseconds: 150), () => _startDemo(layer));
+  }
+
+  void _startDemo(Layer layer) {
+    _demoTimer?.cancel();
+    _demoId = layer.id;
+    _demoClock
+      ..reset()
+      ..start();
+    _demoTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      final total = math.max(1, demoPlan(layer).total);
+      _demoMs.value = _demoClock.elapsedMilliseconds % total;
+    });
+  }
+
+  void _stopDemo() {
+    _demoPending?.cancel();
+    _demoTimer?.cancel();
+    _demoTimer = null;
+    _demoClock.stop();
+    _demoId = null;
+    _demoMs.value = null;
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -509,7 +553,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       onLive: () {
         if (mounted) setState(() {});
       },
+      onDemo: _onDemo,
     );
+    _stopDemo();
     _commit();
   }
 
@@ -1253,12 +1299,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         borderRadius: BorderRadius.circular(_s(u, 28, 12)),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: SceneCanvas(
+          child: ValueListenableBuilder<int?>(
+            valueListenable: _demoMs,
+            builder: (context, demoMs, _) => SceneCanvas(
             scene: viewScene(scene, lesson.hiddenTracks),
             selectedId: playing ? null : _selectedId,
             interactive: !playing,
             previewMs: playing ? spot.localMs : null,
             ghostAtMs: playing ? null : spot.localMs,
+            demoId: playing ? null : _demoId,
+            demoMs: playing ? null : demoMs,
             onSelect: _selectLayer,
             onCommit: _commit,
             onDuplicate: (id) {
@@ -1269,6 +1319,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
               final layer = _selectedLayer(scene);
               if (layer != null && layer.id == id) _deleteLayer(scene, layer);
             },
+            ),
           ),
         ),
       ),

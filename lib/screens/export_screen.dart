@@ -440,6 +440,8 @@ class _ExportScreenState extends State<ExportScreen> {
               'outAnim': layer.animOut,
               'outStartMs': end - layer.animOutDurationMs,
               'outDurMs': layer.animOutDurationMs,
+              'loop': layer.animLoop,
+              'loopMs': loopPeriodMs(layer),
             });
           }
           overlays.addAll(handOverlays);

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'animation_math.dart';
+import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
 import 'text_reveal.dart';
@@ -25,6 +26,8 @@ class SceneCanvas extends StatefulWidget {
     this.interactive = false,
     this.previewMs,
     this.ghostAtMs,
+    this.demoId,
+    this.demoMs,
   });
 
   final Scene scene;
@@ -46,6 +49,11 @@ class SceneCanvas extends StatefulWidget {
   /// Editor only: while paused at this time (milliseconds into the slide), items
   /// that are not on screen at that moment are drawn faded so they can still be edited.
   final int? ghostAtMs;
+
+  /// Editor only: while the Animate panel is open, the item with this id plays its
+  /// animations on the canvas, [demoMs] milliseconds into the demo round.
+  final String? demoId;
+  final int? demoMs;
 
   @override
   State<SceneCanvas> createState() => _SceneCanvasState();
@@ -84,10 +92,10 @@ class _SceneCanvasState extends State<SceneCanvas> {
           children.add(_buildLayer(layer, width, height));
           if (widget.interactive && layer.id == widget.selectedId) selected = layer;
         }
-        if (widget.previewMs != null) {
-          for (final layer in widget.scene.layers) {
-            if (layer.hand.isNotEmpty) children.add(_buildHand(layer, width, height));
-          }
+        for (final layer in widget.scene.layers) {
+          if (layer.hand.isEmpty) continue;
+          final t = _timing(layer);
+          if (t != null) children.add(_buildHand(t.$1, t.$2, width, height));
         }
         if (selected != null) {
           children.add(_buildSelection(selected, width, height));
@@ -269,10 +277,23 @@ class _SceneCanvasState extends State<SceneCanvas> {
     );
   }
 
-  Widget _buildHand(Layer layer, double width, double height) {
+  /// The item to take timing from, the time, and the slide length, when the item is
+  /// animating (playing, or shown in the Animate panel's live demo). Null otherwise.
+  (Layer, int, int)? _timing(Layer layer) {
+    final demo = widget.demoMs;
+    if (widget.demoId == layer.id && demo != null) {
+      final plan = demoPlan(layer);
+      return (plan.layer, demo, math.max(widget.scene.durationMs, plan.total));
+    }
+    final p = widget.previewMs;
+    if (p != null) return (layer, p, widget.scene.durationMs);
+    return null;
+  }
+
+  Widget _buildHand(Layer layer, int ms, double width, double height) {
     final spec = handById(layer.hand);
     if (spec == null) return const SizedBox.shrink();
-    final st = handStateAt(layer, widget.previewMs! - (layer.startMs + layer.animStartMs));
+    final st = handStateAt(layer, ms - (layer.startMs + layer.animStartMs));
     if (!st.visible) return const SizedBox.shrink();
     final hw = width * kHandWidthFrac;
     final hh = hw / spec.aspect;
@@ -288,16 +309,17 @@ class _SceneCanvasState extends State<SceneCanvas> {
   }
 
   Widget _buildLayer(Layer layer, double width, double height) {
+    final timing = _timing(layer);
     final handSpec = layer.hand.isEmpty ? null : handById(layer.hand);
-    final revealMs = (widget.previewMs != null &&
+    final revealMs = (timing != null &&
             handSpec == null &&
             layer.type == 'text' &&
             layer.textAnim != 'none')
-        ? widget.previewMs! - (layer.startMs + layer.animStartMs)
+        ? timing.$2 - (timing.$1.startMs + timing.$1.animStartMs)
         : null;
     Widget content = LayerContent(layer: layer, revealMs: revealMs);
-    if (handSpec != null && widget.previewMs != null) {
-      final hs = handStateAt(layer, widget.previewMs! - (layer.startMs + layer.animStartMs));
+    if (handSpec != null && timing != null) {
+      final hs = handStateAt(timing.$1, timing.$2 - (timing.$1.startMs + timing.$1.animStartMs));
       if (hs.reveal < 1) {
         content = ClipRect(clipper: FractionClipper(hs.reveal), child: content);
       }
@@ -342,17 +364,18 @@ class _SceneCanvasState extends State<SceneCanvas> {
     }
 
     Widget placed = Transform.rotate(angle: layer.rotation, child: content);
-    final previewMs = widget.previewMs;
-    if (previewMs != null) {
-      final frame = layerFrame(layer, previewMs, widget.scene.durationMs);
+    if (timing != null) {
+      final frame = layerFrame(timing.$1, timing.$2, timing.$3);
       if (frame.alpha <= 0) return const SizedBox.shrink();
       placed = Opacity(
         opacity: frame.alpha.clamp(0.0, 1.0).toDouble(),
         child: Transform.translate(
-          offset: Offset(frame.dx * width, 0),
+          offset: Offset(frame.dx * width, frame.dy * height),
           child: Transform(
             alignment: Alignment.center,
-            transform: Matrix4.diagonal3Values(frame.scale * frame.scaleX, frame.scale, 1),
+            transform: Matrix4.identity()
+              ..rotateZ(frame.rot * math.pi / 180)
+              ..scale(frame.scale * frame.scaleX, frame.scale, 1.0),
             child: placed,
           ),
         ),
@@ -533,8 +556,17 @@ class _LiveVideoState extends State<LiveVideo> {
     try {
       final pos = await KainuwaEncoder.videoPosition();
       if (pos < 0 || !_owner) return;
-      if ((pos - widget.ms).abs() > 120) {
+      final drift = pos - (widget.ms + 30);
+      if (drift.abs() > 600) {
+        // Far out of step: jump.
         await KainuwaEncoder.videoSeek(widget.ms + 30);
+        await KainuwaEncoder.videoSpeed(1.0);
+      } else if (drift.abs() > 50) {
+        // A little out of step: play slightly slower or faster until it catches up,
+        // which looks smoother than jumping.
+        await KainuwaEncoder.videoSpeed(drift > 0 ? 0.92 : 1.08);
+      } else {
+        await KainuwaEncoder.videoSpeed(1.0);
       }
     } catch (_) {}
   }

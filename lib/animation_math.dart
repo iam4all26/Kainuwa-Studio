@@ -4,7 +4,7 @@ import 'models.dart';
 
 /// The look of an item at one moment of its animation.
 class AnimFrame {
-  const AnimFrame(this.alpha, this.dx, this.scale, [this.scaleX = 1]);
+  const AnimFrame(this.alpha, this.dx, this.scale, [this.scaleX = 1, this.rot = 0, this.dy = 0]);
 
   /// 0 (invisible) to 1 (fully visible)
   final double alpha;
@@ -15,6 +15,12 @@ class AnimFrame {
 
   /// Extra stretch across the width only (used by Draw)
   final double scaleX;
+
+  /// Turn in degrees, clockwise (overall animations)
+  final double rot;
+
+  /// Vertical shift as a fraction of the slide height, down is positive
+  final double dy;
 }
 
 const List<String> kAnimKinds = ['none', 'appear', 'fade', 'slide', 'pop', 'zoom', 'draw'];
@@ -105,20 +111,140 @@ int layerEndMs(Layer layer, int sceneMs) =>
 AnimFrame layerFrame(Layer layer, int timeMs, int sceneMs) {
   final end = layerEndMs(layer, sceneMs);
   if (timeMs < layer.startMs || timeMs >= end) return const AnimFrame(0, 0, 1);
-  final enter = animationFrame(
+  var f = animationFrame(
     layer.animIn,
     timeMs,
     layer.startMs + layer.animStartMs,
     layer.animDurationMs,
   );
-  if (layer.animOut == 'none') return enter;
-  final out = exitFrame(layer.animOut, timeMs, end - layer.animOutDurationMs, layer.animOutDurationMs);
-  return AnimFrame(
-    enter.alpha * out.alpha,
-    enter.dx + out.dx,
-    enter.scale * out.scale,
-    enter.scaleX * out.scaleX,
-  );
+  if (layer.animOut != 'none') {
+    final out = exitFrame(layer.animOut, timeMs, end - layer.animOutDurationMs, layer.animOutDurationMs);
+    f = AnimFrame(f.alpha * out.alpha, f.dx + out.dx, f.scale * out.scale, f.scaleX * out.scaleX, f.rot, f.dy);
+  }
+  if (layer.animLoop != 'none') {
+    final lp = loopFrame(layer.animLoop, timeMs - layer.startMs, loopPeriodMs(layer));
+    f = AnimFrame(
+      f.alpha * lp.alpha,
+      f.dx + lp.dx,
+      f.scale * lp.scale,
+      f.scaleX * lp.scaleX,
+      f.rot + lp.rot,
+      f.dy + lp.dy,
+    );
+  }
+  return f;
+}
+
+/// Overall animations: they repeat the whole time the item is on screen.
+/// The same maths is in LessonOverlays.java and must stay identical.
+const List<String> kLoopKinds = [
+  'none',
+  'spin',
+  'spinback',
+  'swing',
+  'wobble',
+  'shake',
+  'pulse',
+  'heartbeat',
+  'float',
+  'bounce',
+  'blink',
+  'flip',
+];
+
+String loopLabel(String kind) {
+  switch (kind) {
+    case 'spin':
+      return 'Spin 360';
+    case 'spinback':
+      return 'Spin back';
+    case 'swing':
+      return 'Swing';
+    case 'wobble':
+      return 'Wobble';
+    case 'shake':
+      return 'Shake';
+    case 'pulse':
+      return 'Pulse';
+    case 'heartbeat':
+      return 'Heartbeat';
+    case 'float':
+      return 'Float';
+    case 'bounce':
+      return 'Bounce';
+    case 'blink':
+      return 'Blink';
+    case 'flip':
+      return 'Flip';
+    default:
+      return 'None';
+  }
+}
+
+int defaultLoopMs(String kind) {
+  switch (kind) {
+    case 'spin':
+    case 'spinback':
+      return 3000;
+    case 'swing':
+      return 1600;
+    case 'wobble':
+      return 1200;
+    case 'shake':
+      return 400;
+    case 'pulse':
+      return 1200;
+    case 'heartbeat':
+      return 1100;
+    case 'float':
+      return 2400;
+    case 'bounce':
+      return 900;
+    case 'blink':
+      return 1000;
+    case 'flip':
+      return 2400;
+    default:
+      return 1000;
+  }
+}
+
+/// Time of one round of the overall animation.
+int loopPeriodMs(Layer layer) => layer.animLoopMs > 0 ? layer.animLoopMs : defaultLoopMs(layer.animLoop);
+
+/// [timeMs] is the time since the item appeared.
+AnimFrame loopFrame(String kind, int timeMs, int periodMs) {
+  if (kind == 'none' || timeMs < 0) return const AnimFrame(1, 0, 1);
+  final period = math.max(100, periodMs);
+  final phase = (timeMs % period) / period;
+  final s = math.sin(2 * math.pi * phase);
+  switch (kind) {
+    case 'spin':
+      return AnimFrame(1, 0, 1, 1, 360 * phase, 0);
+    case 'spinback':
+      return AnimFrame(1, 0, 1, 1, -360 * phase, 0);
+    case 'swing':
+      return AnimFrame(1, 0, 1, 1, 15 * s, 0);
+    case 'wobble':
+      return AnimFrame(1, 0, 1 + 0.04 * math.cos(2 * math.pi * phase), 1, 6 * s, 0);
+    case 'shake':
+      return AnimFrame(1, 0.012 * s, 1, 1, 2 * s, 0);
+    case 'pulse':
+      return AnimFrame(1, 0, 1 + 0.08 * s);
+    case 'heartbeat':
+      final beat = phase < 0.5 ? math.max(0.0, math.sin(4 * math.pi * phase)) : 0.0;
+      return AnimFrame(1, 0, 1 + 0.12 * beat);
+    case 'float':
+      return AnimFrame(1, 0, 1, 1, 0, 0.02 * s);
+    case 'bounce':
+      return AnimFrame(1, 0, 1, 1, 0, -0.05 * math.sin(math.pi * phase).abs());
+    case 'blink':
+      return AnimFrame(0.35 + 0.65 * (0.5 + 0.5 * math.cos(2 * math.pi * phase)), 0, 1);
+    case 'flip':
+      return AnimFrame(1, 0, 1, math.max(0.03, math.cos(2 * math.pi * phase).abs()));
+    default:
+      return const AnimFrame(1, 0, 1);
+  }
 }
 
 /// True when the item needs to be animated by the video encoder instead of
@@ -128,5 +254,6 @@ bool layerNeedsOverlay(Layer layer) =>
     layer.animOut != 'none' ||
     (layer.type == 'text' && layer.textAnim != 'none') ||
     layer.hand.isNotEmpty ||
+    layer.animLoop != 'none' ||
     layer.startMs > 0 ||
     layer.endMs >= 0;

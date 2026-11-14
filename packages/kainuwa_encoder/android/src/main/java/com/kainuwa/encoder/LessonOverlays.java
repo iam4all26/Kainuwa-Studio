@@ -35,6 +35,9 @@ final class LessonOverlays {
         String outKind = "none";
         long outStartMs = 0;
         long outDurMs = 500;
+        /** Overall animation (spin, shake, ...) and the time of one round. */
+        String loopKind = "none";
+        long loopMs = 1000;
         /** Optional picture series (text animations): the last frame whose time has come is shown. */
         String[] framePaths = null;
         long[] frameAt = null;
@@ -169,9 +172,10 @@ final class LessonOverlays {
             float[] pos = item.positionAt(localMs);
             // The encoder only accepts anchors from -1 to 1 (anything else stops the export).
             float x = (float) Math.max(-1.0, Math.min(1.0, pos[0] * 2f - 1f + f[1] * 2.0));
-            float y = (float) Math.max(-1.0, Math.min(1.0, 1f - pos[1] * 2f));
+            float y = (float) Math.max(-1.0, Math.min(1.0, 1f - pos[1] * 2f - f[5] * 2.0));
             return new OverlaySettings.Builder()
                     .setBackgroundFrameAnchor(x, y)
+                    .setRotationDegrees((float) -f[4])
                     .setScale((float) (f[2] * f[3]), (float) f[2])
                     .setAlphaScale((float) Math.max(0.0, Math.min(1.0, f[0])))
                     .build();
@@ -181,14 +185,73 @@ final class LessonOverlays {
     /** Timing, entrance and exit together. Returns alpha, dx, scale, scaleX. */
     static double[] fullFrame(Item item, double timeMs) {
         if (timeMs < item.showMs || timeMs >= item.hideMs) {
-            return new double[]{0, 0, 1, 1};
+            return new double[]{0, 0, 1, 1, 0, 0};
         }
         double[] in = frame(item.kind, timeMs, item.startMs, item.durMs);
-        if (item.outKind == null || item.outKind.equals("none")) {
-            return in;
+        double a = in[0];
+        double dx = in[1];
+        double sc = in[2];
+        double sx = in[3];
+        double rot = 0;
+        double dy = 0;
+        if (item.outKind != null && !item.outKind.equals("none")) {
+            double[] out = exitFrame(item.outKind, timeMs, item.outStartMs, item.outDurMs);
+            a *= out[0];
+            dx += out[1];
+            sc *= out[2];
+            sx *= out[3];
         }
-        double[] out = exitFrame(item.outKind, timeMs, item.outStartMs, item.outDurMs);
-        return new double[]{in[0] * out[0], in[1] + out[1], in[2] * out[2], in[3] * out[3]};
+        if (item.loopKind != null && !item.loopKind.equals("none")) {
+            double[] lp = loopFrame(item.loopKind, timeMs - item.showMs, item.loopMs);
+            a *= lp[0];
+            dx += lp[1];
+            sc *= lp[2];
+            sx *= lp[3];
+            rot += lp[4];
+            dy += lp[5];
+        }
+        return new double[]{a, dx, sc, sx, rot, dy};
+    }
+
+    /**
+     * Overall animations. Same maths as loopFrame in animation_math.dart.
+     * Returns alpha, dx, scale, scaleX, rotation (degrees, clockwise), dy (down is positive).
+     */
+    static double[] loopFrame(String kind, double timeMs, long periodMs) {
+        if (timeMs < 0) {
+            return new double[]{1, 0, 1, 1, 0, 0};
+        }
+        double period = Math.max(100, periodMs);
+        double phase = (timeMs - Math.floor(timeMs / period) * period) / period;
+        double s = Math.sin(2 * Math.PI * phase);
+        switch (kind) {
+            case "spin":
+                return new double[]{1, 0, 1, 1, 360 * phase, 0};
+            case "spinback":
+                return new double[]{1, 0, 1, 1, -360 * phase, 0};
+            case "swing":
+                return new double[]{1, 0, 1, 1, 15 * s, 0};
+            case "wobble":
+                return new double[]{1, 0, 1 + 0.04 * Math.cos(2 * Math.PI * phase), 1, 6 * s, 0};
+            case "shake":
+                return new double[]{1, 0.012 * s, 1, 1, 2 * s, 0};
+            case "pulse":
+                return new double[]{1, 0, 1 + 0.08 * s, 1, 0, 0};
+            case "heartbeat": {
+                double beat = phase < 0.5 ? Math.max(0.0, Math.sin(4 * Math.PI * phase)) : 0.0;
+                return new double[]{1, 0, 1 + 0.12 * beat, 1, 0, 0};
+            }
+            case "float":
+                return new double[]{1, 0, 1, 1, 0, 0.02 * s};
+            case "bounce":
+                return new double[]{1, 0, 1, 1, 0, -0.05 * Math.abs(Math.sin(Math.PI * phase))};
+            case "blink":
+                return new double[]{0.35 + 0.65 * (0.5 + 0.5 * Math.cos(2 * Math.PI * phase)), 0, 1, 1, 0, 0};
+            case "flip":
+                return new double[]{1, 0, 1, Math.max(0.03, Math.abs(Math.cos(2 * Math.PI * phase))), 0, 0};
+            default:
+                return new double[]{1, 0, 1, 1, 0, 0};
+        }
     }
 
     /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale, scaleX. */

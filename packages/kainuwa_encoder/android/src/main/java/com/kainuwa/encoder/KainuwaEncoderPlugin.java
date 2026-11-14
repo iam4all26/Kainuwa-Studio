@@ -27,6 +27,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.common.MimeTypes;
@@ -328,6 +329,10 @@ public class KainuwaEncoderPlugin
                     exo.seekTo((long) num(call, "ms", 0));
                     exo.setPlayWhenReady(true);
                 }
+                result.success(null);
+                break;
+            case "videoSpeed":
+                if (exo != null) exo.setPlaybackParameters(new PlaybackParameters((float) num(call, "speed", 1.0)));
                 result.success(null);
                 break;
             case "videoSeek":
@@ -892,6 +897,9 @@ public class KainuwaEncoderPlugin
                             ? (String) m.get("outAnim") : "none";
                     it.outStartMs = longOf(m.get("outStartMs"), 0);
                     it.outDurMs = longOf(m.get("outDurMs"), 500);
+                    Object lk = m.get("loop");
+                    it.loopKind = lk instanceof String ? (String) lk : "none";
+                    it.loopMs = longOf(m.get("loopMs"), 1000);
                     Object kr = m.get("keys");
                     if (kr instanceof List && !((List<Object>) kr).isEmpty()) {
                         List<Object> kl = (List<Object>) kr;
