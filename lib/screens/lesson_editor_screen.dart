@@ -784,6 +784,97 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _commit();
   }
 
+  // ---- replace the file of the selected item, keeping everything else ----
+
+  Future<void> _replaceMedia() async {
+    final lesson = _lesson();
+    final scene = _currentScene();
+    if (lesson == null) return;
+    _pause();
+    if (_selectedAudioId != null) {
+      AudioClip? clip;
+      for (final c in lesson.audioClips) {
+        if (c.id == _selectedAudioId) clip = c;
+      }
+      if (clip == null) return;
+      String? path;
+      try {
+        path = await pickMedia(context, MediaKind.audio);
+      } catch (_) {
+        path = null;
+      }
+      if (path == null || !mounted) return;
+      var ms = 0;
+      try {
+        ms = await KainuwaEncoder.audioDuration(path);
+      } catch (_) {
+        ms = 0;
+      }
+      if (!mounted) return;
+      if (ms <= 0) {
+        _snack('That audio file could not be read.');
+        return;
+      }
+      clip.path = path;
+      clip.label = _clipName(path);
+      clip.sourceMs = ms;
+      if (clip.trimMs >= ms - 500) clip.trimMs = 0;
+      clip.durationMs = math.max(500, math.min(clip.durationMs, ms - clip.trimMs));
+      _commit();
+      return;
+    }
+    final layer = _selectedLayer(scene);
+    if (layer != null) {
+      if (layer.type != 'image') {
+        _snack('Replace works for pictures. Delete and add a new one for this item.');
+        return;
+      }
+      String? path;
+      try {
+        path = await pickMedia(context, MediaKind.image);
+      } catch (_) {
+        path = null;
+      }
+      if (path == null || !mounted) return;
+      var use = path;
+      if (path.toLowerCase().endsWith('.svg')) {
+        final raster = await rasterizeSvg(path);
+        if (!mounted) return;
+        if (raster == null) {
+          _snack('That SVG could not be read.');
+          return;
+        }
+        use = raster.path;
+      }
+      layer.path = use;
+      _commit();
+      return;
+    }
+    if (_sceneSelected && scene != null && scene.hasVideo) {
+      String? path;
+      try {
+        path = await pickMedia(context, MediaKind.video);
+      } catch (_) {
+        path = null;
+      }
+      if (path == null || !mounted) return;
+      var ms = 0;
+      try {
+        ms = await KainuwaEncoder.audioDuration(path);
+      } catch (_) {
+        ms = 0;
+      }
+      if (!mounted) return;
+      if (ms <= 0) {
+        _snack('This video could not be read.');
+        return;
+      }
+      scene.videoPath = path;
+      scene.videoMs = ms;
+      _commit();
+    }
+  }
+
   Future<void> _videoSettings() async {
     final scene = _currentScene();
     if (scene == null || !scene.hasVideo) return;
@@ -1477,6 +1568,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_soundSel != null) {
@@ -1491,6 +1583,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.tune, 'Adjust', _adjust),
         (Icons.auto_awesome_outlined, 'Animate', _openAnimate),
         (Icons.speed, 'Speed', _speed),
+        if (layer.type == 'image') (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_sceneSelected && scene != null && scene.hasVideo) {
@@ -1498,6 +1591,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.videocam_outlined, 'Video', _videoSettings),
+        (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_sceneSelected) {

@@ -132,6 +132,15 @@ class _TimelinePanelState extends State<TimelinePanel> {
   final ScrollController _scroll = ScrollController();
   double _zoom = 1.0;
   double _zoomStart = 1.0;
+
+  // While the user touches or scrolls the timeline, the view does not follow the playhead.
+  DateTime _followHoldUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  Offset? _tapDown;
+  DateTime _tapTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+  void _holdFollow(int ms) {
+    _followHoldUntil = DateTime.now().add(Duration(milliseconds: ms));
+  }
   double _pps = 22;
 
   // handle drag
@@ -170,6 +179,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   /// Keeps the playhead on screen while the lesson plays.
   void _follow() {
     if (!widget.player.playing || !_scroll.hasClients) return;
+    if (DateTime.now().isBefore(_followHoldUntil)) return;
     final x = widget.player.positionMs / 1000 * _pps;
     final position = _scroll.position;
     final left = position.pixels;
@@ -847,7 +857,26 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final pillH = math.max(22.0, 42 * u);
         final lineW = math.max(2.0, 3 * u);
 
-        final content = SizedBox(
+        final content = Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (e) {
+            _holdFollow(3000);
+            _tapDown = e.localPosition;
+            _tapTime = DateTime.now();
+          },
+          onPointerMove: (_) => _holdFollow(3000),
+          onPointerUp: (e) {
+            _holdFollow(2500);
+            final down = _tapDown;
+            _tapDown = null;
+            // A quick tap anywhere on the timeline moves the playhead there.
+            if (down != null &&
+                (e.localPosition - down).distance < 10 &&
+                DateTime.now().difference(_tapTime).inMilliseconds < 400) {
+              _seekFromX(e.localPosition.dx);
+            }
+          },
+          child: SizedBox(
           width: contentW,
           height: panelH,
           child: Stack(
@@ -913,7 +942,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
               ),
             ],
           ),
-        );
+        ));
 
         // ---- fixed left column ----
         final labels = <Widget>[SizedBox(height: rulerH)];
