@@ -39,6 +39,34 @@ final class LessonOverlays {
         String[] framePaths = null;
         long[] frameAt = null;
 
+        /** Optional moving position: times (scene ms) with the centre as fractions of the slide. */
+        long[] keyT = null;
+        float[] keyX = null;
+        float[] keyY = null;
+
+        float[] positionAt(double localMs) {
+            if (keyT == null || keyT.length == 0) {
+                return new float[]{cx, cy};
+            }
+            if (localMs <= keyT[0]) {
+                return new float[]{keyX[0], keyY[0]};
+            }
+            int last = keyT.length - 1;
+            if (localMs >= keyT[last]) {
+                return new float[]{keyX[last], keyY[last]};
+            }
+            for (int i = 0; i < last; i++) {
+                if (localMs < keyT[i + 1]) {
+                    double span = Math.max(1, keyT[i + 1] - keyT[i]);
+                    float f = (float) ((localMs - keyT[i]) / span);
+                    return new float[]{
+                            keyX[i] + (keyX[i + 1] - keyX[i]) * f,
+                            keyY[i] + (keyY[i + 1] - keyY[i]) * f};
+                }
+            }
+            return new float[]{keyX[last], keyY[last]};
+        }
+
         int frameIndex(double localMs) {
             if (framePaths == null || framePaths.length == 0) {
                 return -1;
@@ -138,8 +166,9 @@ final class LessonOverlays {
             }
             double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
             double[] f = fullFrame(item, localMs);
-            float x = (float) (item.cx * 2f - 1f + f[1] * 2.0);
-            float y = (float) (1f - item.cy * 2f);
+            float[] pos = item.positionAt(localMs);
+            float x = (float) (pos[0] * 2f - 1f + f[1] * 2.0);
+            float y = (float) (1f - pos[1] * 2f);
             return new OverlaySettings.Builder()
                     .setBackgroundFrameAnchor(x, y)
                     .setScale((float) (f[2] * f[3]), (float) f[2])

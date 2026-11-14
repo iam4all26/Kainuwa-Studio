@@ -5,6 +5,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
 import '../text_reveal.dart';
+import '../editor/hand_picker.dart';
 import '../data/asset_catalog.dart';
 import '../media/media_library.dart';
 import '../models.dart';
@@ -519,6 +520,10 @@ class _AnimateSheetState extends State<_AnimateSheet> {
                 ),
               ],
             ],
+            const SizedBox(height: 16),
+            const Text('Hand reveal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            HandPicker(layer: layer, onChanged: () => setState(() {})),
             if (layer.type == 'text') ...[
               const SizedBox(height: 16),
               const Text('Text animation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),

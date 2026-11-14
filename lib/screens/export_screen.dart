@@ -13,6 +13,7 @@ import '../app_state.dart';
 import '../editor/track_visibility.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
+import '../hands.dart';
 import '../text_reveal.dart';
 import '../theme.dart';
 
@@ -144,6 +145,8 @@ class _ExportScreenState extends State<ExportScreen> {
     }
     for (final layer in scene.layers) {
       if (layer.type == 'asset') providers.add(AssetImage(layer.path));
+      final hand = handById(layer.hand);
+      if (hand != null) providers.add(AssetImage(hand.asset));
       if (layer.type == 'image') providers.add(FileImage(File(layer.path)));
     }
     for (final provider in providers) {
@@ -157,7 +160,7 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   /// The box around a rotated item, with some room for shadows.
-  (double, double, Widget) _layerPicture(Layer l, {int? revealMs}) {
+  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip}) {
     final lw = l.w * _kStageW;
     final lh = l.h * _kStageH;
     final c = math.cos(l.rotation).abs();
@@ -170,7 +173,7 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Center(
         child: Transform.rotate(
           angle: l.rotation,
-          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs)),
+          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip)),
         ),
       ),
     );
@@ -325,13 +328,18 @@ class _ExportScreenState extends State<ExportScreen> {
             });
           }
         }
+        final handOverlays = <Map<String, Object?>>[];
         if (firstAnimated >= 0) {
           for (var k = firstAnimated; k < scene.layers.length; k++) {
             _guard();
             final layer = scene.layers[k];
             final picture = _layerPicture(layer);
-            final textAnimated = layer.type == 'text' && layer.textAnim != 'none';
-            final firstPicture = textAnimated ? _layerPicture(layer, revealMs: -1) : picture;
+            final handSpec = handById(layer.hand);
+            final handAnimated = handSpec != null;
+            final textAnimated = !handAnimated && layer.type == 'text' && layer.textAnim != 'none';
+            final firstPicture = textAnimated
+                ? _layerPicture(layer, revealMs: -1)
+                : (handAnimated ? _layerPicture(layer, clip: 0.0) : picture);
             final image = await _capture(firstPicture.$3, firstPicture.$1, firstPicture.$2, ratio);
             final path = '${work.path}/scene_${i}_layer_$k.png';
             await _savePng(image, path);
@@ -356,6 +364,68 @@ class _ExportScreenState extends State<ExportScreen> {
                 if (reveal >= total) break;
               }
             }
+            if (handAnimated) {
+              // The item is drawn from left to right: a series of pictures, each one
+              // showing a bit more. The hand is its own picture that moves along.
+              final t0 = layer.startMs + layer.animStartMs;
+              final drawMs = math.max(1, layer.handMs);
+              final step = math.max(60, (drawMs / 120).ceil());
+              frames = [
+                {'path': path, 'atMs': layer.startMs},
+              ];
+              var f = 0;
+              for (var u = step; ; u += step) {
+                _guard();
+                final shown = math.min(u, drawMs);
+                final pic = _layerPicture(layer, clip: shown >= drawMs ? null : shown / drawMs);
+                final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                final fp = '${work.path}/scene_${i}_layer_${k}_f${f++}.png';
+                await _savePng(img, fp);
+                frames.add({'path': fp, 'atMs': t0 + kHandEnterMs + shown});
+                if (shown >= drawMs) break;
+              }
+              final handW = _kStageW * kHandWidthFrac;
+              final handH = handW / handSpec.aspect;
+              await precacheImage(AssetImage(handSpec.asset), context);
+              final handImage = await _capture(
+                SizedBox(
+                  width: handW,
+                  height: handH,
+                  child: Image.asset(handSpec.asset, fit: BoxFit.fill),
+                ),
+                handW,
+                handH,
+                ratio,
+              );
+              final handPath = '${work.path}/scene_${i}_hand_$k.png';
+              await _savePng(handImage, handPath);
+              final keys = <Map<String, Object?>>[];
+              final total = handTotalMs(layer);
+              for (var t = 0; ; t += 40) {
+                final tt = math.min(t, total);
+                final st = handStateAt(layer, tt);
+                keys.add({
+                  't': t0 + tt,
+                  'x': st.tipX + (0.5 - handSpec.tipX) * kHandWidthFrac,
+                  'y': st.tipY + (0.5 - handSpec.tipY) * (handH / _kStageH),
+                });
+                if (tt >= total) break;
+              }
+              handOverlays.add({
+                'path': handPath,
+                'cx': 0.5,
+                'cy': 0.5,
+                'anim': 'none',
+                'startMs': 0,
+                'durMs': 0,
+                'showMs': t0,
+                'hideMs': t0 + total + 60,
+                'outAnim': 'none',
+                'outStartMs': 0,
+                'outDurMs': 0,
+                'keys': keys,
+              });
+            }
             final end = layerEndMs(layer, scene.durationMs);
             overlays.add({
               'frames': frames,
@@ -372,6 +442,7 @@ class _ExportScreenState extends State<ExportScreen> {
               'outDurMs': layer.animOutDurationMs,
             });
           }
+          overlays.addAll(handOverlays);
         }
 
         String? narration;

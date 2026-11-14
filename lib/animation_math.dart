@@ -127,5 +127,6 @@ bool layerNeedsOverlay(Layer layer) =>
     layer.animIn != 'none' ||
     layer.animOut != 'none' ||
     (layer.type == 'text' && layer.textAnim != 'none') ||
+    layer.hand.isNotEmpty ||
     layer.startMs > 0 ||
     layer.endMs >= 0;

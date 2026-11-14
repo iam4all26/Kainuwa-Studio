@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'animation_math.dart';
+import 'hands.dart';
 import 'models.dart';
 import 'text_reveal.dart';
 
@@ -82,6 +83,11 @@ class _SceneCanvasState extends State<SceneCanvas> {
         for (final layer in widget.scene.layers) {
           children.add(_buildLayer(layer, width, height));
           if (widget.interactive && layer.id == widget.selectedId) selected = layer;
+        }
+        if (widget.previewMs != null) {
+          for (final layer in widget.scene.layers) {
+            if (layer.hand.isNotEmpty) children.add(_buildHand(layer, width, height));
+          }
         }
         if (selected != null) {
           children.add(_buildSelection(selected, width, height));
@@ -263,11 +269,39 @@ class _SceneCanvasState extends State<SceneCanvas> {
     );
   }
 
+  Widget _buildHand(Layer layer, double width, double height) {
+    final spec = handById(layer.hand);
+    if (spec == null) return const SizedBox.shrink();
+    final st = handStateAt(layer, widget.previewMs! - (layer.startMs + layer.animStartMs));
+    if (!st.visible) return const SizedBox.shrink();
+    final hw = width * kHandWidthFrac;
+    final hh = hw / spec.aspect;
+    return Positioned(
+      left: st.tipX * width - spec.tipX * hw,
+      top: st.tipY * height - spec.tipY * hh,
+      width: hw,
+      height: hh,
+      child: IgnorePointer(
+        child: Image.asset(spec.asset, fit: BoxFit.fill, gaplessPlayback: true),
+      ),
+    );
+  }
+
   Widget _buildLayer(Layer layer, double width, double height) {
-    final revealMs = (widget.previewMs != null && layer.type == 'text' && layer.textAnim != 'none')
+    final handSpec = layer.hand.isEmpty ? null : handById(layer.hand);
+    final revealMs = (widget.previewMs != null &&
+            handSpec == null &&
+            layer.type == 'text' &&
+            layer.textAnim != 'none')
         ? widget.previewMs! - (layer.startMs + layer.animStartMs)
         : null;
     Widget content = LayerContent(layer: layer, revealMs: revealMs);
+    if (handSpec != null && widget.previewMs != null) {
+      final hs = handStateAt(layer, widget.previewMs! - (layer.startMs + layer.animStartMs));
+      if (hs.reveal < 1) {
+        content = ClipRect(clipper: FractionClipper(hs.reveal), child: content);
+      }
+    }
 
     if (widget.interactive) {
       content = GestureDetector(
@@ -702,12 +736,15 @@ void refitLayerText(Layer layer, double keepSizePx) {
 
 /// What a single layer looks like, without any gestures.
 class LayerContent extends StatelessWidget {
-  const LayerContent({super.key, required this.layer, this.revealMs});
+  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction});
 
   final Layer layer;
 
   /// For text with a text animation: milliseconds since the animation started.
   final int? revealMs;
+
+  /// Hand reveal in the video export: show only the left part (0 to 1), null for all.
+  final double? clipFraction;
 
   Widget _body() {
     final color = Color(layer.color);
@@ -768,7 +805,11 @@ class LayerContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = _body();
+    var body = _body();
+    final clip = clipFraction;
+    if (clip != null && clip < 1) {
+      body = ClipRect(clipper: FractionClipper(clip), child: body);
+    }
     if (layer.opacity >= 0.999) return body;
     return Opacity(opacity: layer.opacity.clamp(0.0, 1.0).toDouble(), child: body);
   }

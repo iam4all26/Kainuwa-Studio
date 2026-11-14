@@ -887,6 +887,29 @@ public class KainuwaEncoderPlugin
                             ? (String) m.get("outAnim") : "none";
                     it.outStartMs = longOf(m.get("outStartMs"), 0);
                     it.outDurMs = longOf(m.get("outDurMs"), 500);
+                    Object kr = m.get("keys");
+                    if (kr instanceof List && !((List<Object>) kr).isEmpty()) {
+                        List<Object> kl = (List<Object>) kr;
+                        int kn = kl.size();
+                        long[] kt = new long[kn];
+                        float[] kx = new float[kn];
+                        float[] ky = new float[kn];
+                        int kc = 0;
+                        for (Object ko : kl) {
+                            if (ko instanceof Map) {
+                                Map<String, Object> km = (Map<String, Object>) ko;
+                                kt[kc] = longOf(km.get("t"), 0);
+                                kx[kc] = (float) doubleOf(km.get("x"), 0.5);
+                                ky[kc] = (float) doubleOf(km.get("y"), 0.5);
+                                kc++;
+                            }
+                        }
+                        if (kc > 0) {
+                            it.keyT = java.util.Arrays.copyOf(kt, kc);
+                            it.keyX = java.util.Arrays.copyOf(kx, kc);
+                            it.keyY = java.util.Arrays.copyOf(ky, kc);
+                        }
+                    }
                     Object fr = m.get("frames");
                     if (fr instanceof List && !((List<Object>) fr).isEmpty()) {
                         List<Object> fl = (List<Object>) fr;

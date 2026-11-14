@@ -7,6 +7,7 @@ import '../animation_math.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../store/store_service.dart';
+import 'hand_picker.dart';
 import '../text_reveal.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -758,6 +759,11 @@ class _EditPanelState extends State<_EditPanel> {
                 ),
             ],
           ),
+        ),
+        _card(
+          'Hand reveal',
+          Icons.pan_tool_outlined,
+          HandPicker(layer: l, onChanged: _changed),
         ),
         if (_isText)
           _card(

@@ -49,6 +49,8 @@ class Layer {
     this.bgColor = 0xCC000000,
     this.textAnim = 'none',
     this.textAnimMs = 0,
+    this.hand = '',
+    this.handMs = 2500,
   });
 
   final String id;
@@ -107,6 +109,11 @@ class Layer {
   String textAnim;
   int textAnimMs;
 
+  /// A hand that draws this item (an id from hands.dart, empty for none) and the
+  /// time it takes. Starts at startMs + animStartMs.
+  String hand;
+  int handMs;
+
   Layer copy() => Layer.fromJson({...toJson(), 'id': newId()});
 
   Map<String, dynamic> toJson() => {
@@ -141,6 +148,8 @@ class Layer {
         'bgColor': bgColor,
         'textAnim': textAnim,
         'textAnimMs': textAnimMs,
+        'hand': hand,
+        'handMs': handMs,
       };
 
   factory Layer.fromJson(Map<String, dynamic> json) => Layer(
@@ -175,6 +184,8 @@ class Layer {
         bgColor: _int(json['bgColor'], 0xCC000000),
         textAnim: _str(json['textAnim'], 'none'),
         textAnimMs: _int(json['textAnimMs'], 0),
+        hand: _str(json['hand'], ''),
+        handMs: _int(json['handMs'], 2500),
       );
 }
 
