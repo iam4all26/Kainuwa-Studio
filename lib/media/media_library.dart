@@ -32,6 +32,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   bool _allowed = false;
   bool _loading = false;
   bool _hasMore = true;
+  String _problem = '';
   bool _opening = false;
   List<AssetPathEntity> _albums = [];
   AssetPathEntity? _album;
@@ -138,7 +139,28 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
     if (album == null || _loading || !_hasMore) return;
     _loading = true;
     try {
-      final list = await album.getAssetListPaged(page: _page, size: _pageSize);
+      var list = <AssetEntity>[];
+      try {
+        list = await album.getAssetListPaged(page: _page, size: _pageSize);
+      } catch (e) {
+        _problem = 'Listing failed: $e';
+      }
+      if (list.isEmpty && _page == 0) {
+        // Some phones answer the paged request with nothing: ask for a range instead.
+        try {
+          list = await album.getAssetListRange(start: 0, end: _pageSize);
+          if (list.isNotEmpty) _problem = '';
+        } catch (e) {
+          _problem = 'Listing failed: $e';
+        }
+      }
+      if (list.isEmpty && _page == 0 && _problem.isEmpty) {
+        int count = -1;
+        try {
+          count = await album.assetCountAsync;
+        } catch (_) {}
+        _problem = 'The album says it has $count item(s) but none could be listed.';
+      }
       if (!mounted || album != _album) return;
       setState(() {
         _assets.addAll(list);
@@ -321,7 +343,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
         settings: true,
       );
     } else if (_assets.isEmpty && !_loading && !_hasMore) {
-      body = _message('Nothing found here.');
+      body = _message(_problem.isEmpty ? 'Nothing found here.' : 'Nothing found here.\n\n$_problem');
     } else {
       body = _grid();
     }

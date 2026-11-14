@@ -167,8 +167,9 @@ final class LessonOverlays {
             double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
             double[] f = fullFrame(item, localMs);
             float[] pos = item.positionAt(localMs);
-            float x = (float) (pos[0] * 2f - 1f + f[1] * 2.0);
-            float y = (float) (1f - pos[1] * 2f);
+            // The encoder only accepts anchors from -1 to 1 (anything else stops the export).
+            float x = (float) Math.max(-1.0, Math.min(1.0, pos[0] * 2f - 1f + f[1] * 2.0));
+            float y = (float) Math.max(-1.0, Math.min(1.0, 1f - pos[1] * 2f));
             return new OverlaySettings.Builder()
                     .setBackgroundFrameAnchor(x, y)
                     .setScale((float) (f[2] * f[3]), (float) f[2])
