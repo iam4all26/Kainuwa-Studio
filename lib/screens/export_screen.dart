@@ -767,7 +767,9 @@ class _ExportScreenState extends State<ExportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             label('Quality'),
-            Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: tiles),
+            IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: tiles),
+            ),
             const SizedBox(height: 8),
             Text(
               '${_qualities[_quality]!.$3}${_quality == 720 ? '' : '  (720p is recommended)'}',
