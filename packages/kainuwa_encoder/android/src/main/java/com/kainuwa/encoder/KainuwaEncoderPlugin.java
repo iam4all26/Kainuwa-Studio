@@ -585,8 +585,54 @@ public class KainuwaEncoderPlugin
     private final List<String> lessonVideoPaths = new ArrayList<>();
     private final List<Long> lessonVideoStarts = new ArrayList<>();
 
+    // Live preview frames: one reader stays open so each frame is quicker to get.
+    private final ExecutorService frameWorker = Executors.newSingleThreadExecutor();
+    private MediaMetadataRetriever liveReader;
+    private String liveReaderPath;
+
+    private byte[] liveFrame(String path, long ms) {
+        try {
+            if (liveReader == null || !path.equals(liveReaderPath)) {
+                if (liveReader != null) {
+                    try {
+                        liveReader.release();
+                    } catch (Exception ignored) {
+                        // nothing to do
+                    }
+                }
+                liveReader = new MediaMetadataRetriever();
+                liveReader.setDataSource(path);
+                liveReaderPath = path;
+            }
+            Bitmap b = liveReader.getFrameAtTime(ms * 1000L, MediaMetadataRetriever.OPTION_CLOSEST);
+            if (b == null) {
+                return null;
+            }
+            int w = b.getWidth();
+            int h = b.getHeight();
+            float scale = Math.min(1f, 480f / Math.max(w, h));
+            Bitmap small = scale < 1f
+                    ? Bitmap.createScaledBitmap(b, Math.round(w * scale), Math.round(h * scale), false)
+                    : b;
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            small.compress(Bitmap.CompressFormat.JPEG, 70, bos);
+            return bos.toByteArray();
+        } catch (Exception e) {
+            liveReader = null;
+            liveReaderPath = null;
+            return null;
+        }
+    }
+
     private void videoFrame(final String path, final long ms, final boolean exact,
                             final boolean asBytes, final MethodChannel.Result result) {
+        if (asBytes) {
+            frameWorker.execute(() -> {
+                final byte[] data = liveFrame(path, ms);
+                mainHandler.post(() -> result.success(data));
+            });
+            return;
+        }
         new Thread(() -> {
             Object out = null;
             MediaMetadataRetriever r = new MediaMetadataRetriever();
