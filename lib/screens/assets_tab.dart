@@ -10,7 +10,7 @@ class AssetsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 3,
+        length: 6,
         child: Column(
           children: [
             const Padding(
@@ -24,18 +24,25 @@ class AssetsTab extends StatelessWidget {
               ),
             ),
             const TabBar(
+              isScrollable: true,
               tabs: [
                 Tab(text: 'Backgrounds'),
                 Tab(text: 'Icons'),
                 Tab(text: 'Illustrations'),
+                Tab(text: 'Social media'),
+                Tab(text: 'Developer'),
+                Tab(text: 'Languages'),
               ],
             ),
             Expanded(
               child: TabBarView(
                 children: [
-                  _AssetGrid(items: kBackgrounds, columns: 2, aspect: 16 / 11, kind: _Kind.photo),
-                  _AssetGrid(items: kIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
+                  _AssetGrid(items: allBackgrounds(), columns: 2, aspect: 16 / 11, kind: _Kind.photo),
+                  _AssetGrid(items: allIcons(), columns: 4, aspect: 0.85, kind: _Kind.png),
                   _AssetGrid(items: kIllustrations, columns: 3, aspect: 0.9, kind: _Kind.png),
+                  _AssetGrid(items: kSocialIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
+                  _AssetGrid(items: kDeveloperIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
+                  _AssetGrid(items: kLanguageIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
                 ],
               ),
             ),
@@ -64,9 +71,9 @@ class _AssetGrid extends StatelessWidget {
   Widget _picture(CatalogItem item, {double? size}) {
     switch (kind) {
       case _Kind.png:
-        return Image.asset(item.path, width: size, height: size, fit: BoxFit.contain);
+        return SizedBox(width: size, height: size, child: catalogImage(item));
       case _Kind.photo:
-        return Image.asset(item.path, width: size, fit: BoxFit.cover);
+        return SizedBox(width: size, child: catalogImage(item, fit: BoxFit.cover));
     }
   }
 
@@ -83,7 +90,7 @@ class _AssetGrid extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: kind == _Kind.photo
-                      ? Image.asset(item.path, fit: BoxFit.contain)
+                      ? catalogImage(item)
                       : _picture(item, size: 220),
                 ),
               ),
@@ -131,7 +138,7 @@ class _AssetGrid extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: SizedBox.expand(
                       child: kind == _Kind.photo
-                          ? Image.asset(item.path, fit: BoxFit.cover, cacheWidth: 480)
+                          ? catalogImage(item, fit: BoxFit.cover, cacheWidth: 480)
                           : Padding(
                               padding: const EdgeInsets.all(4),
                               child: _picture(item),

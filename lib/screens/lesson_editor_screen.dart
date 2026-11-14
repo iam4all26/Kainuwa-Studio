@@ -424,6 +424,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null) return;
     final item = await showAssetSheet(context);
     if (item == null) return;
+    if (item.isFile) {
+      await _addSvg(scene, item.path, tint: item.tint);
+      return;
+    }
     // Built-in icons also exist as SVG: use those, so they stay sharp at any size.
     if (item.path.startsWith('assets/icons/') && item.path.endsWith('.png')) {
       final svgAsset = item.path
@@ -505,6 +509,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null) return;
     final kind = await showShapeSheet(context);
     if (kind == null) return;
+    if (kind.startsWith('file:')) {
+      await _addSvg(scene, kind.substring(5), tint: false);
+      return;
+    }
     if (kind == 'store') {
       if (!mounted) return;
       final item = await showStoreGraphicsSheet(context);

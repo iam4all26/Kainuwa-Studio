@@ -1,10 +1,55 @@
 // Generated list of the built-in asset packs.
 
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../store/store_service.dart';
+
 class CatalogItem {
-  const CatalogItem(this.path, this.name);
+  const CatalogItem(this.path, this.name, {this.tint = false});
   final String path;
   final String name;
+
+  /// Downloaded SVG icons that start white and can be recoloured.
+  final bool tint;
+
+  /// True for a downloaded item (stored on the phone) and false for a built-in one.
+  bool get isFile => path.startsWith('/');
 }
+
+/// Shows a catalog item, whether built in or downloaded.
+Widget catalogImage(CatalogItem item, {BoxFit fit = BoxFit.contain, int? cacheWidth}) {
+  if (item.isFile) {
+    if (item.path.toLowerCase().endsWith('.svg')) {
+      return SvgPicture.file(
+        File(item.path),
+        fit: fit,
+        colorFilter: item.tint ? const ColorFilter.mode(Colors.white, BlendMode.srcIn) : null,
+      );
+    }
+    return Image.file(File(item.path), fit: fit, cacheWidth: cacheWidth);
+  }
+  return Image.asset(item.path, fit: fit, cacheWidth: cacheWidth);
+}
+
+/// Built-in backgrounds plus the ones downloaded from the store, as one list.
+List<CatalogItem> allBackgrounds() => [
+      ...kBackgrounds,
+      for (final i in StoreService.instance.ofType('background')) CatalogItem(i.path, i.name),
+    ];
+
+/// Built-in icons plus downloaded icons, as one list.
+List<CatalogItem> allIcons() => [
+      ...kIcons,
+      for (final i in StoreService.instance.ofType('icon')) CatalogItem(i.path, i.name, tint: true),
+    ];
+
+/// Downloaded shapes.
+List<CatalogItem> storeShapes() => [
+      for (final i in StoreService.instance.ofType('shape')) CatalogItem(i.path, i.name),
+    ];
 
 const List<CatalogItem> kBackgrounds = [
   CatalogItem('assets/backgrounds/01_Royal_Purple_Waves.jpg', 'Royal Purple Waves'),
@@ -108,6 +153,51 @@ const List<CatalogItem> kIllustrations = [
   CatalogItem('assets/illustrations/28_Megaphone.png', 'Megaphone'),
   CatalogItem('assets/illustrations/29_Email.png', 'Email'),
   CatalogItem('assets/illustrations/30_Network.png', 'Network'),
+];
+
+const List<CatalogItem> kSocialIcons = [
+  CatalogItem('assets/icons_social/facebook.png', 'Facebook'),
+  CatalogItem('assets/icons_social/instagram.png', 'Instagram'),
+  CatalogItem('assets/icons_social/linkedin.png', 'LinkedIn'),
+  CatalogItem('assets/icons_social/telegram.png', 'Telegram'),
+  CatalogItem('assets/icons_social/tiktok.png', 'TikTok'),
+  CatalogItem('assets/icons_social/whatsapp.png', 'WhatsApp'),
+  CatalogItem('assets/icons_social/x.png', 'X'),
+  CatalogItem('assets/icons_social/youtube.png', 'YouTube'),
+];
+
+const List<CatalogItem> kDeveloperIcons = [
+  CatalogItem('assets/icons_dev/bitbucket.png', 'Bitbucket'),
+  CatalogItem('assets/icons_dev/codepen.png', 'CodePen'),
+  CatalogItem('assets/icons_dev/discord.png', 'Discord'),
+  CatalogItem('assets/icons_dev/github.png', 'GitHub'),
+  CatalogItem('assets/icons_dev/gitlab.png', 'GitLab'),
+  CatalogItem('assets/icons_dev/npm.png', 'npm'),
+  CatalogItem('assets/icons_dev/pinterest.png', 'Pinterest'),
+  CatalogItem('assets/icons_dev/reddit.png', 'Reddit'),
+  CatalogItem('assets/icons_dev/stackoverflow.png', 'Stack Overflow'),
+  CatalogItem('assets/icons_dev/visual_studio_code.png', 'VS Code'),
+];
+
+const List<CatalogItem> kLanguageIcons = [
+  CatalogItem('assets/icons_lang/c.png', 'C'),
+  CatalogItem('assets/icons_lang/cpp.png', 'C++'),
+  CatalogItem('assets/icons_lang/csharp.png', 'C#'),
+  CatalogItem('assets/icons_lang/css3.png', 'CSS3'),
+  CatalogItem('assets/icons_lang/dart.png', 'Dart'),
+  CatalogItem('assets/icons_lang/go.png', 'Go'),
+  CatalogItem('assets/icons_lang/html5.png', 'HTML5'),
+  CatalogItem('assets/icons_lang/java.png', 'Java'),
+  CatalogItem('assets/icons_lang/javascript.png', 'JavaScript'),
+  CatalogItem('assets/icons_lang/kotlin.png', 'Kotlin'),
+  CatalogItem('assets/icons_lang/php.png', 'PHP'),
+  CatalogItem('assets/icons_lang/python.png', 'Python'),
+  CatalogItem('assets/icons_lang/r.png', 'R'),
+  CatalogItem('assets/icons_lang/ruby.png', 'Ruby'),
+  CatalogItem('assets/icons_lang/rust.png', 'Rust'),
+  CatalogItem('assets/icons_lang/scala.png', 'Scala'),
+  CatalogItem('assets/icons_lang/swift.png', 'Swift'),
+  CatalogItem('assets/icons_lang/typescript.png', 'TypeScript'),
 ];
 
 // Backgrounds that are mostly dark: new text defaults to white on them.

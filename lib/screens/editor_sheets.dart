@@ -42,40 +42,9 @@ class _BackgroundSheet extends StatelessWidget {
     }
   }
 
-  List<Widget> _downloaded(BuildContext context) {
-    final items = StoreService.instance.ofType('background');
-    if (items.isEmpty) return const [];
-    return [
-      const SizedBox(height: 16),
-      const Text('From the store', style: TextStyle(fontWeight: FontWeight.w700)),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final item in items)
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => Navigator.of(context).pop(BackgroundChoice('file', item.path)),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.file(
-                  File(item.path),
-                  width: 110,
-                  height: 70,
-                  fit: BoxFit.cover,
-                  cacheWidth: 300,
-                  errorBuilder: (_, __, ___) => const SizedBox(width: 110, height: 70),
-                ),
-              ),
-            ),
-        ],
-      ),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
+    final backgrounds = allBackgrounds();
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -93,7 +62,6 @@ class _BackgroundSheet extends StatelessWidget {
           ColorSwatches(
             onPick: (value) => Navigator.of(context).pop(BackgroundChoice('color', '$value')),
           ),
-          ..._downloaded(context),
           const SizedBox(height: 16),
           const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
@@ -106,19 +74,19 @@ class _BackgroundSheet extends StatelessWidget {
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
-            itemCount: kBackgrounds.length,
+            itemCount: backgrounds.length,
             itemBuilder: (context, index) {
-              final item = kBackgrounds[index];
+              final item = backgrounds[index];
               return InkWell(
                 borderRadius: BorderRadius.circular(10),
-                onTap: () => Navigator.of(context).pop(BackgroundChoice('asset', item.path)),
+                onTap: () => Navigator.of(context).pop(BackgroundChoice(item.isFile ? 'file' : 'asset', item.path)),
                 child: Column(
                   children: [
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: SizedBox.expand(
-                          child: Image.asset(item.path, fit: BoxFit.cover, cacheWidth: 400),
+                          child: catalogImage(item, fit: BoxFit.cover, cacheWidth: 400),
                         ),
                       ),
                     ),
@@ -156,7 +124,7 @@ class _AssetSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 2,
+        length: 5,
         child: Column(
           children: [
             const Padding(
@@ -166,12 +134,21 @@ class _AssetSheet extends StatelessWidget {
                 child: Text('Add an icon', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
             ),
-            const TabBar(tabs: [Tab(text: 'Icons'), Tab(text: 'Illustrations')]),
+            const TabBar(isScrollable: true, tabs: [
+              Tab(text: 'Icons'),
+              Tab(text: 'Illustrations'),
+              Tab(text: 'Social media'),
+              Tab(text: 'Developer'),
+              Tab(text: 'Languages'),
+            ]),
             Expanded(
               child: TabBarView(
                 children: [
-                  _PickGrid(items: kIcons, columns: 4),
+                  _PickGrid(items: allIcons(), columns: 4),
                   _PickGrid(items: kIllustrations, columns: 3),
+                  _PickGrid(items: kSocialIcons, columns: 4),
+                  _PickGrid(items: kDeveloperIcons, columns: 4),
+                  _PickGrid(items: kLanguageIcons, columns: 4),
                 ],
               ),
             ),
@@ -213,7 +190,7 @@ class _PickGrid extends StatelessWidget {
             padding: const EdgeInsets.all(6),
             child: Column(
               children: [
-                Expanded(child: Image.asset(item.path, fit: BoxFit.contain)),
+                Expanded(child: catalogImage(item)),
                 const SizedBox(height: 2),
                 Text(
                   item.name,
@@ -275,11 +252,31 @@ Future<String?> showShapeSheet(BuildContext context) {
               ],
             ),
             const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(sheetContext).pop('store'),
-              icon: const Icon(Icons.storefront_outlined),
-              label: const Text('Store shapes and icons'),
-            ),
+            if (storeShapes().isNotEmpty) ...[
+              const Text('More shapes', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final item in storeShapes())
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => Navigator.of(sheetContext).pop('file:${item.path}'),
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: KColors.lavender,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: catalogImage(item),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
