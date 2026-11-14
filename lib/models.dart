@@ -47,6 +47,8 @@ class Layer {
     this.align = 'center',
     this.bgBox = false,
     this.bgColor = 0xCC000000,
+    this.textAnim = 'none',
+    this.textAnimMs = 0,
   });
 
   final String id;
@@ -100,6 +102,11 @@ class Layer {
   bool bgBox;
   int bgColor;
 
+  /// Text-only animation: none, letter, word, line, wordpop or wordslide.
+  /// Starts at startMs + animStartMs. textAnimMs is the time between pieces (0 = default).
+  String textAnim;
+  int textAnimMs;
+
   Layer copy() => Layer.fromJson({...toJson(), 'id': newId()});
 
   Map<String, dynamic> toJson() => {
@@ -132,6 +139,8 @@ class Layer {
         'align': align,
         'bgBox': bgBox,
         'bgColor': bgColor,
+        'textAnim': textAnim,
+        'textAnimMs': textAnimMs,
       };
 
   factory Layer.fromJson(Map<String, dynamic> json) => Layer(
@@ -164,6 +173,8 @@ class Layer {
         align: _str(json['align'], 'center'),
         bgBox: json['bgBox'] is bool ? json['bgBox'] as bool : false,
         bgColor: _int(json['bgColor'], 0xCC000000),
+        textAnim: _str(json['textAnim'], 'none'),
+        textAnimMs: _int(json['textAnimMs'], 0),
       );
 }
 

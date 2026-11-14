@@ -7,6 +7,7 @@ import '../animation_math.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../store/store_service.dart';
+import '../text_reveal.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -758,6 +759,74 @@ class _EditPanelState extends State<_EditPanel> {
             ],
           ),
         ),
+        if (_isText)
+          _card(
+            'Text animation',
+            Icons.text_fields,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final kind in kTextAnimKinds)
+                      ChoiceChip(
+                        label: Text(textAnimLabel(kind)),
+                        selected: l.textAnim == kind,
+                        onSelected: (_) {
+                          l.textAnim = kind;
+                          _changed();
+                        },
+                      ),
+                  ],
+                ),
+                if (l.textAnim != 'none') ...[
+                  const SizedBox(height: 8),
+                  _labeled(
+                    'Time per ${textUnitName(l.textAnim)}',
+                    _NumField(
+                      value: textUnitMs(l) / 1000,
+                      min: 0.02,
+                      max: 3,
+                      step: 0.05,
+                      decimals: 2,
+                      suffix: 's',
+                      width: 64,
+                      onChanged: (v) {
+                        l.textAnimMs = (v * 1000).round();
+                        _changed();
+                      },
+                    ),
+                  ),
+                  if (l.animIn == 'none')
+                    _labeled(
+                      'Delay after it appears',
+                      _NumField(
+                        value: l.animStartMs / 1000,
+                        min: 0,
+                        max: 30,
+                        step: 0.1,
+                        decimals: 1,
+                        suffix: 's',
+                        width: 56,
+                        onChanged: (v) {
+                          l.animStartMs = (v * 1000).round();
+                          _changed();
+                        },
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'The whole text takes ${(textRevealTotalMs(l) / 1000).toStringAsFixed(1)} s to appear.',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         _card(
           'Exit',
           Icons.logout,

@@ -35,6 +35,24 @@ final class LessonOverlays {
         String outKind = "none";
         long outStartMs = 0;
         long outDurMs = 500;
+        /** Optional picture series (text animations): the last frame whose time has come is shown. */
+        String[] framePaths = null;
+        long[] frameAt = null;
+
+        int frameIndex(double localMs) {
+            if (framePaths == null || framePaths.length == 0) {
+                return -1;
+            }
+            int idx = 0;
+            for (int i = 0; i < frameAt.length; i++) {
+                if (localMs >= frameAt[i]) {
+                    idx = i;
+                } else {
+                    break;
+                }
+            }
+            return idx;
+        }
     }
 
     private final List<Long> sceneStartUs = new ArrayList<>();
@@ -80,6 +98,7 @@ final class LessonOverlays {
     private final class Slot extends BitmapOverlay {
         private final int slot;
         private int cachedScene = -1;
+        private int cachedFrame = -2;
         private Bitmap cachedBitmap = BLANK;
 
         Slot(int slot) {
@@ -98,10 +117,14 @@ final class LessonOverlays {
             if (item == null) {
                 return BLANK;
             }
-            if (scene != cachedScene) {
-                Bitmap decoded = BitmapFactory.decodeFile(item.path);
+            double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
+            int frame = item.frameIndex(localMs);
+            if (scene != cachedScene || frame != cachedFrame) {
+                String file = frame >= 0 ? item.framePaths[frame] : item.path;
+                Bitmap decoded = BitmapFactory.decodeFile(file);
                 cachedBitmap = decoded == null ? BLANK : decoded;
                 cachedScene = scene;
+                cachedFrame = frame;
             }
             return cachedBitmap;
         }

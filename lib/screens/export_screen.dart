@@ -13,6 +13,7 @@ import '../app_state.dart';
 import '../editor/track_visibility.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
+import '../text_reveal.dart';
 import '../theme.dart';
 
 const double _kStageW = 1280;
@@ -66,11 +67,14 @@ class _ExportScreenState extends State<ExportScreen> {
   double _progress = 0;
   String _status = '';
   DateTime? _startedAt;
+  Timer? _ticker;
+  Widget? _thumbCache;
   String? _unsavedVideo;
   String _unsavedName = '';
 
   @override
   void dispose() {
+    _ticker?.cancel();
     _nameCtl.dispose();
     if (_busy) {
       _cancelled = true;
@@ -153,7 +157,7 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   /// The box around a rotated item, with some room for shadows.
-  (double, double, Widget) _layerPicture(Layer l) {
+  (double, double, Widget) _layerPicture(Layer l, {int? revealMs}) {
     final lw = l.w * _kStageW;
     final lh = l.h * _kStageH;
     final c = math.cos(l.rotation).abs();
@@ -166,7 +170,7 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Center(
         child: Transform.rotate(
           angle: l.rotation,
-          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l)),
+          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs)),
         ),
       ),
     );
@@ -222,6 +226,11 @@ class _ExportScreenState extends State<ExportScreen> {
       _progress = 0;
       _startedAt = DateTime.now();
       _status = 'Drawing slides. Keep this screen open.';
+    });
+
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
     });
 
     final subs = <StreamSubscription<dynamic>>[
@@ -321,11 +330,35 @@ class _ExportScreenState extends State<ExportScreen> {
             _guard();
             final layer = scene.layers[k];
             final picture = _layerPicture(layer);
-            final image = await _capture(picture.$3, picture.$1, picture.$2, ratio);
+            final textAnimated = layer.type == 'text' && layer.textAnim != 'none';
+            final firstPicture = textAnimated ? _layerPicture(layer, revealMs: -1) : picture;
+            final image = await _capture(firstPicture.$3, firstPicture.$1, firstPicture.$2, ratio);
             final path = '${work.path}/scene_${i}_layer_$k.png';
             await _savePng(image, path);
+            // Text animations are a series of pictures, each one showing a bit more text.
+            List<Map<String, Object?>>? frames;
+            if (textAnimated) {
+              final total = textRevealTotalMs(layer);
+              final step = math.max(50, (total / 180).ceil());
+              final t0 = layer.startMs + layer.animStartMs;
+              frames = [
+                {'path': path, 'atMs': layer.startMs},
+              ];
+              var f = 0;
+              for (var r = step; ; r += step) {
+                _guard();
+                final reveal = math.min(r, total);
+                final pic = _layerPicture(layer, revealMs: reveal);
+                final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                final fp = '${work.path}/scene_${i}_layer_${k}_f${f++}.png';
+                await _savePng(img, fp);
+                frames.add({'path': fp, 'atMs': t0 + reveal});
+                if (reveal >= total) break;
+              }
+            }
             final end = layerEndMs(layer, scene.durationMs);
             overlays.add({
+              'frames': frames,
               'path': path,
               'cx': layer.cx,
               'cy': layer.cy,
@@ -399,6 +432,8 @@ class _ExportScreenState extends State<ExportScreen> {
     } catch (e) {
       _set('Export stopped: $e', failed: true);
     } finally {
+      _ticker?.cancel();
+      _ticker = null;
       for (final s in subs) {
         await s.cancel();
       }
@@ -547,7 +582,7 @@ class _ExportScreenState extends State<ExportScreen> {
             children: [
               Text('$pct%', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1)),
               const Spacer(),
-              Text(_elapsed(), style: const TextStyle(fontSize: 13, color: Colors.white60)),
+              Text('Elapsed ${_elapsed()}', style: const TextStyle(fontSize: 13, color: Colors.white60)),
             ],
           ),
           const SizedBox(height: 12),
@@ -742,9 +777,10 @@ class _ExportScreenState extends State<ExportScreen> {
                 ),
               ],
             ),
-            if (lesson != null && lesson.scenes.isNotEmpty && !_busy) ...[
+            if (lesson != null && lesson.scenes.isNotEmpty) ...[
               const SizedBox(height: 12),
-              _thumbnails(lesson.scenes),
+              // Drawn once and reused, so the progress updates do not redraw the slides.
+              _thumbCache ??= RepaintBoundary(child: _thumbnails(lesson.scenes)),
             ],
           ],
         )),

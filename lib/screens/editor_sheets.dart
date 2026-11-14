@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
+import '../text_reveal.dart';
 import '../data/asset_catalog.dart';
 import '../media/media_library.dart';
 import '../models.dart';
@@ -515,6 +516,53 @@ class _AnimateSheetState extends State<_AnimateSheet> {
                   max: 3.0,
                   divisions: 28,
                   onChanged: (v) => setState(() => layer.animDurationMs = (v * 1000).round()),
+                ),
+              ],
+            ],
+            if (layer.type == 'text') ...[
+              const SizedBox(height: 16),
+              const Text('Text animation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              const Text(
+                'Shows the text piece by piece. It can be used together with the entrance above.',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final kind in kTextAnimKinds)
+                    ChoiceChip(
+                      label: Text(textAnimLabel(kind)),
+                      selected: layer.textAnim == kind,
+                      onSelected: (_) => setState(() => layer.textAnim = kind),
+                    ),
+                ],
+              ),
+              if (layer.textAnim != 'none') ...[
+                const SizedBox(height: 8),
+                Text('Time per ${textUnitName(layer.textAnim)} ${(textUnitMs(layer) / 1000).toStringAsFixed(2)} s'),
+                Slider(
+                  value: (textUnitMs(layer) / 1000).clamp(0.02, 1.5).toDouble(),
+                  min: 0.02,
+                  max: 1.5,
+                  divisions: 74,
+                  onChanged: (v) => setState(() => layer.textAnimMs = (v * 1000).round()),
+                ),
+                if (!animated) ...[
+                  Text('Starts ${start.toStringAsFixed(1)} s after it appears'),
+                  Slider(
+                    value: start,
+                    min: 0,
+                    max: maxStart,
+                    divisions: (maxStart * 10).round().clamp(1, 600).toInt(),
+                    onChanged: (v) => setState(() => layer.animStartMs = (v * 1000).round()),
+                  ),
+                ],
+                Text(
+                  'The whole text takes ${(textRevealTotalMs(layer) / 1000).toStringAsFixed(1)} s to appear.',
+                  style: const TextStyle(fontSize: 12),
                 ),
               ],
             ],

@@ -8,6 +8,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'animation_math.dart';
 import 'models.dart';
+import 'text_reveal.dart';
 
 /// Draws one scene. Everything is sized from fractions of the slide, so the
 /// same widget works for the editor, small thumbnails and video export.
@@ -263,7 +264,10 @@ class _SceneCanvasState extends State<SceneCanvas> {
   }
 
   Widget _buildLayer(Layer layer, double width, double height) {
-    Widget content = LayerContent(layer: layer);
+    final revealMs = (widget.previewMs != null && layer.type == 'text' && layer.textAnim != 'none')
+        ? widget.previewMs! - (layer.startMs + layer.animStartMs)
+        : null;
+    Widget content = LayerContent(layer: layer, revealMs: revealMs);
 
     if (widget.interactive) {
       content = GestureDetector(
@@ -698,19 +702,24 @@ void refitLayerText(Layer layer, double keepSizePx) {
 
 /// What a single layer looks like, without any gestures.
 class LayerContent extends StatelessWidget {
-  const LayerContent({super.key, required this.layer});
+  const LayerContent({super.key, required this.layer, this.revealMs});
 
   final Layer layer;
+
+  /// For text with a text animation: milliseconds since the animation started.
+  final int? revealMs;
 
   Widget _body() {
     final color = Color(layer.color);
     switch (layer.type) {
       case 'text':
-        Widget text = Text(
-          layer.text,
-          textAlign: layerTextAlign(layer),
-          style: layerTextStyle(layer),
-        );
+        Widget text = (revealMs != null && layer.textAnim != 'none')
+            ? TextRevealView(layer: layer, timeMs: revealMs!)
+            : Text(
+                layer.text,
+                textAlign: layerTextAlign(layer),
+                style: layerTextStyle(layer),
+              );
         if (layer.bgBox) {
           text = Container(
             padding: const EdgeInsets.symmetric(horizontal: _kBoxPadX, vertical: _kBoxPadY),
