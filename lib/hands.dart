@@ -21,16 +21,26 @@ class HandSpec {
 }
 
 const List<HandSpec> kHands = [
-  HandSpec('hand_01', 'Gold pen', 313 / 365, 0.016, 0.707),
-  HandSpec('hand_02', 'Silver pen', 321 / 395, 0.016, 0.587),
-  HandSpec('hand_03', 'Robot black', 288 / 369, 0.017, 0.622),
-  HandSpec('hand_04', 'Glove pen', 320 / 383, 0.016, 0.610),
-  HandSpec('hand_05', 'Robot blue', 317 / 407, 0.016, 0.612),
-  HandSpec('hand_06', 'Marker', 304 / 391, 0.016, 0.514),
-  HandSpec('hand_07', 'Pencil', 351 / 403, 0.014, 0.500),
-  HandSpec('hand_08', 'Quill', 329 / 445, 0.015, 0.646),
-  HandSpec('hand_09', 'Neon stylus', 355 / 397, 0.011, 0.484),
-  HandSpec('hand_10', 'Silver gold', 340 / 404, 0.015, 0.533),
+  HandSpec('hand_01', 'White marker', 400 / 419, 0.028, 0.206),
+  HandSpec('hand_02', 'Red marker', 388 / 420, 0.028, 0.213),
+  HandSpec('hand_03', 'Blue marker', 429 / 421, 0.026, 0.202),
+  HandSpec('hand_04', 'Pencil', 445 / 421, 0.027, 0.204),
+  HandSpec('hand_05', 'Stylus', 355 / 420, 0.031, 0.181),
+  HandSpec('hand_06', 'Ballpoint', 442 / 459, 0.029, 0.172),
+  HandSpec('hand_07', 'Fountain pen', 468 / 454, 0.026, 0.203),
+  HandSpec('hand_08', 'Fine pen', 478 / 453, 0.027, 0.212),
+  HandSpec('hand_09', 'Highlighter', 452 / 455, 0.024, 0.231),
+  HandSpec('hand_10', 'Pointer', 390 / 450, 0.028, 0.231),
+  HandSpec('hand_11', 'Gold pen (new)', 313 / 365, 0.016, 0.707),
+  HandSpec('hand_12', 'Silver pen (new)', 321 / 395, 0.016, 0.587),
+  HandSpec('hand_13', 'Robot black (new)', 288 / 369, 0.017, 0.622),
+  HandSpec('hand_14', 'Glove pen (new)', 320 / 383, 0.016, 0.61),
+  HandSpec('hand_15', 'Robot blue (new)', 317 / 407, 0.016, 0.612),
+  HandSpec('hand_16', 'Marker (new)', 304 / 391, 0.016, 0.514),
+  HandSpec('hand_17', 'Pencil (new)', 351 / 403, 0.014, 0.5),
+  HandSpec('hand_18', 'Quill (new)', 329 / 445, 0.015, 0.646),
+  HandSpec('hand_19', 'Neon stylus (new)', 355 / 397, 0.011, 0.484),
+  HandSpec('hand_20', 'Silver gold (new)', 340 / 404, 0.015, 0.533),
 ];
 
 HandSpec? handById(String id) {
