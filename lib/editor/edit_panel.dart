@@ -98,7 +98,7 @@ class _EditPanelState extends State<_EditPanel> {
 
   /// Width divided by height of the picture, read once and remembered in the item.
   Future<double> _loadAspect() {
-    final ImageProvider provider = l.type == 'asset' ? AssetImage(l.path) : FileImage(File(l.path));
+    final ImageProvider<Object> provider = l.type == 'asset'    ? AssetImage(l.path) as ImageProvider<Object>    : FileImage(File(l.path)) as ImageProvider<Object>;
     final completer = Completer<double>();
     final stream = provider.resolve(const ImageConfiguration());
     late ImageStreamListener listener;
