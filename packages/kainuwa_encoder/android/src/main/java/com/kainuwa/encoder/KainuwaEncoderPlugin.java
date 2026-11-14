@@ -19,12 +19,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.view.Surface;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
@@ -63,6 +65,8 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.PluginRegistry;
+import io.flutter.view.TextureRegistry;
+import java.util.HashMap;
 
 /**
  * Local plugin for Kainuwa Studio: system file picker, image + audio to MP4 export
@@ -83,6 +87,10 @@ public class KainuwaEncoderPlugin
 
     private MethodChannel channel;
     private Context appContext;
+    private TextureRegistry textureRegistry;
+    private ExoPlayer exo;
+    private TextureRegistry.SurfaceTextureEntry exoEntry;
+    private Surface exoSurface;
     private Activity activity;
     private ActivityPluginBinding activityBinding;
 
@@ -127,13 +135,82 @@ public class KainuwaEncoderPlugin
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
         appContext = binding.getApplicationContext();
+        textureRegistry = binding.getTextureRegistry();
         channel = new MethodChannel(binding.getBinaryMessenger(), CHANNEL_NAME);
         channel.setMethodCallHandler(this);
+    }
+
+    private void exoClose() {
+        try {
+            if (exo != null) {
+                exo.stop();
+                exo.release();
+            }
+        } catch (Exception ignored) {
+        }
+        exo = null;
+        if (exoSurface != null) {
+            exoSurface.release();
+            exoSurface = null;
+        }
+        if (exoEntry != null) {
+            exoEntry.release();
+            exoEntry = null;
+        }
+    }
+
+    private void exoOpen(String path, long startMs, MethodChannel.Result result) {
+        exoClose();
+        if (textureRegistry == null || appContext == null) {
+            result.error("video", "No texture registry", null);
+            return;
+        }
+        try {
+            int w = 0;
+            int h = 0;
+            int rot = 0;
+            MediaMetadataRetriever r = new MediaMetadataRetriever();
+            try {
+                r.setDataSource(path);
+                String ws = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+                String hs = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+                String rs = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+                if (ws != null) w = Integer.parseInt(ws);
+                if (hs != null) h = Integer.parseInt(hs);
+                if (rs != null) rot = Integer.parseInt(rs);
+            } finally {
+                r.release();
+            }
+            if (w <= 0 || h <= 0) {
+                result.error("video", "Cannot read video size", null);
+                return;
+            }
+            exoEntry = textureRegistry.createSurfaceTexture();
+            exoEntry.surfaceTexture().setDefaultBufferSize(w, h);
+            exoSurface = new Surface(exoEntry.surfaceTexture());
+            exo = new ExoPlayer.Builder(appContext).build();
+            exo.setVideoSurface(exoSurface);
+            exo.setVolume(0f);
+            exo.setMediaItem(MediaItem.fromUri(Uri.fromFile(new File(path))));
+            exo.prepare();
+            exo.seekTo(startMs);
+            exo.setPlayWhenReady(true);
+            Map<String, Object> out = new HashMap<>();
+            out.put("textureId", exoEntry.id());
+            boolean swap = rot == 90 || rot == 270;
+            out.put("width", swap ? h : w);
+            out.put("height", swap ? w : h);
+            result.success(out);
+        } catch (Exception e) {
+            exoClose();
+            result.error("video", String.valueOf(e.getMessage()), null);
+        }
     }
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         lessonGen++;
+        exoClose();
         if (transformer != null) {
             transformer.cancel();
         }
@@ -212,6 +289,20 @@ public class KainuwaEncoderPlugin
                 break;
             case "recordingLevel":
                 recordingLevel(result);
+                break;
+            case "videoOpen":
+                exoOpen(String.valueOf((String) call.argument("path")), (long) num(call, "ms", 0), result);
+                break;
+            case "videoPosition":
+                result.success(exo == null ? -1 : (int) exo.getCurrentPosition());
+                break;
+            case "videoSeek":
+                if (exo != null) exo.seekTo((long) num(call, "ms", 0));
+                result.success(null);
+                break;
+            case "videoClose":
+                exoClose();
+                result.success(null);
                 break;
             case "videoFrame":
                 videoFrame(String.valueOf((String) call.argument("path")),

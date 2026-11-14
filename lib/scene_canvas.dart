@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
@@ -424,6 +425,133 @@ class _LiveVideoFrameState extends State<LiveVideoFrame> {
   }
 }
 
+/// Plays a video smoothly through a native texture, with a still frame underneath.
+class LiveVideo extends StatefulWidget {
+  const LiveVideo({super.key, required this.path, required this.ms});
+
+  final String path;
+  final int ms;
+
+  @override
+  State<LiveVideo> createState() => _LiveVideoState();
+}
+
+class _LiveVideoState extends State<LiveVideo> {
+  int? _texture;
+  double _aspect = 16 / 9;
+  bool _failed = false;
+  bool _opening = false;
+  bool _owner = false;
+  Timer? _timer;
+  late final int _startMs;
+  late final DateTime _startedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _startMs = widget.ms;
+    _startedAt = DateTime.now();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current && _texture == null && !_opening && !_failed) {
+      _open();
+    } else if (!current && _owner) {
+      _close();
+    }
+  }
+
+  Future<void> _open() async {
+    _opening = true;
+    try {
+      final r = await KainuwaEncoder.videoOpen(widget.path, widget.ms);
+      if (!mounted) {
+        await KainuwaEncoder.videoClose();
+        return;
+      }
+      if (r == null) {
+        setState(() => _failed = true);
+      } else {
+        _owner = true;
+        setState(() {
+          _texture = r['textureId'];
+          _aspect = r['width']! / r['height']!;
+        });
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) => _checkDrift());
+      }
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+    _opening = false;
+  }
+
+  Future<void> _checkDrift() async {
+    if (!_owner || !mounted) return;
+    try {
+      final pos = await KainuwaEncoder.videoPosition();
+      if (pos < 0 || !_owner) return;
+      if ((pos - widget.ms).abs() > 250) {
+        await KainuwaEncoder.videoSeek(widget.ms);
+      }
+    } catch (_) {}
+  }
+
+  void _close() {
+    _timer?.cancel();
+    _timer = null;
+    if (_owner) {
+      _owner = false;
+      KainuwaEncoder.videoClose();
+    }
+    if (mounted) setState(() => _texture = null);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    if (_owner) {
+      _owner = false;
+      KainuwaEncoder.videoClose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) {
+      return LiveVideoFrame(path: widget.path, ms: widget.ms);
+    }
+    final id = _texture;
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (id == null)
+            FutureBuilder<String?>(
+              future: VideoFrames.frame(widget.path, _startMs),
+              builder: (context, snap) {
+                final file = snap.data;
+                if (file == null) return const SizedBox.expand();
+                return Image.file(File(file), fit: BoxFit.contain);
+              },
+            )
+          else
+            Center(
+              child: AspectRatio(
+                aspectRatio: _aspect,
+                child: Texture(textureId: id),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class SceneBackground extends StatelessWidget {
   const SceneBackground({super.key, required this.scene, this.liveMs});
 
@@ -435,7 +563,11 @@ class SceneBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (scene.hasVideo && liveMs != null) {
-      return LiveVideoFrame(path: scene.videoPath, ms: scene.videoStartMs + liveMs!);
+      return LiveVideo(
+        key: ValueKey('live-${scene.id}'),
+        path: scene.videoPath,
+        ms: scene.videoStartMs + liveMs!,
+      );
     }
     if (scene.hasVideo) {
       return ColoredBox(

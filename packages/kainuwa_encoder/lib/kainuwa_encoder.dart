@@ -186,6 +186,35 @@ class KainuwaEncoder {
     return _channel.invokeMethod<String>('pick', {'mime': 'video/*'});
   }
 
+  /// Opens a playing video on a native texture. Returns textureId, width, height.
+  static Future<Map<String, int>?> videoOpen(String path, int ms) async {
+    _init();
+    final r = await _channel.invokeMapMethod<String, dynamic>('videoOpen', {'path': path, 'ms': ms});
+    if (r == null) return null;
+    return {
+      'textureId': (r['textureId'] as num).toInt(),
+      'width': (r['width'] as num).toInt(),
+      'height': (r['height'] as num).toInt(),
+    };
+  }
+
+  /// Current position of the open video in ms, or -1.
+  static Future<int> videoPosition() async {
+    _init();
+    final r = await _channel.invokeMethod<int>('videoPosition');
+    return r ?? -1;
+  }
+
+  static Future<void> videoSeek(int ms) {
+    _init();
+    return _channel.invokeMethod<void>('videoSeek', {'ms': ms});
+  }
+
+  static Future<void> videoClose() {
+    _init();
+    return _channel.invokeMethod<void>('videoClose');
+  }
+
   /// A small JPEG of the exact video frame at [ms], as bytes, or null.
   static Future<Uint8List?> videoFrameBytes(String path, int ms) {
     _init();

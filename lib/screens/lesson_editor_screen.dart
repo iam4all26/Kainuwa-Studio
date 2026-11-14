@@ -55,7 +55,7 @@ class LessonEditorScreen extends StatefulWidget {
 }
 
 class _LessonEditorScreenState extends State<LessonEditorScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   LessonPlayer? _player;
   EditorHistory? _history;
 
@@ -69,6 +69,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AppState.editorLandscape = AppScope.read(context).settings.landscape;
     AppState.setOrientation(landscape: AppState.editorLandscape);
     final lesson = AppScope.read(context).lessonById(widget.courseId, widget.lessonId);
@@ -88,6 +89,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     AppState.editorLandscape = false;
     AppState.setOrientation(landscape: false);
     _player?.removeListener(_onPlayer);
@@ -119,6 +121,11 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   void _pause() => _player?.pause();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _pause();
+  }
 
   void _snack(String message) {
     ScaffoldMessenger.of(context)
