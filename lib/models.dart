@@ -566,13 +566,75 @@ class Course {
   }
 }
 
+/// A mark laid over every exported video: text or a picture, in one corner.
+class Watermark {
+  const Watermark({
+    this.on = false,
+    this.kind = 'text',
+    this.text = 'Kainuwa Studio',
+    this.image = '',
+    this.corner = 'br',
+    this.size = 0.2,
+    this.opacity = 0.7,
+  });
+
+  final bool on;
+  final String kind;
+  final String text;
+  final String image;
+  final String corner;
+  final double size;
+  final double opacity;
+
+  Watermark copyWith({
+    bool? on,
+    String? kind,
+    String? text,
+    String? image,
+    String? corner,
+    double? size,
+    double? opacity,
+  }) =>
+      Watermark(
+        on: on ?? this.on,
+        kind: kind ?? this.kind,
+        text: text ?? this.text,
+        image: image ?? this.image,
+        corner: corner ?? this.corner,
+        size: size ?? this.size,
+        opacity: opacity ?? this.opacity,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'on': on,
+        'kind': kind,
+        'text': text,
+        'image': image,
+        'corner': corner,
+        'size': size,
+        'opacity': opacity,
+      };
+
+  factory Watermark.fromJson(Map<String, dynamic> json) => Watermark(
+        on: json['on'] is bool ? json['on'] as bool : false,
+        kind: _str(json['kind'], 'text'),
+        text: _str(json['text'], 'Kainuwa Studio'),
+        image: _str(json['image'], ''),
+        corner: _str(json['corner'], 'br'),
+        size: _num(json['size'], 0.2),
+        opacity: _num(json['opacity'], 0.7),
+      );
+}
+
 class AppSettings {
   const AppSettings({
     this.videoHeight = 720,
     this.frameRate = 30,
     this.orientation = 'portrait',
+    this.wm = const Watermark(),
   });
 
+  final Watermark wm;
   final int videoHeight;
   final int frameRate;
 
@@ -583,7 +645,8 @@ class AppSettings {
 
   int get videoWidth => videoHeight == 1080 ? 1920 : 1280;
 
-  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation}) => AppSettings(
+  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation, Watermark? wm}) => AppSettings(
+        wm: wm ?? this.wm,
         videoHeight: videoHeight ?? this.videoHeight,
         frameRate: frameRate ?? this.frameRate,
         orientation: orientation ?? this.orientation,
@@ -593,12 +656,14 @@ class AppSettings {
         'videoHeight': videoHeight,
         'frameRate': frameRate,
         'orientation': orientation,
+        'wm': wm.toJson(),
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
         videoHeight: _int(json['videoHeight'], 720) == 1080 ? 1080 : 720,
         frameRate: _int(json['frameRate'], 30) == 24 ? 24 : 30,
         orientation: _str(json['orientation'], 'portrait') == 'landscape' ? 'landscape' : 'portrait',
+        wm: json['wm'] is Map ? Watermark.fromJson(Map<String, dynamic>.from(json['wm'] as Map)) : const Watermark(),
       );
 }
 

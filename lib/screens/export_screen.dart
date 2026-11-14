@@ -12,6 +12,7 @@ import '../animation_math.dart';
 import '../app_state.dart';
 import '../editor/track_visibility.dart';
 import '../models.dart';
+import '../watermark.dart';
 import '../scene_canvas.dart';
 import '../hands.dart';
 import '../text_reveal.dart';
@@ -287,6 +288,7 @@ class _ExportScreenState extends State<ExportScreen> {
           bgValue: scene.hasVideo ? '0' : scene.bgValue,
           layers: List<Layer>.of(staticLayers),
         );
+        final wm = AppScope.read(context).settings.wm;
         final phoneOn = scene.hasVideo && scene.phoneFrame;
         final geo = PhoneGeometry(_kStageW, _kStageH, scene.phoneScale);
         final baseImage = await _capture(
@@ -307,8 +309,12 @@ class _ExportScreenState extends State<ExportScreen> {
                     ),
                     PhoneNotch(geo: geo),
                     Positioned.fill(child: SceneCanvas(scene: baseScene)),
+                    watermarkOverlay(wm, _kStageW, _kStageH),
                   ])
-                : SceneCanvas(scene: baseScene),
+                : Stack(children: [
+                    Positioned.fill(child: SceneCanvas(scene: baseScene)),
+                    watermarkOverlay(wm, _kStageW, _kStageH),
+                  ]),
           ),
           _kStageW,
           _kStageH,
@@ -944,14 +950,10 @@ class _ExportScreenState extends State<ExportScreen> {
             ),
           ],
         )),
-        card(Row(
-          children: [
-            const Icon(Icons.folder_outlined, color: KColors.purple),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text('Save to: Internal Storage / Movies / Kainuwa Studio'),
-            ),
-          ],
+        card(WatermarkCard(
+          wm: state.settings.wm,
+          enabled: !_busy,
+          onChanged: (w) => state.updateSettings(state.settings.copyWith(wm: w)),
         )),
         const Padding(
           padding: EdgeInsets.only(bottom: 12),
