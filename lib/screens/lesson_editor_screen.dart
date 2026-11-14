@@ -912,6 +912,38 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                       ? null
                       : (v) => setSheet(() => scene.videoVolume = v),
                 ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Phone frame'),
+                  subtitle: const Text('Shows the video inside a phone, on your background'),
+                  value: scene.phoneFrame,
+                  onChanged: (v) {
+                    setSheet(() => scene.phoneFrame = v);
+                    if (mounted) setState(() {});
+                  },
+                ),
+                if (scene.phoneFrame) ...[
+                  Text('Phone size: ${(scene.phoneScale * 100).round()} percent'),
+                  Slider(
+                    value: scene.phoneScale.clamp(0.4, 1.0).toDouble(),
+                    min: 0.4,
+                    max: 1.0,
+                    divisions: 12,
+                    onChanged: (v) {
+                      setSheet(() => scene.phoneScale = v);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Light phone body'),
+                    value: scene.phoneLight,
+                    onChanged: (v) {
+                      setSheet(() => scene.phoneLight = v);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ],
                 Text('Start the clip at: ${(scene.videoStartMs / 1000).toStringAsFixed(1)} seconds'),
                 Slider(
                   value: scene.videoStartMs.clamp(0, maxStart).toDouble(),

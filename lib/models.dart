@@ -246,6 +246,9 @@ class Scene {
     this.videoMs = 0,
     this.videoVolume = 1.0,
     this.videoMuted = false,
+    this.phoneFrame = false,
+    this.phoneScale = 0.9,
+    this.phoneLight = false,
     List<Layer>? layers,
   }) : layers = layers ?? <Layer>[];
 
@@ -271,6 +274,11 @@ class Scene {
   int videoMs;
   double videoVolume;
   bool videoMuted;
+
+  /// Shows a portrait video inside a phone shape on top of the slide background.
+  bool phoneFrame;
+  double phoneScale;
+  bool phoneLight;
 
   bool get hasVideo => videoPath.isNotEmpty;
 
@@ -299,6 +307,9 @@ class Scene {
         videoMs: videoMs,
         videoVolume: videoVolume,
         videoMuted: videoMuted,
+        phoneFrame: phoneFrame,
+        phoneScale: phoneScale,
+        phoneLight: phoneLight,
         layers: layers.map((l) => l.copy()).toList(),
       );
 
@@ -316,6 +327,9 @@ class Scene {
         'videoMs': videoMs,
         'videoVolume': videoVolume,
         'videoMuted': videoMuted,
+        'phoneFrame': phoneFrame,
+        'phoneScale': phoneScale,
+        'phoneLight': phoneLight,
         'layers': layers.map((l) => l.toJson()).toList(),
       };
 
@@ -341,6 +355,9 @@ class Scene {
       videoMs: _int(json['videoMs'], 0),
       videoVolume: _num(json['videoVolume'], 1.0),
       videoMuted: json['videoMuted'] is bool ? json['videoMuted'] as bool : false,
+      phoneFrame: json['phoneFrame'] is bool ? json['phoneFrame'] as bool : false,
+      phoneScale: _num(json['phoneScale'], 0.9),
+      phoneLight: json['phoneLight'] is bool ? json['phoneLight'] as bool : false,
       layers: layers,
     );
   }

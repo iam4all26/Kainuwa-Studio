@@ -714,6 +714,7 @@ public class KainuwaEncoderPlugin
     private int lessonBitrate = 0;
     private final List<String> lessonVideoPaths = new ArrayList<>();
     private final List<Long> lessonVideoStarts = new ArrayList<>();
+    private final List<Double> lessonVideoScales = new ArrayList<>();
 
     // Live preview frames: one reader stays open so each frame is quicker to get.
     private final ExecutorService frameWorker = Executors.newSingleThreadExecutor();
@@ -849,6 +850,7 @@ public class KainuwaEncoderPlugin
         final LessonOverlays overlays = new LessonOverlays();
         lessonVideoPaths.clear();
         lessonVideoStarts.clear();
+        lessonVideoScales.clear();
         long totalMs = 0;
         for (Map<String, Object> sc : scenes) {
             Object img = sc.get("image");
@@ -861,6 +863,7 @@ public class KainuwaEncoderPlugin
             Object vid = sc.get("video");
             lessonVideoPaths.add(vid instanceof String && !((String) vid).isEmpty() ? (String) vid : null);
             lessonVideoStarts.add(longOf(sc.get("videoStartMs"), 0));
+            lessonVideoScales.add(sc.get("videoScale") instanceof Number ? ((Number) sc.get("videoScale")).doubleValue() : 1.0);
             durations.add(dur);
             totalMs += dur;
 
@@ -1054,6 +1057,13 @@ public class KainuwaEncoderPlugin
             List<Effect> effects = new ArrayList<>();
             effects.add(Presentation.createForWidthAndHeight(
                     width, height, Presentation.LAYOUT_SCALE_TO_FIT));
+            double vScale = i < lessonVideoScales.size() ? lessonVideoScales.get(i) : 1.0;
+            if (videoPath != null && vScale > 0.05 && vScale < 0.999) {
+                // Phone frame: shrink the video into the phone screen; the frame picture hides the rest.
+                effects.add(new androidx.media3.effect.ScaleAndRotateTransformation.Builder()
+                        .setScale((float) vScale, (float) vScale)
+                        .build());
+            }
             EditedMediaItem.Builder pictureBuilder = new EditedMediaItem.Builder(item)
                     .setFrameRate(fps)
                     .setEffects(new Effects(new ArrayList<AudioProcessor>(), effects));

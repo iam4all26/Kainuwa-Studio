@@ -624,24 +624,130 @@ class _LiveVideoState extends State<LiveVideo> {
   }
 }
 
+/// Where the phone body and its screen sit, for a stage of the given size.
+class PhoneGeometry {
+  PhoneGeometry(double w, double h, double scale) {
+    final s = scale.clamp(0.4, 1.0).toDouble();
+    bodyH = h * s;
+    bezel = bodyH * 0.025;
+    screenH = bodyH - 2 * bezel;
+    screenW = screenH * 9 / 16;
+    bodyW = screenW + 2 * bezel;
+    radius = bodyH * 0.06;
+    body = Rect.fromCenter(center: Offset(w / 2, h / 2), width: bodyW, height: bodyH);
+    screen = Rect.fromCenter(center: Offset(w / 2, h / 2), width: screenW, height: screenH);
+  }
+
+  late final double bodyH, bezel, screenH, screenW, bodyW, radius;
+  late final Rect body, screen;
+
+  RRect get bodyRRect => RRect.fromRectAndRadius(body, Radius.circular(radius));
+  RRect get screenRRect => RRect.fromRectAndRadius(screen, Radius.circular(radius * 0.8));
+}
+
+class PhoneHoleClipper extends CustomClipper<Path> {
+  PhoneHoleClipper(this.geo);
+  final PhoneGeometry geo;
+
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(geo.screenRRect);
+  }
+
+  @override
+  bool shouldReclip(covariant PhoneHoleClipper old) => false;
+}
+
+/// The phone body (and a small speaker notch), drawn over the slide background.
+class PhoneBody extends StatelessWidget {
+  const PhoneBody({super.key, required this.geo, required this.light});
+
+  final PhoneGeometry geo;
+  final bool light;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = light ? const Color(0xFFF2F2F5) : const Color(0xFF111114);
+    return Stack(children: [
+      Positioned.fromRect(
+        rect: geo.body,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(geo.radius),
+            boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 14, offset: Offset(0, 4))],
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class PhoneNotch extends StatelessWidget {
+  const PhoneNotch({super.key, required this.geo});
+
+  final PhoneGeometry geo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      Positioned(
+        left: geo.body.center.dx - geo.screenW * 0.12,
+        top: geo.screen.top + geo.bezel * 0.5,
+        width: geo.screenW * 0.24,
+        height: geo.bezel * 1.1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF111114),
+            borderRadius: BorderRadius.circular(geo.bezel),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
 class SceneBackground extends StatelessWidget {
-  const SceneBackground({super.key, required this.scene, this.liveMs});
+  const SceneBackground({super.key, required this.scene, this.liveMs, this.noVideo = false, this.videoOnly = false});
 
   final Scene scene;
+  final bool noVideo;
+  final bool videoOnly;
 
   /// While playing: the time inside this slide, so a video shows moving frames.
   final int? liveMs;
 
   @override
   Widget build(BuildContext context) {
-    if (scene.hasVideo && liveMs != null) {
+    if (scene.hasVideo && scene.phoneFrame && !noVideo && !videoOnly) {
+      return LayoutBuilder(builder: (context, c) {
+        final geo = PhoneGeometry(c.maxWidth, c.maxHeight, scene.phoneScale);
+        return Stack(children: [
+          Positioned.fill(child: SceneBackground(scene: scene, noVideo: true)),
+          PhoneBody(geo: geo, light: scene.phoneLight),
+          Positioned.fromRect(
+            rect: geo.screen,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(geo.radius * 0.8),
+              child: SceneBackground(scene: scene, liveMs: liveMs, videoOnly: true),
+            ),
+          ),
+          PhoneNotch(geo: geo),
+        ]);
+      });
+    }
+    final showVideo = scene.hasVideo && !noVideo;
+    if (showVideo && liveMs != null) {
       return LiveVideo(
         key: ValueKey('live-${scene.id}'),
         path: scene.videoPath,
         ms: scene.videoStartMs + liveMs!,
       );
     }
-    if (scene.hasVideo) {
+    if (showVideo) {
       return ColoredBox(
         color: Colors.black,
         child: FutureBuilder<String?>(

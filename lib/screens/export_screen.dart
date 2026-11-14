@@ -287,11 +287,28 @@ class _ExportScreenState extends State<ExportScreen> {
           bgValue: scene.hasVideo ? '0' : scene.bgValue,
           layers: List<Layer>.of(staticLayers),
         );
+        final phoneOn = scene.hasVideo && scene.phoneFrame;
+        final geo = PhoneGeometry(_kStageW, _kStageH, scene.phoneScale);
         final baseImage = await _capture(
           SizedBox(
             width: _kStageW,
             height: _kStageH,
-            child: SceneCanvas(scene: baseScene),
+            child: phoneOn
+                ? Stack(children: [
+                    // Background and phone body with a see-through screen, so the video shows in it.
+                    Positioned.fill(
+                      child: ClipPath(
+                        clipper: PhoneHoleClipper(geo),
+                        child: Stack(children: [
+                          Positioned.fill(child: SceneBackground(scene: scene, noVideo: true)),
+                          PhoneBody(geo: geo, light: scene.phoneLight),
+                        ]),
+                      ),
+                    ),
+                    PhoneNotch(geo: geo),
+                    Positioned.fill(child: SceneCanvas(scene: baseScene)),
+                  ])
+                : SceneCanvas(scene: baseScene),
           ),
           _kStageW,
           _kStageH,
@@ -464,6 +481,9 @@ class _ExportScreenState extends State<ExportScreen> {
           'overlays': overlays,
           'video': scene.hasVideo ? scene.videoPath : null,
           'videoStartMs': scene.videoStartMs,
+          'videoScale': scene.hasVideo && scene.phoneFrame
+              ? PhoneGeometry(_kStageW, _kStageH, scene.phoneScale).screenH / _kStageH
+              : 1.0,
         });
         offsetMs += scene.durationMs;
       }
