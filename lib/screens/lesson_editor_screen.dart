@@ -380,6 +380,22 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null) return;
     final item = await showAssetSheet(context);
     if (item == null) return;
+    // Built-in icons also exist as SVG: use those, so they stay sharp at any size.
+    if (item.path.startsWith('assets/icons/') && item.path.endsWith('.png')) {
+      final svgAsset = item.path
+          .replaceFirst('assets/icons/', 'assets/icons_svg/')
+          .replaceFirst(RegExp(r'\.png$'), '.svg');
+      final raster = await rasterizeSvgAsset(svgAsset);
+      if (!mounted) return;
+      if (raster != null) {
+        final b = fitBox(raster.aspect, maxW: 0.28, maxH: 0.5);
+        _addLayer(
+          scene,
+          Layer(id: newId(), type: 'image', w: b.$1, h: b.$2, path: raster.path),
+        );
+        return;
+      }
+    }
     final box = fitBox(1.0, maxW: 0.28, maxH: 0.5);
     _addLayer(scene, Layer(id: newId(), type: 'asset', w: box.$1, h: box.$2, path: item.path));
   }

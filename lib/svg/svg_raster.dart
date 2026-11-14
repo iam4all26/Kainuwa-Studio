@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import 'package:vector_graphics/vector_graphics.dart';
@@ -21,6 +22,24 @@ class SvgRaster {
 Future<SvgRaster?> rasterizeSvg(String svgPath, {int longSide = 1024}) async {
   try {
     final text = await File(svgPath).readAsString();
+    return _rasterizeText(text, longSide);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Same, for an SVG that ships inside the app (for example assets/icons_svg/06_Laptop.svg).
+Future<SvgRaster?> rasterizeSvgAsset(String assetPath, {int longSide = 1024}) async {
+  try {
+    final text = await rootBundle.loadString(assetPath);
+    return _rasterizeText(text, longSide);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<SvgRaster?> _rasterizeText(String text, int longSide) async {
+  try {
     final info = await vg.loadPicture(SvgStringLoader(text), null);
     final size = info.size;
     if (size.width <= 0 || size.height <= 0) {

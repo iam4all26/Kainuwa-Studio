@@ -343,6 +343,31 @@ class _EditPanelState extends State<_EditPanel> {
     final colorable = _isText || l.type == 'shape' || (l.type == 'image' && l.shape == 'tint');
     return Column(
       children: [
+        if (l.type == 'image')
+          _card(
+            'Single color',
+            Icons.invert_colors_outlined,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _labeled(
+                  'Paint the whole picture in one color',
+                  Switch(
+                    value: l.shape == 'tint',
+                    onChanged: (v) {
+                      l.shape = v ? 'tint' : 'rect';
+                      if (v && l.color == 0xFFFFFFFF) l.color = 0xFFF6C101;
+                      _changed();
+                    },
+                  ),
+                ),
+                const Text(
+                  'Best for icons and drawings. Photos lose their colors.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
         if (colorable)
           _card(
             _isText ? 'Text Color' : 'Color',

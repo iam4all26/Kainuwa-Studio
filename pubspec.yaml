@@ -23,5 +23,6 @@ flutter:
     - assets/icon/app_icon.png
     - assets/backgrounds/
     - assets/icons/
+    - assets/icons_svg/
     - assets/illustrations/
     - assets/hands/
