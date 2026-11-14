@@ -91,7 +91,7 @@ class _VolumeSheetState extends State<_VolumeSheet> {
     final hasNarration = scene.narrationPath.isNotEmpty;
     final hasMusic = lesson.musicPath.isNotEmpty;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -131,7 +131,7 @@ class _VolumeSheetState extends State<_VolumeSheet> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }
@@ -150,6 +150,7 @@ Future<void> showSpeedSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     builder: (_) => _SpeedSheet(layer: layer, onLive: onLive),
   );
 }
@@ -174,7 +175,7 @@ class _SpeedSheetState extends State<_SpeedSheet> {
   Widget build(BuildContext context) {
     final layer = widget.layer;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -204,7 +205,7 @@ class _SpeedSheetState extends State<_SpeedSheet> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

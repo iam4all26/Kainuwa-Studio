@@ -8,6 +8,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../app_state.dart';
 import '../demo_plan.dart';
+import '../store/store_tab.dart';
 import '../editor/add_timeline_sheet.dart';
 import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
@@ -428,6 +429,17 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       await _addSvg(scene, item.path, tint: item.tint);
       return;
     }
+    if (item.path.startsWith('assets/') && item.path.endsWith('.svg')) {
+      final raster = await rasterizeSvgAsset(item.path);
+      if (!mounted) return;
+      if (raster == null) {
+        _snack('That icon could not be read.');
+        return;
+      }
+      final b = fitBox(raster.aspect, maxW: 0.28, maxH: 0.5);
+      _addLayer(scene, Layer(id: newId(), type: 'image', w: b.$1, h: b.$2, path: raster.path));
+      return;
+    }
     // Built-in icons also exist as SVG: use those, so they stay sharp at any size.
     if (item.path.startsWith('assets/icons/') && item.path.endsWith('.png')) {
       final svgAsset = item.path
@@ -792,6 +804,20 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _commit();
   }
 
+  /// Opens the Store on top of the editor, so nothing here has to be closed to download items.
+  Future<void> _openStore() async {
+    _pause();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Store')),
+          body: const StoreTab(active: true),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   // ---- replace the file of the selected item, keeping everything else ----
 
   Future<void> _replaceMedia() async {
@@ -890,10 +916,11 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheet) {
           final maxStart = math.max(0, scene.videoMs - 1000);
-          return Padding(
+          return SingleChildScrollView(child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -971,7 +998,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 ),
               ],
             ),
-          );
+          ));
         },
       ),
     );
@@ -1386,6 +1413,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             ),
             _headerIcon(u, Icons.undo, (history?.canUndo ?? false) ? _undo : null, tooltip: 'Undo'),
             _headerIcon(u, Icons.redo, (history?.canRedo ?? false) ? _redo : null, tooltip: 'Redo'),
+            _headerIcon(u, Icons.storefront_outlined, _openStore, tooltip: 'Store'),
             _headerIcon(u, Icons.save_outlined, _save, tooltip: 'Save'),
             SizedBox(width: _s(u, 12, 4)),
             Material(

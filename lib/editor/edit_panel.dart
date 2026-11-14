@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../animation_math.dart';
 import '../models.dart';
+import 'crop_editor.dart';
 import '../scene_canvas.dart';
 import '../store/store_service.dart';
 import 'hand_picker.dart';
@@ -204,6 +205,20 @@ class _EditPanelState extends State<_EditPanel> {
     _changed();
   }
 
+  Future<void> _dragCrop() async {
+    final aspect = l.srcAspect > 0 ? l.srcAspect : await _loadAspect();
+    if (!mounted) return;
+    l.srcAspect = aspect;
+    final r = await showCropEditor(context, layer: l, aspect: aspect);
+    if (r == null || !mounted) return;
+    l.cropL = r.$1;
+    l.cropR = r.$2;
+    l.cropT = r.$3;
+    l.cropB = r.$4;
+    _hugCrop();
+    _changed();
+  }
+
   Widget _cutField(String label, double value, void Function(double) apply) {
     return _labeled(
       label,
@@ -241,6 +256,12 @@ class _EditPanelState extends State<_EditPanel> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          FilledButton.icon(
+            onPressed: _dragCrop,
+            icon: const Icon(Icons.crop),
+            label: const Text('Drag to crop'),
+          ),
+          const SizedBox(height: 8),
           const Text('Crop to a shape', style: TextStyle(fontSize: 12, color: KColors.ink)),
           const SizedBox(height: 4),
           Wrap(

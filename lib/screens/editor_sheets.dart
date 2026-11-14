@@ -124,7 +124,7 @@ class _AssetSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 5,
+        length: 6,
         child: Column(
           children: [
             const Padding(
@@ -140,6 +140,7 @@ class _AssetSheet extends StatelessWidget {
               Tab(text: 'Social media'),
               Tab(text: 'Developer'),
               Tab(text: 'Languages'),
+              Tab(text: 'Crypto'),
             ]),
             Expanded(
               child: TabBarView(
@@ -149,6 +150,7 @@ class _AssetSheet extends StatelessWidget {
                   _PickGrid(items: kSocialIcons, columns: 4),
                   _PickGrid(items: kDeveloperIcons, columns: 4),
                   _PickGrid(items: kLanguageIcons, columns: 4),
+                  _PickGrid(items: kCryptoIcons, columns: 4),
                 ],
               ),
             ),
@@ -211,8 +213,9 @@ class _PickGrid extends StatelessWidget {
 Future<String?> showShapeSheet(BuildContext context) {
   return showModalBottomSheet<String>(
     context: context,
+    isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -279,7 +282,7 @@ Future<String?> showShapeSheet(BuildContext context) {
             ],
           ],
         ),
-      ),
+      )),
     ),
   );
 }
@@ -315,6 +318,7 @@ class _ShapeOption extends StatelessWidget {
 Future<int?> showDurationSheet(BuildContext context, int currentMs, {int minMs = 1000}) {
   return showModalBottomSheet<int>(
     context: context,
+    isScrollControlled: true,
     builder: (_) => _DurationSheet(currentMs: currentMs, minMs: minMs),
   );
 }
@@ -337,7 +341,7 @@ class _DurationSheetState extends State<_DurationSheet> {
   Widget build(BuildContext context) {
     final steps = ((60 - _min) * 2).round().clamp(1, 1000).toInt();
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -374,7 +378,7 @@ class _DurationSheetState extends State<_DurationSheet> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }
@@ -383,8 +387,9 @@ class _DurationSheetState extends State<_DurationSheet> {
 Future<String?> showAddSheet(BuildContext context) {
   return showModalBottomSheet<String>(
     context: context,
+    isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -402,7 +407,7 @@ Future<String?> showAddSheet(BuildContext context) {
             ),
           ],
         ),
-      ),
+      )),
     ),
   );
 }

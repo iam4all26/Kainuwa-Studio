@@ -10,7 +10,7 @@ class AssetsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 6,
+        length: 7,
         child: Column(
           children: [
             const Padding(
@@ -32,6 +32,7 @@ class AssetsTab extends StatelessWidget {
                 Tab(text: 'Social media'),
                 Tab(text: 'Developer'),
                 Tab(text: 'Languages'),
+                Tab(text: 'Crypto'),
               ],
             ),
             Expanded(
@@ -43,6 +44,7 @@ class AssetsTab extends StatelessWidget {
                   _AssetGrid(items: kSocialIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
                   _AssetGrid(items: kDeveloperIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
                   _AssetGrid(items: kLanguageIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
+                  _AssetGrid(items: kCryptoIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
                 ],
               ),
             ),
