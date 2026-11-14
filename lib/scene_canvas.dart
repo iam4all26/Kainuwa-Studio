@@ -923,6 +923,18 @@ class LayerContent extends StatelessWidget {
                 textAlign: layerTextAlign(layer),
                 style: layerTextStyle(layer),
               );
+        if (layer.gradOn) {
+          final a = layer.gradAngle * math.pi / 180;
+          text = ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (rect) => LinearGradient(
+              begin: Alignment(-math.cos(a), -math.sin(a)),
+              end: Alignment(math.cos(a), math.sin(a)),
+              colors: [Color(layer.gradC1), Color(layer.gradC2)],
+            ).createShader(rect),
+            child: text,
+          );
+        }
         if (layer.bgBox) {
           text = Container(
             padding: const EdgeInsets.symmetric(horizontal: _kBoxPadX, vertical: _kBoxPadY),

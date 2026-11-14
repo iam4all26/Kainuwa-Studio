@@ -53,6 +53,10 @@ class Layer {
     this.handMs = 2500,
     this.animLoop = 'none',
     this.animLoopMs = 0,
+    this.gradOn = false,
+    this.gradC1 = 0xFFFFD54F,
+    this.gradC2 = 0xFFFF6F00,
+    this.gradAngle = 90,
     this.cropL = 0,
     this.cropT = 0,
     this.cropR = 0,
@@ -127,6 +131,12 @@ class Layer {
   String animLoop;
   int animLoopMs;
 
+  /// Gradient fill for text (two colours and an angle in degrees: 0 left to right, 90 top to bottom).
+  bool gradOn;
+  int gradC1;
+  int gradC2;
+  double gradAngle;
+
   /// Picture crop: the fraction cut from each side (0 to 0.8).
   double cropL;
   double cropT;
@@ -177,6 +187,10 @@ class Layer {
         'handMs': handMs,
         'animLoop': animLoop,
         'animLoopMs': animLoopMs,
+        'gradOn': gradOn,
+        'gradC1': gradC1,
+        'gradC2': gradC2,
+        'gradAngle': gradAngle,
         'cropL': cropL,
         'cropT': cropT,
         'cropR': cropR,
@@ -221,6 +235,10 @@ class Layer {
         handMs: _int(json['handMs'], 2500),
         animLoop: _str(json['animLoop'], 'none'),
         animLoopMs: _int(json['animLoopMs'], 0),
+        gradOn: json['gradOn'] is bool ? json['gradOn'] as bool : false,
+        gradC1: _int(json['gradC1'], 0xFFFFD54F),
+        gradC2: _int(json['gradC2'], 0xFFFF6F00),
+        gradAngle: _num(json['gradAngle'], 90),
         cropL: _num(json['cropL'], 0),
         cropT: _num(json['cropT'], 0),
         cropR: _num(json['cropR'], 0),

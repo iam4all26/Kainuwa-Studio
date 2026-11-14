@@ -609,6 +609,84 @@ class _EditPanelState extends State<_EditPanel> {
           ),
         if (_isText)
           _card(
+            'Gradient text',
+            Icons.gradient,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _labeled(
+                  'Use a gradient',
+                  Switch(
+                    value: l.gradOn,
+                    onChanged: (v) {
+                      l.gradOn = v;
+                      _changed();
+                    },
+                  ),
+                ),
+                if (l.gradOn) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final g in const [
+                        ('Gold', 0xFFFFE082, 0xFFFF8F00),
+                        ('Sunset', 0xFFFF5F6D, 0xFFFFC371),
+                        ('Ocean', 0xFF00C6FF, 0xFF0072FF),
+                        ('Neon', 0xFF00F5A0, 0xFF00D9F5),
+                        ('Royal', 0xFFB993FF, 0xFF6A3DF0),
+                        ('Fire', 0xFFFFEB3B, 0xFFE53935),
+                      ])
+                        ActionChip(
+                          label: Text(g.$1),
+                          avatar: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(colors: [Color(g.$2), Color(g.$3)]),
+                            ),
+                          ),
+                          onPressed: () {
+                            l.gradC1 = g.$2;
+                            l.gradC2 = g.$3;
+                            _changed();
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _labeled(
+                    'From colour',
+                    _colorEditor(l.gradC1, (v) {
+                      l.gradC1 = v;
+                      _changed();
+                    }),
+                  ),
+                  _labeled(
+                    'To colour',
+                    _colorEditor(l.gradC2, (v) {
+                      l.gradC2 = v;
+                      _changed();
+                    }),
+                  ),
+                  Text('Direction: ${l.gradAngle.round()} degrees',
+                      style: const TextStyle(fontSize: 12, color: KColors.ink)),
+                  Slider(
+                    value: l.gradAngle.clamp(0, 360).toDouble(),
+                    min: 0,
+                    max: 360,
+                    onChanged: (v) {
+                      l.gradAngle = v;
+                      _changed();
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        if (_isText)
+          _card(
             'Background (Box)',
             Icons.crop_din,
             Column(

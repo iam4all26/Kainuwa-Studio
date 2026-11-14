@@ -9,16 +9,31 @@ import '../theme.dart';
 enum MediaKind { image, video, audio }
 
 /// Opens the in-app media library and returns the chosen file path, or null.
-Future<String?> pickMedia(BuildContext context, MediaKind kind) {
-  return Navigator.of(context).push<String>(
-    MaterialPageRoute<String>(builder: (_) => MediaLibraryScreen(kind: kind)),
+Future<String?> pickMedia(BuildContext context, MediaKind kind) async {
+  final result = await Navigator.of(context).push<Object>(
+    MaterialPageRoute<Object>(builder: (_) => MediaLibraryScreen(kind: kind)),
   );
+  if (result is String) return result;
+  if (result is List<String> && result.isNotEmpty) return result.first;
+  return null;
+}
+
+/// Like [pickMedia], but the user can select several files (long press, or the select button).
+/// Returns an empty list when nothing was chosen.
+Future<List<String>> pickMediaMany(BuildContext context, MediaKind kind) async {
+  final result = await Navigator.of(context).push<Object>(
+    MaterialPageRoute<Object>(builder: (_) => MediaLibraryScreen(kind: kind, multi: true)),
+  );
+  if (result is List<String>) return result;
+  if (result is String) return [result];
+  return [];
 }
 
 class MediaLibraryScreen extends StatefulWidget {
-  const MediaLibraryScreen({super.key, required this.kind});
+  const MediaLibraryScreen({super.key, required this.kind, this.multi = false});
 
   final MediaKind kind;
+  final bool multi;
 
   @override
   State<MediaLibraryScreen> createState() => _MediaLibraryScreenState();
@@ -34,6 +49,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   bool _hasMore = true;
   String _problem = '';
   bool _opening = false;
+  bool _selecting = false;
+  final List<AssetEntity> _picked = [];
   List<AssetPathEntity> _albums = [];
   AssetPathEntity? _album;
   final List<AssetEntity> _assets = [];
@@ -181,6 +198,53 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
     }
   }
 
+  void _toggle(AssetEntity a) {
+    setState(() {
+      final i = _picked.indexWhere((x) => x.id == a.id);
+      if (i >= 0) {
+        _picked.removeAt(i);
+      } else {
+        _picked.add(a);
+      }
+    });
+  }
+
+  void _tapAsset(AssetEntity a) {
+    if (widget.multi && (_selecting || _picked.isNotEmpty)) {
+      _toggle(a);
+    } else {
+      _choose(a);
+    }
+  }
+
+  void _holdAsset(AssetEntity a) {
+    if (!widget.multi) return;
+    setState(() => _selecting = true);
+    if (!_picked.any((x) => x.id == a.id)) _toggle(a);
+  }
+
+  Future<void> _finishMany() async {
+    if (_opening || _picked.isEmpty) return;
+    setState(() => _opening = true);
+    try {
+      final paths = <String>[];
+      for (final a in _picked) {
+        final file = await a.originFile ?? await a.file;
+        if (file != null) paths.add(file.path);
+      }
+      if (!mounted) return;
+      if (paths.isEmpty) {
+        _say('Those files could not be opened.');
+        return;
+      }
+      Navigator.of(context).pop(paths);
+    } catch (_) {
+      _say('Those files could not be opened.');
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
   Future<void> _choose(AssetEntity asset) async {
     if (_opening) return;
     setState(() => _opening = true);
@@ -191,7 +255,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
         _say('That file could not be opened.');
         return;
       }
-      Navigator.of(context).pop(file.path);
+      Navigator.of(context).pop(widget.multi ? <String>[file.path] : file.path);
     } catch (_) {
       _say('That file could not be opened.');
     } finally {
@@ -213,7 +277,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
           path = await KainuwaEncoder.pickAudio();
           break;
       }
-      if (path != null && mounted) Navigator.of(context).pop(path);
+      if (path != null && mounted) Navigator.of(context).pop(widget.multi ? <String>[path] : path);
     } catch (_) {
       // The system picker was closed.
     }
@@ -297,7 +361,18 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
             ),
             title: Text(a.title ?? 'Audio', maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(_clock(a.duration)),
-            onTap: () => _choose(a),
+            selected: _picked.any((x) => x.id == a.id),
+            selectedTileColor: const Color(0x33A78BFA),
+            trailing: _picked.any((x) => x.id == a.id)
+                ? CircleAvatar(
+                    radius: 13,
+                    backgroundColor: KColors.purple,
+                    child: Text('${_picked.indexWhere((x) => x.id == a.id) + 1}',
+                        style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  )
+                : null,
+            onTap: () => _tapAsset(a),
+            onLongPress: () => _holdAsset(a),
           );
         },
       );
@@ -313,12 +388,33 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
       itemCount: _assets.length,
       itemBuilder: (context, i) {
         final a = _assets[i];
+        final order = _picked.indexWhere((x) => x.id == a.id);
         return InkWell(
-          onTap: () => _choose(a),
+          onTap: () => _tapAsset(a),
+          onLongPress: () => _holdAsset(a),
           child: Stack(
             fit: StackFit.expand,
             children: [
               _Thumb(asset: a),
+              if (order >= 0)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0x44A78BFA),
+                      border: Border.all(color: KColors.purple, width: 3),
+                    ),
+                  ),
+                ),
+              if (order >= 0)
+                Positioned(
+                  left: 6,
+                  top: 6,
+                  child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: KColors.purple,
+                    child: Text('${order + 1}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
+                ),
               if (widget.kind == MediaKind.video)
                 Positioned(
                   right: 4,
@@ -356,8 +452,17 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title),
+        title: Text(_picked.isEmpty ? _title : '${_picked.length} selected'),
         actions: [
+          if (widget.multi)
+            IconButton(
+              tooltip: 'Select several',
+              icon: Icon(_selecting ? Icons.check_box : Icons.checklist),
+              onPressed: () => setState(() {
+                _selecting = !_selecting;
+                if (!_selecting) _picked.clear();
+              }),
+            ),
           if (_allowed) _albumMenu(),
           IconButton(
             tooltip: 'Browse other files',
@@ -373,6 +478,18 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
             : null,
       ),
       body: body,
+      bottomNavigationBar: _picked.isEmpty
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: _finishMany,
+                  icon: const Icon(Icons.add),
+                  label: Text('Add ${_picked.length} ${_picked.length == 1 ? 'file' : 'files'}'),
+                ),
+              ),
+            ),
     );
   }
 }

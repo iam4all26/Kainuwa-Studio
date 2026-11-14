@@ -8,6 +8,8 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../app_state.dart';
 import '../demo_plan.dart';
+import '../editor/drawing_screen.dart';
+import '../srt_import.dart';
 import '../store/store_tab.dart';
 import '../editor/add_timeline_sheet.dart';
 import '../editor/edit_panel.dart';
@@ -390,6 +392,34 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   Future<void> _addSubtitles() async {
+    final how = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.subtitles_outlined),
+              title: const Text('Type one caption'),
+              subtitle: const Text('Adds a caption on the current slide'),
+              onTap: () => Navigator.of(sheetContext).pop('one'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload_file),
+              title: const Text('Import an SRT file'),
+              subtitle: const Text('Adds every caption at its own time'),
+              onTap: () => Navigator.of(sheetContext).pop('srt'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (how == null || !mounted) return;
+    if (how == 'srt') {
+      await _importSrt();
+      return;
+    }
     final scene = _currentScene();
     if (scene == null) return;
     final text = await promptText(
@@ -418,6 +448,79 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       layer.h = layer.h * f;
     }
     _addLayer(scene, layer);
+  }
+
+  Future<void> _importSrt() async {
+    final lesson = _lesson();
+    if (lesson == null) return;
+    String? picked;
+    try {
+      picked = await KainuwaEncoder.pickAnyFile();
+    } catch (_) {
+      picked = null;
+    }
+    if (picked == null || !mounted) return;
+    List<SrtCue> cues;
+    try {
+      cues = parseSrt(await File(picked).readAsString());
+    } catch (_) {
+      cues = [];
+    }
+    try {
+      await File(picked).delete();
+    } catch (_) {}
+    if (cues.isEmpty) {
+      _snack('No captions were found in that file.');
+      return;
+    }
+    var added = 0;
+    var start = 0;
+    for (final scene in lesson.scenes) {
+      final end = start + scene.durationMs;
+      for (final cue in cues) {
+        final from = math.max(cue.startMs, start);
+        final to = math.min(cue.endMs, end);
+        if (to - from < 100) continue;
+        final layer = Layer(
+          id: newId(),
+          type: 'text',
+          text: cue.text,
+          cy: 0.86,
+          color: 0xFFFFFFFF,
+          bold: false,
+          bgBox: true,
+          bgColor: 0xCC000000,
+          startMs: from - start,
+          endMs: to - start,
+        );
+        setLayerTextSizePx(layer, 40);
+        if (layer.w > 0.92) {
+          final f = 0.92 / layer.w;
+          layer.w = 0.92;
+          layer.h = layer.h * f;
+        }
+        scene.layers.add(layer);
+        added++;
+      }
+      start = end;
+    }
+    if (added == 0) {
+      _snack('The captions are all after the end of this lesson.');
+      return;
+    }
+    _selectedId = null;
+    _commit();
+    _snack('Added $added captions.');
+  }
+
+  Future<void> _addDrawing() async {
+    final scene = _currentScene();
+    if (scene == null) return;
+    _pause();
+    final result = await showDrawingScreen(context);
+    if (result == null || !mounted) return;
+    final box = fitBox(result.aspect, maxW: 0.6, maxH: 0.8);
+    _addLayer(scene, Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: result.path));
   }
 
   Future<void> _addIcon() async {
@@ -477,21 +580,33 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   Future<void> _addImage() async {
     final scene = _currentScene();
     if (scene == null) return;
-    String? path;
+    List<String> paths;
     try {
-      path = await pickMedia(context, MediaKind.image);
+      paths = await pickMediaMany(context, MediaKind.image);
     } catch (_) {
-      path = null;
+      paths = [];
     }
-    if (path == null || !mounted) return;
-    if (path.toLowerCase().endsWith('.svg')) {
-      await _addSvg(scene, path, tint: false);
+    if (paths.isEmpty || !mounted) return;
+    if (paths.length == 1 && paths.first.toLowerCase().endsWith('.svg')) {
+      await _addSvg(scene, paths.first, tint: false);
       return;
     }
-    final aspect = await _imageAspect(path);
-    if (!mounted) return;
-    final box = fitBox(aspect, maxW: 0.6, maxH: 0.8);
-    _addLayer(scene, Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: path));
+    var n = 0;
+    for (final path in paths) {
+      if (path.toLowerCase().endsWith('.svg')) continue;
+      final aspect = await _imageAspect(path);
+      if (!mounted) return;
+      final box = fitBox(aspect, maxW: 0.6, maxH: 0.8);
+      final layer = Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: path);
+      layer.cx = (0.5 + n * 0.04).clamp(0.2, 0.8).toDouble();
+      layer.cy = (0.5 + n * 0.04).clamp(0.2, 0.8).toDouble();
+      scene.layers.add(layer);
+      _selectedId = layer.id;
+      n++;
+    }
+    if (n == 0) return;
+    _sceneSelected = false;
+    _commit();
   }
 
   Future<void> _addSvg(Scene scene, String svgPath, {required bool tint}) async {
@@ -769,34 +884,49 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final player = _player;
     if (lesson == null || player == null) return;
     _pause();
-    String? path;
+    List<String> paths;
     try {
-      path = await pickMedia(context, MediaKind.video);
+      paths = await pickMediaMany(context, MediaKind.video);
     } catch (_) {
-      path = null;
+      paths = [];
     }
-    if (path == null || !mounted) return;
-    var ms = 0;
-    try {
-      ms = await KainuwaEncoder.audioDuration(path);
-    } catch (_) {
-      ms = 0;
+    if (paths.isEmpty || !mounted) return;
+    final spot = sceneAt(lesson, player.positionMs);
+    var insertAt = spot.index + 1;
+    var firstAt = -1;
+    var unreadable = 0;
+    for (final path in paths) {
+      var ms = 0;
+      try {
+        ms = await KainuwaEncoder.audioDuration(path);
+      } catch (_) {
+        ms = 0;
+      }
+      if (!mounted) return;
+      if (ms <= 0) {
+        unreadable++;
+        continue;
+      }
+      lesson.scenes.insert(
+        insertAt,
+        Scene(
+          id: newId(),
+          durationMs: ms,
+          bgType: 'color',
+          bgValue: '4278190080',
+          videoPath: path,
+          videoMs: ms,
+        ),
+      );
+      if (firstAt < 0) firstAt = insertAt;
+      insertAt++;
     }
-    if (ms <= 0) {
+    if (firstAt < 0) {
       _snack('This video could not be read.');
       return;
     }
-    final scene = Scene(
-      id: newId(),
-      durationMs: ms,
-      bgType: 'color',
-      bgValue: '4278190080',
-      videoPath: path,
-      videoMs: ms,
-    );
-    final spot = sceneAt(lesson, player.positionMs);
-    lesson.scenes.insert(spot.index + 1, scene);
-    player.seek(sceneStartMs(lesson, spot.index + 1));
+    if (unreadable > 0) _snack('$unreadable video(s) could not be read and were skipped.');
+    player.seek(sceneStartMs(lesson, firstAt));
     _selectedId = null;
     _selectedAudioId = null;
     _soundSel = null;
@@ -1290,6 +1420,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         _snack('Screen recording: record your screen with the phone recorder, then add the file with Add Video.');
         break;
       case 'drawing':
+        await _addDrawing();
+        break;
       case 'library':
         _snack('This option is planned for a later update.');
         break;
