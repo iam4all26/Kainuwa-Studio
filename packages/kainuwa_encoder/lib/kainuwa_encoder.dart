@@ -205,6 +205,12 @@ class KainuwaEncoder {
     return r ?? -1;
   }
 
+  /// Seeks to [ms] and starts playing (used once the picture is ready).
+  static Future<void> videoPlay(int ms) {
+    _init();
+    return _channel.invokeMethod<void>('videoPlay', {'ms': ms});
+  }
+
   static Future<void> videoSeek(int ms) {
     _init();
     return _channel.invokeMethod<void>('videoSeek', {'ms': ms});

@@ -480,7 +480,9 @@ class _LiveVideoState extends State<LiveVideo> {
           _texture = r['textureId'];
           _aspect = r['width']! / r['height']!;
         });
-        _timer = Timer.periodic(const Duration(seconds: 1), (_) => _checkDrift());
+        await KainuwaEncoder.videoPlay(widget.ms + 30);
+        if (!mounted) return;
+        _timer = Timer.periodic(const Duration(milliseconds: 400), (_) => _checkDrift());
       }
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -493,8 +495,8 @@ class _LiveVideoState extends State<LiveVideo> {
     try {
       final pos = await KainuwaEncoder.videoPosition();
       if (pos < 0 || !_owner) return;
-      if ((pos - widget.ms).abs() > 250) {
-        await KainuwaEncoder.videoSeek(widget.ms);
+      if ((pos - widget.ms).abs() > 120) {
+        await KainuwaEncoder.videoSeek(widget.ms + 30);
       }
     } catch (_) {}
   }

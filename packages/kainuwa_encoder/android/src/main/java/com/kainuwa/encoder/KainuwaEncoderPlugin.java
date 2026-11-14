@@ -26,6 +26,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
@@ -194,13 +195,34 @@ public class KainuwaEncoderPlugin
             exo.setMediaItem(MediaItem.fromUri(Uri.fromFile(new File(path))));
             exo.prepare();
             exo.seekTo(startMs);
-            exo.setPlayWhenReady(true);
-            Map<String, Object> out = new HashMap<>();
+            exo.setPlayWhenReady(false);
+            final Map<String, Object> out = new HashMap<>();
             out.put("textureId", exoEntry.id());
             boolean swap = rot == 90 || rot == 270;
             out.put("width", swap ? h : w);
             out.put("height", swap ? w : h);
-            result.success(out);
+            final ExoPlayer mine = exo;
+            final boolean[] replied = new boolean[] {false};
+            final Runnable timeout = new Runnable() {
+                @Override
+                public void run() {
+                    if (!replied[0]) {
+                        replied[0] = true;
+                        result.success(out);
+                    }
+                }
+            };
+            mine.addListener(new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(int state) {
+                    if (state == Player.STATE_READY && !replied[0]) {
+                        replied[0] = true;
+                        mainHandler.removeCallbacks(timeout);
+                        result.success(out);
+                    }
+                }
+            });
+            mainHandler.postDelayed(timeout, 3000);
         } catch (Exception e) {
             exoClose();
             result.error("video", String.valueOf(e.getMessage()), null);
@@ -295,6 +317,13 @@ public class KainuwaEncoderPlugin
                 break;
             case "videoPosition":
                 result.success(exo == null ? -1 : (int) exo.getCurrentPosition());
+                break;
+            case "videoPlay":
+                if (exo != null) {
+                    exo.seekTo((long) num(call, "ms", 0));
+                    exo.setPlayWhenReady(true);
+                }
+                result.success(null);
                 break;
             case "videoSeek":
                 if (exo != null) exo.seekTo((long) num(call, "ms", 0));
