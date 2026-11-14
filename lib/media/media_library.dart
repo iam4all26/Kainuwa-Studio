@@ -111,7 +111,14 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
     }
     List<AssetPathEntity> albums = [];
     try {
-      albums = await PhotoManager.getAssetPathList(type: _type, onlyAll: false);
+      albums = await PhotoManager.getAssetPathList(
+        type: _type,
+        onlyAll: false,
+        // Without a sort order, old Android phones reject the request ("ORDER BY LIMIT").
+        filterOption: FilterOptionGroup(
+          orders: [const OrderOption(type: OrderOptionType.createDate, asc: false)],
+        ),
+      );
     } catch (_) {
       albums = [];
     }
