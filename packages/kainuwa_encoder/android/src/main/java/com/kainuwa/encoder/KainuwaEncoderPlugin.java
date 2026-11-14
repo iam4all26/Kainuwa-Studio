@@ -14,6 +14,7 @@ import android.database.Cursor;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
+import android.media.MediaScannerConnection;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -85,6 +86,10 @@ public class KainuwaEncoderPlugin
     private static final int REQUEST_PICK = 4101;
     private static final int REQUEST_SAVE = 4102;
     private static final int REQUEST_AUDIO_PERMISSION = 4103;
+    private static final int REQUEST_STORAGE_PERMISSION = 4104;
+    private MethodChannel.Result pendingLegacyResult;
+    private String pendingLegacyPath;
+    private String pendingLegacyName;
 
     private MethodChannel channel;
     private Context appContext;
@@ -1135,7 +1140,7 @@ public class KainuwaEncoderPlugin
             return;
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            saveWithPicker(path, name, result);
+            saveLegacy(path, name, result);
             return;
         }
         worker.execute(() -> {
@@ -1169,7 +1174,58 @@ public class KainuwaEncoderPlugin
         });
     }
 
-    // Android 9 and older: let the user choose where to save (no storage permission needed).
+    // Android 9 and older: save straight into Movies / Kainuwa Studio when the storage
+    // permission is allowed, otherwise let the user choose where to save.
+    private void saveLegacy(String path, String name, MethodChannel.Result result) {
+        if (Build.VERSION.SDK_INT >= 23
+                && appContext.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (activity == null || pendingLegacyResult != null) {
+                saveWithPicker(path, name, result);
+                return;
+            }
+            pendingLegacyResult = result;
+            pendingLegacyPath = path;
+            pendingLegacyName = name;
+            activity.requestPermissions(
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_STORAGE_PERMISSION);
+            return;
+        }
+        writeLegacy(path, name, result);
+    }
+
+    private void writeLegacy(String path, String name, MethodChannel.Result result) {
+        worker.execute(() -> {
+            try {
+                File dir = new File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                        "Kainuwa Studio");
+                if (!dir.exists() && !dir.mkdirs()) {
+                    throw new IOException("Could not create the Kainuwa Studio folder in Movies.");
+                }
+                File target = new File(dir, name);
+                int n = 1;
+                String base = name.endsWith(".mp4") ? name.substring(0, name.length() - 4) : name;
+                while (target.exists()) {
+                    target = new File(dir, base + "_" + n + ".mp4");
+                    n++;
+                }
+                try (InputStream in = new FileInputStream(path);
+                     OutputStream out = new FileOutputStream(target)) {
+                    copyStream(in, out);
+                }
+                final File saved = target;
+                MediaScannerConnection.scanFile(appContext, new String[]{saved.getAbsolutePath()},
+                        new String[]{"video/mp4"}, null);
+                mainHandler.post(() -> result.success("Movies/Kainuwa Studio/" + saved.getName()));
+            } catch (Exception e) {
+                // Could not write there: let the user choose a place instead.
+                mainHandler.post(() -> saveWithPicker(path, name, result));
+            }
+        });
+    }
+
+    // Let the user choose where to save (no storage permission needed).
     private void saveWithPicker(String path, String name, MethodChannel.Result result) {
         if (activity == null) {
             result.error("no_activity", "The app screen is not ready yet.", null);
@@ -1246,6 +1302,25 @@ public class KainuwaEncoderPlugin
 
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQUEST_STORAGE_PERMISSION) {
+            MethodChannel.Result lr = pendingLegacyResult;
+            String lp = pendingLegacyPath;
+            String ln = pendingLegacyName;
+            pendingLegacyResult = null;
+            pendingLegacyPath = null;
+            pendingLegacyName = null;
+            if (lr == null) {
+                return true;
+            }
+            boolean ok = grantResults != null && grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (ok) {
+                writeLegacy(lp, ln, lr);
+            } else {
+                saveWithPicker(lp, ln, lr);
+            }
+            return true;
+        }
         if (requestCode != REQUEST_AUDIO_PERMISSION) {
             return false;
         }

@@ -24,7 +24,7 @@ class MediaLibraryScreen extends StatefulWidget {
   State<MediaLibraryScreen> createState() => _MediaLibraryScreenState();
 }
 
-class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
+class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBindingObserver {
   static const int _pageSize = 60;
 
   final ScrollController _scroll = ScrollController();
@@ -63,6 +63,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scroll.addListener(() {
       if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 600) _loadMore();
     });
@@ -71,8 +72,15 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back from the permission screen or the phone settings: check again.
+    if (state == AppLifecycleState.resumed && !_allowed && !_checking) _start();
   }
 
   Future<void> _start() async {
@@ -226,6 +234,12 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
             const SizedBox(height: 16),
             if (settings)
               FilledButton(
+                onPressed: _start,
+                child: const Text('Try again'),
+              ),
+            if (settings) const SizedBox(height: 8),
+            if (settings)
+              OutlinedButton(
                 onPressed: () => PhotoManager.openSetting(),
                 child: const Text('Open app settings'),
               ),
