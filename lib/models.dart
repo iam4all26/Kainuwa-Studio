@@ -51,6 +51,12 @@ class Layer {
     this.textAnimMs = 0,
     this.hand = '',
     this.handMs = 2500,
+    this.cropL = 0,
+    this.cropT = 0,
+    this.cropR = 0,
+    this.cropB = 0,
+    this.mask = 'none',
+    this.srcAspect = 0,
   });
 
   final String id;
@@ -114,6 +120,18 @@ class Layer {
   String hand;
   int handMs;
 
+  /// Picture crop: the fraction cut from each side (0 to 0.8).
+  double cropL;
+  double cropT;
+  double cropR;
+  double cropB;
+
+  /// Shape the picture is cut to: none, circle, round, diamond, star or heart.
+  String mask;
+
+  /// Width divided by height of the source picture. 0 until it is known.
+  double srcAspect;
+
   Layer copy() => Layer.fromJson({...toJson(), 'id': newId()});
 
   Map<String, dynamic> toJson() => {
@@ -150,6 +168,12 @@ class Layer {
         'textAnimMs': textAnimMs,
         'hand': hand,
         'handMs': handMs,
+        'cropL': cropL,
+        'cropT': cropT,
+        'cropR': cropR,
+        'cropB': cropB,
+        'mask': mask,
+        'srcAspect': srcAspect,
       };
 
   factory Layer.fromJson(Map<String, dynamic> json) => Layer(
@@ -186,6 +210,12 @@ class Layer {
         textAnimMs: _int(json['textAnimMs'], 0),
         hand: _str(json['hand'], ''),
         handMs: _int(json['handMs'], 2500),
+        cropL: _num(json['cropL'], 0),
+        cropT: _num(json['cropT'], 0),
+        cropR: _num(json['cropR'], 0),
+        cropB: _num(json['cropB'], 0),
+        mask: _str(json['mask'], 'none'),
+        srcAspect: _num(json['srcAspect'], 0),
       );
 }
 

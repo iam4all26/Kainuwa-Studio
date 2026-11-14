@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -86,6 +88,193 @@ class _EditPanelState extends State<_EditPanel> {
     super.initState();
     _tab = widget.initialTab;
     if (!_tabs.any((t) => t.$1 == _tab)) _tab = _tabs.first.$1;
+    if ((l.type == 'image' || l.type == 'asset') && l.srcAspect <= 0) {
+      _loadAspect().then((a) {
+        l.srcAspect = a;
+        if (mounted) _changed();
+      });
+    }
+  }
+
+  /// Width divided by height of the picture, read once and remembered in the item.
+  Future<double> _loadAspect() {
+    final ImageProvider provider = l.type == 'asset' ? AssetImage(l.path) : FileImage(File(l.path));
+    final completer = Completer<double>();
+    final stream = provider.resolve(const ImageConfiguration());
+    late ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        if (!completer.isCompleted) completer.complete(info.image.width / info.image.height);
+        stream.removeListener(listener);
+      },
+      onError: (error, trace) {
+        if (!completer.isCompleted) completer.complete(1.0);
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+    return completer.future.timeout(const Duration(seconds: 6), onTimeout: () => 1.0);
+  }
+
+  /// Makes the item box fit the visible part of the picture, so the frame hugs it.
+  void _hugCrop() {
+    final a = l.srcAspect;
+    if (a <= 0) return;
+    final vw = 1 - l.cropL - l.cropR;
+    final vh = 1 - l.cropT - l.cropB;
+    final aspect = a * vw / vh;
+    var w = l.w;
+    var h = w * (16 / 9) / aspect;
+    if (h > 0.95) {
+      h = 0.95;
+      w = h * aspect * (9 / 16);
+    }
+    l.w = w.clamp(0.03, 1.6).toDouble();
+    l.h = h.clamp(0.03, 1.6).toDouble();
+  }
+
+  void _setCrop({double? left, double? right, double? top, double? bottom}) {
+    var cl = (left ?? l.cropL).clamp(0.0, 0.8).toDouble();
+    var cr = (right ?? l.cropR).clamp(0.0, 0.8).toDouble();
+    var ct = (top ?? l.cropT).clamp(0.0, 0.8).toDouble();
+    var cb = (bottom ?? l.cropB).clamp(0.0, 0.8).toDouble();
+    if (cl + cr > 0.9) {
+      if (left != null) {
+        cl = 0.9 - cr;
+      } else {
+        cr = 0.9 - cl;
+      }
+    }
+    if (ct + cb > 0.9) {
+      if (top != null) {
+        ct = 0.9 - cb;
+      } else {
+        cb = 0.9 - ct;
+      }
+    }
+    l.cropL = cl;
+    l.cropR = cr;
+    l.cropT = ct;
+    l.cropB = cb;
+    _hugCrop();
+    _changed();
+  }
+
+  /// Crops the middle of the picture to the given shape (width divided by height).
+  void _cropPreset(double? target) {
+    if (target == null) {
+      l.cropL = 0;
+      l.cropR = 0;
+      l.cropT = 0;
+      l.cropB = 0;
+    } else {
+      final a = l.srcAspect > 0 ? l.srcAspect : 1.0;
+      if (target < a) {
+        final vw = target / a;
+        l.cropL = (1 - vw) / 2;
+        l.cropR = (1 - vw) / 2;
+        l.cropT = 0;
+        l.cropB = 0;
+      } else {
+        final vh = a / target;
+        l.cropT = (1 - vh) / 2;
+        l.cropB = (1 - vh) / 2;
+        l.cropL = 0;
+        l.cropR = 0;
+      }
+    }
+    _hugCrop();
+    _changed();
+  }
+
+  Widget _cutField(String label, double value, void Function(double) apply) {
+    return _labeled(
+      label,
+      _NumField(
+        value: value * 100,
+        min: 0,
+        max: 80,
+        step: 5,
+        suffix: '%',
+        width: 52,
+        onChanged: (v) => apply(v / 100),
+      ),
+    );
+  }
+
+  Widget _cropMaskCard() {
+    const presets = <(String, double?)>[
+      ('Original', null),
+      ('Square', 1.0),
+      ('4:3', 4 / 3),
+      ('16:9', 16 / 9),
+      ('3:4', 3 / 4),
+    ];
+    const masks = <(String, String)>[
+      ('none', 'None'),
+      ('circle', 'Circle'),
+      ('round', 'Rounded'),
+      ('diamond', 'Diamond'),
+      ('star', 'Star'),
+      ('heart', 'Heart'),
+    ];
+    return _card(
+      'Crop & Mask',
+      Icons.crop,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Crop to a shape', style: TextStyle(fontSize: 12, color: KColors.ink)),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final p in presets)
+                ActionChip(label: Text(p.$1), onPressed: () => _cropPreset(p.$2)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _cutField('Cut from the left', l.cropL, (v) => _setCrop(left: v)),
+          _cutField('Cut from the right', l.cropR, (v) => _setCrop(right: v)),
+          _cutField('Cut from the top', l.cropT, (v) => _setCrop(top: v)),
+          _cutField('Cut from the bottom', l.cropB, (v) => _setCrop(bottom: v)),
+          const SizedBox(height: 8),
+          const Text('Mask', style: TextStyle(fontSize: 12, color: KColors.ink)),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final m in masks)
+                ChoiceChip(
+                  label: Text(m.$2),
+                  selected: l.mask == m.$1,
+                  onSelected: (_) {
+                    l.mask = m.$1;
+                    _changed();
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Circle, Star and Heart look best on a Square crop.',
+            style: TextStyle(fontSize: 11),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                l.mask = 'none';
+                _cropPreset(null);
+              },
+              child: const Text('Reset crop and mask'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -343,6 +532,7 @@ class _EditPanelState extends State<_EditPanel> {
     final colorable = _isText || l.type == 'shape' || (l.type == 'image' && l.shape == 'tint');
     return Column(
       children: [
+        if (l.type == 'image' || l.type == 'asset') _cropMaskCard(),
         if (l.type == 'image')
           _card(
             'Single color',

@@ -746,6 +746,33 @@ class LayerContent extends StatelessWidget {
   /// Hand reveal in the video export: show only the left part (0 to 1), null for all.
   final double? clipFraction;
 
+  bool get _needsShaping =>
+      (layer.type == 'asset' || layer.type == 'image') &&
+      (layer.cropL > 0 || layer.cropT > 0 || layer.cropR > 0 || layer.cropB > 0 || layer.mask != 'none');
+
+  /// The picture of an icon or image item, drawn with the given fit.
+  Widget _pictureWidget(BoxFit fit) {
+    if (layer.type == 'asset') {
+      return Image.asset(layer.path, fit: fit, gaplessPlayback: true);
+    }
+    final picture = Image.file(
+      File(layer.path),
+      fit: fit,
+      gaplessPlayback: true,
+      errorBuilder: (_, __, ___) => const ColoredBox(
+        color: Color(0xFFDDDDDD),
+        child: Icon(Icons.broken_image_outlined),
+      ),
+    );
+    if (layer.shape == 'tint') {
+      return ColorFiltered(
+        colorFilter: ColorFilter.mode(Color(layer.color), BlendMode.srcIn),
+        child: picture,
+      );
+    }
+    return picture;
+  }
+
   Widget _body() {
     final color = Color(layer.color);
     switch (layer.type) {
@@ -769,21 +796,11 @@ class LayerContent extends StatelessWidget {
         }
         return FittedBox(fit: BoxFit.contain, child: text);
       case 'asset':
-        return Image.asset(layer.path, fit: BoxFit.contain, gaplessPlayback: true);
       case 'image':
-        final picture = Image.file(
-          File(layer.path),
-          fit: BoxFit.contain,
-          gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => const ColoredBox(
-            color: Color(0xFFDDDDDD),
-            child: Icon(Icons.broken_image_outlined),
-          ),
-        );
-        if (layer.shape == 'tint') {
-          return ColorFiltered(colorFilter: ColorFilter.mode(color, BlendMode.srcIn), child: picture);
+        if (_needsShaping) {
+          return _ShapedPicture(layer: layer, builder: _pictureWidget);
         }
-        return picture;
+        return _pictureWidget(BoxFit.contain);
       case 'shape':
         switch (layer.shape) {
           case 'circle':
@@ -812,5 +829,137 @@ class LayerContent extends StatelessWidget {
     }
     if (layer.opacity >= 0.999) return body;
     return Opacity(opacity: layer.opacity.clamp(0.0, 1.0).toDouble(), child: body);
+  }
+}
+
+/// Where the whole picture and its visible part sit inside the item box.
+class _PicGeom {
+  _PicGeom(Size box, Layer l) {
+    final boxAspect = box.width / math.max(1.0, box.height);
+    final a = l.srcAspect > 0 ? l.srcAspect : boxAspect;
+    double fw;
+    double fh;
+    if (boxAspect > a) {
+      fh = box.height;
+      fw = fh * a;
+    } else {
+      fw = box.width;
+      fh = fw / a;
+    }
+    final vw = (1 - l.cropL - l.cropR).clamp(0.05, 1.0).toDouble();
+    final vh = (1 - l.cropT - l.cropB).clamp(0.05, 1.0).toDouble();
+    final visW = fw * vw;
+    final visH = fh * vh;
+    final s = math.min(box.width / visW, box.height / visH);
+    final dispW = visW * s;
+    final dispH = visH * s;
+    final fullW = fw * s;
+    final fullH = fh * s;
+    final dx = (box.width - dispW) / 2;
+    final dy = (box.height - dispH) / 2;
+    visible = Rect.fromLTWH(dx, dy, dispW, dispH);
+    full = Rect.fromLTWH(dx - l.cropL * fullW, dy - l.cropT * fullH, fullW, fullH);
+  }
+
+  late final Rect visible;
+  late final Rect full;
+}
+
+/// The outline of a mask inside [r].
+Path _maskPath(String mask, Rect r) {
+  final path = Path();
+  final side = math.min(r.width, r.height);
+  final center = r.center;
+  switch (mask) {
+    case 'circle':
+      path.addOval(Rect.fromCenter(center: center, width: side, height: side));
+      break;
+    case 'round':
+      path.addRRect(RRect.fromRectAndRadius(r, Radius.circular(side * 0.18)));
+      break;
+    case 'diamond':
+      path.moveTo(center.dx, r.top);
+      path.lineTo(r.right, center.dy);
+      path.lineTo(center.dx, r.bottom);
+      path.lineTo(r.left, center.dy);
+      path.close();
+      break;
+    case 'star':
+      {
+        final outer = side / 2;
+        final inner = outer * 0.45;
+        for (var i = 0; i < 10; i++) {
+          final radius = i.isEven ? outer : inner;
+          final angle = -math.pi / 2 + i * math.pi / 5;
+          final x = center.dx + radius * math.cos(angle);
+          final y = center.dy + radius * math.sin(angle);
+          if (i == 0) {
+            path.moveTo(x, y);
+          } else {
+            path.lineTo(x, y);
+          }
+        }
+        path.close();
+      }
+      break;
+    case 'heart':
+      {
+        final w = r.width;
+        final h = r.height;
+        path.moveTo(r.left + w * 0.5, r.top + h * 0.95);
+        path.cubicTo(r.left - w * 0.15, r.top + h * 0.55, r.left + w * 0.02, r.top - h * 0.02,
+            r.left + w * 0.5, r.top + h * 0.28);
+        path.cubicTo(r.right - w * 0.02, r.top - h * 0.02, r.right + w * 0.15, r.top + h * 0.55,
+            r.left + w * 0.5, r.top + h * 0.95);
+        path.close();
+      }
+      break;
+    default:
+      path.addRect(r);
+  }
+  return path;
+}
+
+class _MaskClipper extends CustomClipper<Path> {
+  _MaskClipper(this.mask, this.rect);
+
+  final String mask;
+  final Rect rect;
+
+  @override
+  Path getClip(Size size) => _maskPath(mask, rect);
+
+  @override
+  bool shouldReclip(covariant _MaskClipper oldClipper) =>
+      oldClipper.mask != mask || oldClipper.rect != rect;
+}
+
+/// A picture that is cropped and/or cut to a mask shape.
+class _ShapedPicture extends StatelessWidget {
+  const _ShapedPicture({required this.layer, required this.builder});
+
+  final Layer layer;
+  final Widget Function(BoxFit fit) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final g = _PicGeom(Size(c.maxWidth, c.maxHeight), layer);
+        final picture = Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: g.full.left,
+              top: g.full.top,
+              width: g.full.width,
+              height: g.full.height,
+              child: builder(BoxFit.fill),
+            ),
+          ],
+        );
+        return ClipPath(clipper: _MaskClipper(layer.mask, g.visible), child: picture);
+      },
+    );
   }
 }
