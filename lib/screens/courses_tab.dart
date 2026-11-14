@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../app_state.dart';
 import '../models.dart';
+import '../project_package.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'lessons_screen.dart';
@@ -26,6 +30,103 @@ class CoursesTab extends StatelessWidget {
     );
     if (title != null) {
       await state.addCourse(title);
+    }
+  }
+
+  void _busy(BuildContext context, String text) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Expanded(child: Text(text)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _say(BuildContext context, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _export(BuildContext context, Course course) async {
+    final nav = Navigator.of(context, rootNavigator: true);
+    _busy(context, 'Packing "${course.title}" with all its media...');
+    var closed = false;
+    void close() {
+      if (!closed) {
+        closed = true;
+        nav.pop();
+      }
+    }
+
+    String? temp;
+    try {
+      final base = await KainuwaEncoder.filesDir();
+      final dir = Directory('$base/export_tmp');
+      await dir.create(recursive: true);
+      final safe = course.title.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+      final name = '${safe.isEmpty ? 'course' : safe}.kainuwa';
+      temp = '${dir.path}/$name';
+      await ProjectPackage.exportTo(course, temp);
+      close();
+      final where = await KainuwaEncoder.saveFile(path: temp, name: name);
+      if (context.mounted) _say(context, 'Saved to $where');
+    } catch (e) {
+      close();
+      if (context.mounted) {
+        final text = e.toString();
+        _say(context, text.contains('save_cancelled') ? 'Export cancelled.' : 'Could not export: $text');
+      }
+    } finally {
+      close();
+      if (temp != null) {
+        try {
+          await File(temp).delete();
+        } catch (_) {}
+      }
+    }
+  }
+
+  Future<void> _import(BuildContext context) async {
+    final state = AppScope.read(context);
+    String? picked;
+    try {
+      picked = await KainuwaEncoder.pickAnyFile();
+    } catch (_) {
+      picked = null;
+    }
+    if (picked == null || !context.mounted) return;
+    final nav = Navigator.of(context, rootNavigator: true);
+    _busy(context, 'Opening the project...');
+    var closed = false;
+    void close() {
+      if (!closed) {
+        closed = true;
+        nav.pop();
+      }
+    }
+
+    try {
+      final course = await ProjectPackage.importFrom(picked);
+      await state.importCourse(course);
+      close();
+      if (context.mounted) _say(context, 'Imported "${course.title}".');
+    } catch (e) {
+      close();
+      if (context.mounted) {
+        _say(context, e is FormatException ? e.message : 'Could not import: $e');
+      }
+    } finally {
+      close();
+      try {
+        await File(picked).delete();
+      } catch (_) {}
     }
   }
 
@@ -77,6 +178,11 @@ class CoursesTab extends StatelessWidget {
                       color: KColors.accent,
                     ),
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Import project',
+                  onPressed: () => _import(context),
+                  icon: const Icon(Icons.file_download_outlined, color: KColors.accent),
                 ),
                 IconButton(
                   onPressed: onOpenSettings,
@@ -156,10 +262,12 @@ class CoursesTab extends StatelessWidget {
                           trailing: PopupMenuButton<String>(
                             onSelected: (value) {
                               if (value == 'rename') _rename(context, course);
+                              if (value == 'export') _export(context, course);
                               if (value == 'delete') _delete(context, course);
                             },
                             itemBuilder: (_) => const [
                               PopupMenuItem(value: 'rename', child: Text('Rename')),
+                              PopupMenuItem(value: 'export', child: Text('Export (.kainuwa)')),
                               PopupMenuItem(value: 'delete', child: Text('Delete')),
                             ],
                           ),

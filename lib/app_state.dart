@@ -58,6 +58,11 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  Future<void> importCourse(Course course) {
+    courses.insert(0, course);
+    return _saveCourses();
+  }
+
   /// Saves everything after an edit made directly on a course, lesson or scene.
   Future<void> persist() => _saveCourses();
 

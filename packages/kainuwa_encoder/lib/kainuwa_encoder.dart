@@ -211,12 +211,6 @@ class KainuwaEncoder {
     return _channel.invokeMethod<void>('videoPlay', {'ms': ms});
   }
 
-  /// Playback speed of the open video (1.0 normal), used to catch up with the sound.
-  static Future<void> videoSpeed(double speed) {
-    _init();
-    return _channel.invokeMethod<void>('videoSpeed', {'speed': speed});
-  }
-
   static Future<void> videoSeek(int ms) {
     _init();
     return _channel.invokeMethod<void>('videoSeek', {'ms': ms});
@@ -293,6 +287,19 @@ class KainuwaEncoder {
   static Future<void> cancelExport() async {
     _init();
     await _channel.invokeMethod<void>('cancel');
+  }
+
+  /// Opens the system file picker for any file. Returns a local copy path, or null if cancelled.
+  static Future<String?> pickAnyFile() {
+    _init();
+    return _channel.invokeMethod<String>('pick', {'mime': '*/*'});
+  }
+
+  /// Lets the user choose where to save any file (for example a .kainuwa project).
+  static Future<String> saveFile({required String path, required String name}) async {
+    _init();
+    final result = await _channel.invokeMethod<String>('saveFile', {'path': path, 'name': name});
+    return result ?? name;
   }
 
   /// Saves a finished video. On Android 10 and newer it goes to Movies/Kainuwa Studio;

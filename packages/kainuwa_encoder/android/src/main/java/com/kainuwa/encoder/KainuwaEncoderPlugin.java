@@ -305,6 +305,10 @@ public class KainuwaEncoderPlugin
             case "cancel":
                 cancel(result);
                 break;
+            case "saveFile":
+                saveWithPicker(String.valueOf((String) call.argument("path")),
+                        String.valueOf((String) call.argument("name")), "application/octet-stream", result);
+                break;
             case "saveToMovies":
                 saveToMovies((String) call.argument("path"), (String) call.argument("name"), result);
                 break;
@@ -1245,6 +1249,10 @@ public class KainuwaEncoderPlugin
 
     // Let the user choose where to save (no storage permission needed).
     private void saveWithPicker(String path, String name, MethodChannel.Result result) {
+        saveWithPicker(path, name, "video/mp4", result);
+    }
+
+    private void saveWithPicker(String path, String name, String mime, MethodChannel.Result result) {
         if (activity == null) {
             result.error("no_activity", "The app screen is not ready yet.", null);
             return;
@@ -1255,7 +1263,7 @@ public class KainuwaEncoderPlugin
         }
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("video/mp4");
+        intent.setType(mime);
         intent.putExtra(Intent.EXTRA_TITLE, name);
         pendingSave = result;
         pendingSavePath = path;
