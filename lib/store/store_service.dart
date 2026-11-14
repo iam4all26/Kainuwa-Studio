@@ -19,6 +19,7 @@ class StoreItem {
     this.preview = '',
     this.sizeKb = 0,
     this.family = '',
+    this.category = '',
   });
 
   final String id;
@@ -31,6 +32,9 @@ class StoreItem {
   final int sizeKb;
   final String family;
 
+  /// Group in the store (for fonts: Sans Serif, Serif, Display, Handwriting, Monospace ...).
+  final String category;
+
   factory StoreItem.fromJson(Map<String, dynamic> j) => StoreItem(
         id: '${j['id'] ?? ''}',
         type: '${j['type'] ?? ''}',
@@ -39,6 +43,7 @@ class StoreItem {
         preview: '${j['preview'] ?? ''}',
         sizeKb: j['sizeKb'] is num ? (j['sizeKb'] as num).round() : 0,
         family: '${j['family'] ?? ''}',
+        category: '${j['category'] ?? ''}',
       );
 }
 
@@ -49,6 +54,7 @@ class InstalledItem {
     required this.name,
     required this.path,
     this.family = '',
+    this.category = '',
   });
 
   final String id;
@@ -56,9 +62,10 @@ class InstalledItem {
   final String name;
   final String path;
   final String family;
+  final String category;
 
   Map<String, dynamic> toJson() =>
-      {'id': id, 'type': type, 'name': name, 'path': path, 'family': family};
+      {'id': id, 'type': type, 'name': name, 'path': path, 'family': family, 'category': category};
 
   factory InstalledItem.fromJson(Map<String, dynamic> j) => InstalledItem(
         id: '${j['id'] ?? ''}',
@@ -66,6 +73,7 @@ class InstalledItem {
         name: '${j['name'] ?? ''}',
         path: '${j['path'] ?? ''}',
         family: '${j['family'] ?? ''}',
+        category: '${j['category'] ?? ''}',
       );
 }
 
@@ -206,6 +214,7 @@ class StoreService extends ChangeNotifier {
       name: item.name,
       path: target.path,
       family: family,
+      category: item.category,
     );
     installed.removeWhere((i) => i.id == item.id);
     installed.add(record);

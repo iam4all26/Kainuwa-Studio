@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../animation_math.dart';
+import '../data/font_catalog.dart';
 import '../models.dart';
 import 'crop_editor.dart';
 import '../scene_canvas.dart';
@@ -27,11 +28,44 @@ const List<(String, String)> kFontFamilies = [
   ('casual', 'Casual'),
 ];
 
-/// Built-in fonts plus the fonts downloaded from the store.
-List<(String, String)> fontChoices() => [
-      ...kFontFamilies,
-      for (final f in StoreService.instance.ofType('font')) (f.family, f.name),
+/// Every font as (family, name, group): phone fonts, bundled fonts and downloaded fonts together.
+List<(String, String, String)> fontEntries() => [
+      for (final f in kFontFamilies) (f.$1, f.$2, 'Basic'),
+      ...kBundledFonts,
+      for (final f in StoreService.instance.ofType('font'))
+        (f.family, f.name, f.category.isEmpty ? 'Other' : f.category),
     ];
+
+/// Built-in fonts plus the fonts downloaded from the store.
+List<(String, String)> fontChoices() => [for (final f in fontEntries()) (f.$1, f.$2)];
+
+/// The drop-down items of the font picker, under their group headings.
+List<DropdownMenuItem<String>> fontMenuItems() {
+  final entries = fontEntries();
+  final groups = <String>[
+    for (final c in kFontCategories)
+      if (entries.any((e) => e.$3 == c)) c,
+    for (final c in entries.map((e) => e.$3).toSet())
+      if (!kFontCategories.contains(c)) c,
+  ];
+  return [
+    for (final g in groups) ...[
+      DropdownMenuItem<String>(
+        value: '#$g',
+        enabled: false,
+        child: Text(
+          g.toUpperCase(),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: KColors.accent, letterSpacing: 1),
+        ),
+      ),
+      for (final f in entries.where((e) => e.$3 == g))
+        DropdownMenuItem<String>(
+          value: f.$1,
+          child: Text(f.$2, style: TextStyle(fontFamily: f.$1.isEmpty ? null : f.$1)),
+        ),
+    ],
+  ];
+}
 
 /// The edit panel for the selected item. Changes are applied straight away and
 /// [onLive] is called after each one so the slide behind the panel updates.
@@ -540,13 +574,7 @@ class _EditPanelState extends State<_EditPanel> {
               child: DropdownButton<String>(
                 isExpanded: true,
                 value: fontChoices().any((f) => f.$1 == l.fontFamily) ? l.fontFamily : '',
-                items: [
-                  for (final f in fontChoices())
-                    DropdownMenuItem<String>(
-                      value: f.$1,
-                      child: Text(f.$2, style: TextStyle(fontFamily: f.$1.isEmpty ? null : f.$1)),
-                    ),
-                ],
+                items: fontMenuItems(),
                 onChanged: (v) => _restyle(() => l.fontFamily = v ?? ''),
               ),
             ),

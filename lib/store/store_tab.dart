@@ -195,6 +195,38 @@ class _StoreTabState extends State<StoreTab> {
     );
   }
 
+  /// Items grouped under their category headings (Sans Serif, Serif, Display ...).
+  List<Widget> _grouped(List<StoreItem> items) {
+    final groups = <String, List<StoreItem>>{};
+    for (final i in items) {
+      final c = i.category.trim().isEmpty ? 'Other' : i.category.trim();
+      groups.putIfAbsent(c, () => []).add(i);
+    }
+    if (groups.length == 1 && groups.containsKey('Other')) {
+      return [for (final item in items) _card(item)];
+    }
+    const order = ['Hausa Ready', 'Sans Serif', 'Serif', 'Display', 'Handwriting', 'Monospace'];
+    final keys = groups.keys.toList()
+      ..sort((a, b) {
+        int rank(String k) {
+          final i = order.indexOf(k);
+          return i >= 0 ? i : (k == 'Other' ? 999 : 100);
+        }
+
+        final d = rank(a).compareTo(rank(b));
+        return d != 0 ? d : a.compareTo(b);
+      });
+    return [
+      for (final k in keys) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+          child: Text(k, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        ),
+        for (final item in groups[k]!) _card(item),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     const types = ['font', 'background', 'shape', 'icon'];
@@ -226,7 +258,7 @@ class _StoreTabState extends State<StoreTab> {
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          children: [for (final item in shown) _card(item)],
+          children: _grouped(shown),
         ),
       );
     }
