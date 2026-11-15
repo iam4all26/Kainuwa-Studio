@@ -406,6 +406,36 @@ class _TimelinePanelState extends State<TimelinePanel> {
     _layerStartB = layerEndMs(layer, sceneMs);
   }
 
+  /// Zooms the timeline and keeps the playhead in the middle of the view.
+  void _zoomTo(double value) {
+    setState(() => _zoom = value.clamp(0.25, 30.0).toDouble());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final pos = _scroll.position;
+      final x = widget.player.positionMs / 1000 * _pps - pos.viewportDimension / 2;
+      _scroll.jumpTo(x.clamp(0.0, pos.maxScrollExtent).toDouble());
+    });
+  }
+
+  Widget _zoomButton(IconData icon, String tip, VoidCallback onTap) {
+    return Tooltip(
+      message: tip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: KColors.editorLabel,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 17, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
   double _roundedDelta() => ((_dragAccum / _pps * 1000) / 100).round() * 100.0;
 
   void _layerTrim(Layer layer, int sceneMs, {required bool left}) {
@@ -772,6 +802,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final stride = clipH + pad;
         final rowGap = math.max(4.0, 10 * u);
         final addH = math.max(30.0, 52 * u);
+        // Transition button: small, and the room kept free on each side of it.
+        final tBtn = math.max(14.0, math.min(clipH * 0.55, 22.0));
+        final tGap = tBtn / 2 + 4;
 
         final clips = _buildClips();
         final totalMs = widget.lesson.durationMs;
@@ -808,8 +841,18 @@ class _TimelinePanelState extends State<TimelinePanel> {
             ),
           ];
           for (final clip in clips[id]!) {
-            final x = clip.startMs / 1000 * pps;
-            final w = math.max(8.0, (clip.endMs - clip.startMs) / 1000 * pps - 2);
+            var x = clip.startMs / 1000 * pps;
+            var w = math.max(8.0, (clip.endMs - clip.startMs) / 1000 * pps - 2);
+            if (clip.kind == 'scene') {
+              // Leave a clear gap beside every join so the transition button never touches a slide.
+              final lastIndex = widget.lesson.scenes.length - 1;
+              if (clip.sceneIndex > 0) {
+                x += tGap;
+                w -= tGap;
+              }
+              if (clip.sceneIndex < lastIndex) w -= tGap;
+              w = math.max(8.0, w);
+            }
             children.add(Positioned(
               left: x,
               top: pad + clip.lane * stride,
@@ -832,7 +875,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
             ));
           }
           if (id == 'image') {
-            final btn = math.min(clipH, math.max(22.0, clipH * 0.9));
+            final btn = tBtn;
             for (var i = 0; i < widget.lesson.scenes.length - 1; i++) {
               final boundaryMs = sceneStartMs(widget.lesson, i + 1);
               final on = widget.lesson.scenes[i].transKind != 'none';
@@ -922,7 +965,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   onScaleStart: (_) => _zoomStart = _zoom,
                   onScaleUpdate: (d) {
                     if (d.pointerCount >= 2) {
-                      setState(() => _zoom = (_zoomStart * d.scale).clamp(0.25, 6.0).toDouble());
+                      setState(() => _zoom = (_zoomStart * d.scale).clamp(0.25, 30.0).toDouble());
                     }
                   },
                   child: CustomPaint(painter: _RulerPainter(pps: pps, u: u)),
@@ -1035,6 +1078,25 @@ class _TimelinePanelState extends State<TimelinePanel> {
             children: [
               Positioned(left: labelLeft, top: 0, width: labelW, height: panelH, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: labels)),
               Positioned(
+                left: labelLeft,
+                top: 8 * u,
+                width: labelW,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _zoomButton(Icons.zoom_out, 'Zoom out', () => _zoomTo(_zoom / 1.6)),
+                    const SizedBox(width: 2),
+                    _zoomButton(Icons.zoom_in, 'Zoom in', () => _zoomTo(_zoom * 1.6)),
+                    const SizedBox(width: 2),
+                    _zoomButton(
+                      _zoom > 8 ? Icons.fit_screen : Icons.unfold_more,
+                      _zoom > 8 ? 'Back to normal width' : 'Wide: see tenths of a second',
+                      () => _zoomTo(_zoom > 8 ? 1 : 24),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
                 left: stripLeft,
                 right: 13 * u,
                 top: 0,
@@ -1071,7 +1133,7 @@ class _RulerPainter extends CustomPainter {
   final double pps;
   final double u;
 
-  static const List<int> _steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+  static const List<double> _steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1097,8 +1159,15 @@ class _RulerPainter extends CustomPainter {
       final y2 = major ? 98 * u : 86 * u;
       canvas.drawLine(Offset(x, y1), Offset(x, y2), tickPaint);
       if (major) {
-        final total = sec.round();
-        final label = '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
+        String label;
+        if (step < 1) {
+          final tenths = (sec * 10).round();
+          final whole = tenths ~/ 10;
+          label = '${whole ~/ 60}:${(whole % 60).toString().padLeft(2, '0')}.${tenths % 10}';
+        } else {
+          final total = sec.round();
+          label = '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
+        }
         final painter = TextPainter(
           text: TextSpan(
             text: label,

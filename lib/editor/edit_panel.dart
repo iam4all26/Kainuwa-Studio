@@ -168,21 +168,32 @@ class _EditPanelState extends State<_EditPanel> {
     return completer.future.timeout(const Duration(seconds: 6), onTimeout: () => 1.0);
   }
 
-  /// Makes the item box fit the visible part of the picture, so the frame hugs it.
-  void _hugCrop() {
-    final a = l.srcAspect;
-    if (a <= 0) return;
-    final vw = 1 - l.cropL - l.cropR;
-    final vh = 1 - l.cropT - l.cropB;
-    final aspect = a * vw / vh;
-    var w = l.w;
-    var h = w * (16 / 9) / aspect;
-    if (h > 0.95) {
-      h = 0.95;
-      w = h * aspect * (9 / 16);
-    }
-    l.w = w.clamp(0.03, 1.6).toDouble();
-    l.h = h.clamp(0.03, 1.6).toDouble();
+  /// Crops like a real crop: the part that stays visible keeps exactly the same size and place
+  /// on the slide. Nothing zooms or jumps, however many times the picture is cropped again.
+  void _recrop(double nl, double nr, double nt, double nb) {
+    final vw = (1 - l.cropL - l.cropR).clamp(0.05, 1.0).toDouble();
+    final vh = (1 - l.cropT - l.cropB).clamp(0.05, 1.0).toDouble();
+    final fullW = l.w / vw;
+    final fullH = l.h / vh;
+    final newW = fullW * (1 - nl - nr);
+    final newH = fullH * (1 - nt - nb);
+    // Move of the visible part's centre, in slide fractions, before turning with the item.
+    final ox = (nl - l.cropL) * fullW + (newW - l.w) / 2;
+    final oy = (nt - l.cropT) * fullH + (newH - l.h) / 2;
+    final px = ox * 16;
+    final py = oy * 9;
+    final c = math.cos(l.rotation);
+    final sn = math.sin(l.rotation);
+    final rx = (px * c - py * sn) / 16;
+    final ry = (px * sn + py * c) / 9;
+    l.cx = (l.cx + rx).clamp(-0.5, 1.5).toDouble();
+    l.cy = (l.cy + ry).clamp(-0.5, 1.5).toDouble();
+    l.w = newW.clamp(0.02, 3.0).toDouble();
+    l.h = newH.clamp(0.02, 3.0).toDouble();
+    l.cropL = nl;
+    l.cropR = nr;
+    l.cropT = nt;
+    l.cropB = nb;
   }
 
   void _setCrop({double? left, double? right, double? top, double? bottom}) {
@@ -204,38 +215,26 @@ class _EditPanelState extends State<_EditPanel> {
         cb = 0.9 - ct;
       }
     }
-    l.cropL = cl;
-    l.cropR = cr;
-    l.cropT = ct;
-    l.cropB = cb;
-    _hugCrop();
+    _recrop(cl, cr, ct, cb);
     _changed();
   }
 
   /// Crops the middle of the picture to the given shape (width divided by height).
   void _cropPreset(double? target) {
-    if (target == null) {
-      l.cropL = 0;
-      l.cropR = 0;
-      l.cropT = 0;
-      l.cropB = 0;
-    } else {
+    var cl = 0.0, cr = 0.0, ct = 0.0, cb = 0.0;
+    if (target != null) {
       final a = l.srcAspect > 0 ? l.srcAspect : 1.0;
       if (target < a) {
         final vw = target / a;
-        l.cropL = (1 - vw) / 2;
-        l.cropR = (1 - vw) / 2;
-        l.cropT = 0;
-        l.cropB = 0;
+        cl = (1 - vw) / 2;
+        cr = (1 - vw) / 2;
       } else {
         final vh = a / target;
-        l.cropT = (1 - vh) / 2;
-        l.cropB = (1 - vh) / 2;
-        l.cropL = 0;
-        l.cropR = 0;
+        ct = (1 - vh) / 2;
+        cb = (1 - vh) / 2;
       }
     }
-    _hugCrop();
+    _recrop(cl, cr, ct, cb);
     _changed();
   }
 
@@ -245,11 +244,7 @@ class _EditPanelState extends State<_EditPanel> {
     l.srcAspect = aspect;
     final r = await showCropEditor(context, layer: l, aspect: aspect);
     if (r == null || !mounted) return;
-    l.cropL = r.$1;
-    l.cropR = r.$2;
-    l.cropT = r.$3;
-    l.cropB = r.$4;
-    _hugCrop();
+    _recrop(r.$1, r.$2, r.$3, r.$4);
     _changed();
   }
 

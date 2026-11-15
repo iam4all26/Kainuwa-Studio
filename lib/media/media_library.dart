@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -55,6 +56,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   AssetPathEntity? _album;
   final List<AssetEntity> _assets = [];
   int _page = 0;
+  String? _listenId;
+  StreamSubscription<void>? _doneSub;
 
   RequestType get _type {
     switch (widget.kind) {
@@ -92,7 +95,38 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
+    _doneSub?.cancel();
+    if (_listenId != null) {
+      KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
+    }
     super.dispose();
+  }
+
+  /// Plays a sound here, before it is added, so it can be heard first. Tap again to stop.
+  Future<void> _listen(AssetEntity a) async {
+    if (_listenId == a.id) {
+      _listenId = null;
+      setState(() {});
+      try {
+        await KainuwaEncoder.stopAudio();
+      } catch (_) {}
+      return;
+    }
+    try {
+      final file = await a.originFile ?? await a.file;
+      if (file == null) {
+        _say('That sound could not be played.');
+        return;
+      }
+      _doneSub ??= KainuwaEncoder.playbackDone.listen((_) {
+        if (mounted && _listenId != null) setState(() => _listenId = null);
+      });
+      await KainuwaEncoder.stopAudio();
+      await KainuwaEncoder.playAudio(file.path);
+      if (mounted) setState(() => _listenId = a.id);
+    } catch (_) {
+      _say('That sound could not be played.');
+    }
   }
 
   @override
@@ -353,11 +387,21 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
         itemBuilder: (context, i) {
           final a = _assets[i];
           return ListTile(
-            leading: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: KColors.lavender, borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.music_note, color: KColors.accent),
+            leading: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _listen(a),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _listenId == a.id ? KColors.purple : KColors.lavender,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _listenId == a.id ? Icons.stop : Icons.play_arrow,
+                  color: _listenId == a.id ? Colors.white : KColors.accent,
+                ),
+              ),
             ),
             title: Text(a.title ?? 'Audio', maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(_clock(a.duration)),

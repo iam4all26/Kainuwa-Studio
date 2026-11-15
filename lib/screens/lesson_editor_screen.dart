@@ -128,6 +128,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   /// The last position copied with Copy position, as fractions of the slide.
   static (double, double)? _clipPos;
 
+  /// The last size copied with Copy size, as fractions of the slide (width, height).
+  static (double, double)? _clipSize;
+
   Layer? _selectedLayer(Scene? scene) {
     if (scene == null || _selectedId == null) return null;
     for (final layer in scene.layers) {
@@ -826,6 +829,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     String fmt(double v) => (v * 100).toStringAsFixed(1);
     final xc = TextEditingController(text: fmt(layer.cx));
     final yc = TextEditingController(text: fmt(layer.cy));
+    final wc = TextEditingController(text: fmt(layer.w));
+    final hc = TextEditingController(text: fmt(layer.h));
+    void applySize() {
+      final w = double.tryParse(wc.text.trim().replaceAll(',', '.'));
+      final h = double.tryParse(hc.text.trim().replaceAll(',', '.'));
+      if (w != null) layer.w = (w / 100).clamp(0.02, 3.0).toDouble();
+      if (h != null) layer.h = (h / 100).clamp(0.02, 3.0).toDouble();
+      _commit();
+    }
+
     void apply() {
       final x = double.tryParse(xc.text.trim().replaceAll(',', '.'));
       final y = double.tryParse(yc.text.trim().replaceAll(',', '.'));
@@ -845,7 +858,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Position', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const Text('Position and size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 const Text('Centre of the item, in percent of the slide. 0 is left or top, 100 is right or bottom.',
                     style: TextStyle(color: Color(0xFFB5ABD6))),
@@ -870,7 +883,51 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   ),
                 ]),
                 const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: wc,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Width %', border: OutlineInputBorder()),
+                      onChanged: (_) => applySize(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: hc,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Height %', border: OutlineInputBorder()),
+                      onChanged: (_) => applySize(),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 14),
                 Wrap(spacing: 10, runSpacing: 10, children: [
+                  FilledButton(
+                    onPressed: () {
+                      applySize();
+                      _clipSize = (layer.w, layer.h);
+                      setSheet(() {});
+                      _snack('Size copied: ${fmt(layer.w)}% by ${fmt(layer.h)}%');
+                    },
+                    child: const Text('Copy size'),
+                  ),
+                  FilledButton(
+                    onPressed: _clipSize == null
+                        ? null
+                        : () {
+                            layer.w = _clipSize!.$1;
+                            layer.h = _clipSize!.$2;
+                            wc.text = fmt(layer.w);
+                            hc.text = fmt(layer.h);
+                            _commit();
+                            setSheet(() {});
+                          },
+                    child: Text(_clipSize == null
+                        ? 'Paste size'
+                        : 'Paste size (${fmt(_clipSize!.$1)} x ${fmt(_clipSize!.$2)})'),
+                  ),
                   FilledButton(
                     onPressed: () {
                       apply();
@@ -915,6 +972,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
     xc.dispose();
     yc.dispose();
+    wc.dispose();
+    hc.dispose();
   }
 
   void _duplicateSelection() {
@@ -2228,7 +2287,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.content_copy, 'Copy', _copyLayer),
         if (_clipLayer != null) (Icons.content_paste, 'Paste', _pasteLayer),
-        (Icons.open_with, 'Position', _positionSheet),
+        (Icons.open_with, 'Pos & size', _positionSheet),
         (Icons.layers_outlined, 'Layer', _openLayers),
         (Icons.tune, 'Adjust', _adjust),
         (Icons.auto_awesome_outlined, 'Animate', _openAnimate),

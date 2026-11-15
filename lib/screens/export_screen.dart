@@ -73,6 +73,7 @@ class _ExportScreenState extends State<ExportScreen> {
   Timer? _ticker;
   Widget? _thumbCache;
   String? _unsavedVideo;
+  bool _canPlay = false;
   String _unsavedName = '';
 
   @override
@@ -228,6 +229,7 @@ class _ExportScreenState extends State<ExportScreen> {
       _cancelled = false;
       _failed = false;
       _unsavedVideo = null;
+      _canPlay = false;
       _phase = 0;
       _progress = 0;
       _startedAt = DateTime.now();
@@ -574,7 +576,7 @@ class _ExportScreenState extends State<ExportScreen> {
         : '';
     try {
       final saved = await KainuwaEncoder.saveToMovies(path: output, name: name);
-      if (mounted) setState(() => _unsavedVideo = null);
+      if (mounted) setState(() { _unsavedVideo = null; _canPlay = true; });
       _set('Done. The video was saved to $saved.$note');
       try {
         await File(output).delete();
@@ -591,13 +593,21 @@ class _ExportScreenState extends State<ExportScreen> {
     }
   }
 
+  Future<void> _playVideo() async {
+    try {
+      await KainuwaEncoder.playLastVideo();
+    } on PlatformException catch (e) {
+      _set(e.message ?? 'The video could not be opened.', failed: true);
+    }
+  }
+
   Future<void> _retrySave() async {
     final path = _unsavedVideo;
     if (path == null || _busy) return;
     setState(() => _busy = true);
     try {
       final saved = await KainuwaEncoder.saveToMovies(path: path, name: _unsavedName);
-      if (mounted) setState(() => _unsavedVideo = null);
+      if (mounted) setState(() { _unsavedVideo = null; _canPlay = true; });
       _set('Done. The video was saved to $saved.');
       try {
         await File(path).delete();
@@ -994,6 +1004,14 @@ class _ExportScreenState extends State<ExportScreen> {
               ),
             ),
           ),
+        if (_canPlay && !_busy) ...[
+          FilledButton.icon(
+            onPressed: _playVideo,
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Play video'),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (!_busy)
           FilledButton.icon(
             style: FilledButton.styleFrom(

@@ -316,6 +316,12 @@ class KainuwaEncoder {
 
   /// Saves a finished video. On Android 10 and newer it goes to Movies/Kainuwa Studio;
   /// on older versions a save dialog opens.
+  /// Opens the last video saved to Movies in the phone's own video player.
+  static Future<void> playLastVideo() async {
+    _init();
+    await _channel.invokeMethod<bool>('playLastVideo');
+  }
+
   static Future<String> saveToMovies({
     required String path,
     required String name,

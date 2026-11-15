@@ -309,6 +309,9 @@ public class KainuwaEncoderPlugin
                 saveWithPicker(String.valueOf((String) call.argument("path")),
                         String.valueOf((String) call.argument("name")), "application/octet-stream", result);
                 break;
+            case "playLastVideo":
+                playLastVideo(result);
+                break;
             case "saveToMovies":
                 saveToMovies((String) call.argument("path"), (String) call.argument("name"), result);
                 break;
@@ -1183,6 +1186,31 @@ public class KainuwaEncoderPlugin
 
     // ---- Save to Movies ----
 
+    private volatile Uri lastSavedUri;
+
+    /** Opens the last video saved to Movies in the phone's own video player. */
+    private void playLastVideo(MethodChannel.Result result) {
+        Uri uri = lastSavedUri;
+        if (uri == null) {
+            result.error("no_video", "There is no saved video to play yet.", null);
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "video/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (activity != null) {
+                activity.startActivity(intent);
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                appContext.startActivity(intent);
+            }
+            result.success(true);
+        } catch (Exception e) {
+            result.error("play_failed", "No video player was found on this phone.", null);
+        }
+    }
+
     private void saveToMovies(String path, String name, MethodChannel.Result result) {
         if (path == null || name == null) {
             result.error("bad_arguments", "Path and name are required.", null);
@@ -1215,6 +1243,7 @@ public class KainuwaEncoderPlugin
                 ContentValues done = new ContentValues();
                 done.put(MediaStore.Video.Media.IS_PENDING, 0);
                 resolver.update(uri, done, null, null);
+                lastSavedUri = uri;
                 mainHandler.post(() -> result.success("Movies/Kainuwa Studio/" + name));
             } catch (Exception e) {
                 final String message = String.valueOf(e.getMessage());
@@ -1265,7 +1294,7 @@ public class KainuwaEncoderPlugin
                 }
                 final File saved = target;
                 MediaScannerConnection.scanFile(appContext, new String[]{saved.getAbsolutePath()},
-                        new String[]{"video/mp4"}, null);
+                        new String[]{"video/mp4"}, (scanPath, scanUri) -> lastSavedUri = scanUri);
                 mainHandler.post(() -> result.success("Movies/Kainuwa Studio/" + saved.getName()));
             } catch (Exception e) {
                 // Could not write there: let the user choose a place instead.
