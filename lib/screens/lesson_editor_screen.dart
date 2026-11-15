@@ -1849,23 +1849,29 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
   }
 
+  /// Keeps the slide (and its native video player) alive when the transition wrapper comes and goes.
+  final GlobalKey _stageKey = GlobalKey();
+
   /// While playing, the slide moves, zooms or fades as its transition says.
+  /// The widget tree has the same shape at every moment, so the slide is never rebuilt and
+  /// the video never restarts when a transition begins or ends.
   Widget _withTransition(Lesson lesson, SceneSpot spot, bool playing, Widget child) {
-    if (!playing) return child;
-    final f = sceneTransitionFrame(lesson, spot.index, spot.localMs);
-    if (f == null) return child;
+    final f = playing ? sceneTransitionFrame(lesson, spot.index, spot.localMs) : null;
+    final stage = KeyedSubtree(key: _stageKey, child: child);
     return ClipRect(
       child: ColoredBox(
-        color: Color(transitionBgAt(lesson, spot.index, spot.localMs)),
+        color: f == null ? Colors.transparent : Color(transitionBgAt(lesson, spot.index, spot.localMs)),
         child: LayoutBuilder(builder: (context, c) {
           return Opacity(
-            opacity: f.alpha.clamp(0.0, 1.0).toDouble(),
+            opacity: f == null ? 1.0 : f.alpha.clamp(0.0, 1.0).toDouble(),
             child: Transform(
               alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..translate(f.dx * c.maxWidth, -f.dy * c.maxHeight)
-                ..scale(f.scale, f.scale, 1.0),
-              child: child,
+              transform: f == null
+                  ? Matrix4.identity()
+                  : (Matrix4.identity()
+                    ..translate(f.dx * c.maxWidth, -f.dy * c.maxHeight)
+                    ..scale(f.scale, f.scale, 1.0)),
+              child: stage,
             ),
           );
         }),
