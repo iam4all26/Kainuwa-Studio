@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.folder_outlined),
             selectedIcon: Icon(Icons.folder),
-            label: 'Courses',
+            label: 'Projects',
           ),
           NavigationDestination(
             icon: Icon(Icons.dashboard_customize_outlined),

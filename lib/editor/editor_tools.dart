@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../theme.dart';
+import '../widgets.dart';
 
 /// Short name of a layer, shown on the timeline and in the layer list.
 String layerLabel(Layer layer) {
@@ -97,7 +98,7 @@ class _VolumeSheetState extends State<_VolumeSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sheetTitle('Volume'),
+            _sheetTitle('Volume and speed'),
             Text(
               hasNarration
                   ? 'Narration of this scene ${(scene.narrationVolume * 100).round()}%'
@@ -113,11 +114,22 @@ class _VolumeSheetState extends State<_VolumeSheet> {
                     }
                   : null,
             ),
+            if (hasNarration) ...[
+              Text('Narration speed ${scene.narrationSpeed}x'.replaceAll('.0x', 'x')),
+              const SizedBox(height: 6),
+              SpeedChips(
+                value: scene.narrationSpeed,
+                onChanged: (v) {
+                  setState(() => scene.narrationSpeed = v);
+                  widget.onLive();
+                },
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
               hasMusic
-                  ? 'Music of the lesson ${(lesson.musicVolume * 100).round()}%'
-                  : 'This lesson has no music yet. Use Sound to add some.',
+                  ? 'Music of the video ${(lesson.musicVolume * 100).round()}%'
+                  : 'This video has no music yet. Use Sound to add some.',
             ),
             Slider(
               value: lesson.musicVolume.clamp(0.0, 1.0).toDouble(),
@@ -129,6 +141,17 @@ class _VolumeSheetState extends State<_VolumeSheet> {
                     }
                   : null,
             ),
+            if (hasMusic) ...[
+              Text('Music speed ${lesson.musicSpeed}x'.replaceAll('.0x', 'x')),
+              const SizedBox(height: 6),
+              SpeedChips(
+                value: lesson.musicSpeed,
+                onChanged: (v) {
+                  setState(() => lesson.musicSpeed = v);
+                  widget.onLive();
+                },
+              ),
+            ],
           ],
         ),
       )),
@@ -340,7 +363,7 @@ Future<String?> showSoundChooser(BuildContext context) {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
             child: _sheetTitle('Sound'),
           ),
-          option(c, Icons.mic_none, 'Narration and lesson music', 'Record or import the narration of this slide, or set the music of the lesson', 'narration'),
+          option(c, Icons.mic_none, 'Narration and music', 'Record or import the narration of this slide, or set the music of the video', 'narration'),
           option(c, Icons.library_music_outlined, 'Music or audio clip', 'Place an audio file on the timeline at the playhead', 'clip'),
           option(c, Icons.graphic_eq, 'Sound effect', 'Place a short sound at the playhead', 'sfx'),
         ],
@@ -406,6 +429,23 @@ class _AudioClipSheetState extends State<_AudioClipSheet> {
                     },
                   ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text('Speed ${clip.speed}x'.replaceAll('.0x', 'x')),
+            const SizedBox(height: 6),
+            SpeedChips(
+              value: clip.speed,
+              onChanged: (s) {
+                setState(() {
+                  final old = clip.speed;
+                  clip.speed = s;
+                  var d = (clip.durationMs * old / s).round();
+                  final room = ((clip.sourceMs - clip.trimMs) / s).floor();
+                  if (room > 300) d = math.min(d, room);
+                  clip.durationMs = math.max(300, d);
+                });
+                widget.onLive();
+              },
             ),
             const SizedBox(height: 8),
             Text('Volume ${(clip.volume * 100).round()}%'),

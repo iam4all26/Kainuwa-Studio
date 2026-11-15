@@ -612,6 +612,56 @@ class ColorSwatches extends StatelessWidget {
 }
 
 /// Simple purple cover used for courses until real covers exist.
+class VideoCover extends StatelessWidget {
+  const VideoCover({super.key, this.size = 56});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size * 0.22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [KColors.deepPurple, KColors.purple],
+        ),
+      ),
+      child: Icon(Icons.movie_creation_rounded, color: KColors.gold, size: size * 0.55),
+    );
+  }
+}
+
+/// A row of speed choices from 0.5x to 2x. Used for narration, music and audio clips.
+class SpeedChips extends StatelessWidget {
+  const SpeedChips({super.key, required this.value, required this.onChanged, this.enabled = true});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+  final bool enabled;
+
+  static const List<double> speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final s in speeds)
+          ChoiceChip(
+            label: Text('${s}x'.replaceAll('.0x', 'x')),
+            selected: (value - s).abs() < 0.01,
+            onSelected: enabled ? (_) => onChanged(s) : null,
+          ),
+      ],
+    );
+  }
+}
+
 class CourseCover extends StatelessWidget {
   const CourseCover({super.key, this.size = 56});
 

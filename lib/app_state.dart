@@ -76,21 +76,45 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> addCourse(String title) {
+  Future<String> addCourse(String title) async {
+    final id = _newId();
     courses.insert(
       0,
       Course(
-        id: _newId(),
+        id: id,
         title: title,
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
-    return _saveCourses();
+    await _saveCourses();
+    return id;
+  }
+
+  /// A single video with no course around it. Returns the ids to open the editor with.
+  Future<(String, String)> addVideo() async {
+    final courseId = _newId();
+    final lessonId = _newId();
+    const title = 'Untitled video';
+    courses.insert(
+      0,
+      Course(
+        id: courseId,
+        title: title,
+        isVideo: true,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        lessons: [Lesson(id: lessonId, title: title)],
+      ),
+    );
+    await _saveCourses();
+    return (courseId, lessonId);
   }
 
   Future<void> renameCourse(String id, String title) {
     final course = courseById(id);
-    if (course != null) course.title = title;
+    if (course != null) {
+      course.title = title;
+      if (course.isVideo && course.lessons.isNotEmpty) course.lessons.first.title = title;
+    }
     return _saveCourses();
   }
 

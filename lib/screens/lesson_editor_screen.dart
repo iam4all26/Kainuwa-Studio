@@ -513,7 +513,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       start = end;
     }
     if (added == 0) {
-      _snack('The captions are all after the end of this lesson.');
+      _snack('The captions are all after the end of this video.');
       return;
     }
     _selectedId = null;
@@ -714,7 +714,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   Future<void> _setDuration() async {
     final scene = _currentScene();
     if (scene == null) return;
-    final ms = await showDurationSheet(context, scene.durationMs, minMs: scene.narrationMs);
+    final ms = await showDurationSheet(context, scene.durationMs, minMs: scene.narrationLenMs);
     if (ms == null) return;
     scene.durationMs = ms;
     _commit();
@@ -744,7 +744,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _snack('Move the playhead inside a slide, at least half a second from its edges, to split it.');
       return;
     }
-    if (scene.narrationPath.isNotEmpty && local < scene.narrationMs) {
+    if (scene.narrationPath.isNotEmpty && local < scene.narrationLenMs) {
       _snack('The narration of this slide runs past this point. Move the playhead after it ends, or remove the narration first.');
       return;
     }
@@ -966,7 +966,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       return;
     }
     if (lesson.scenes.length <= 1) {
-      _snack('A lesson needs at least one slide.');
+      _snack('A video needs at least one slide.');
       return;
     }
     final index = lesson.scenes.indexOf(scene);
@@ -1454,7 +1454,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     }
     final second = clip.copy();
     second.startMs = clip.startMs + local;
-    second.trimMs = clip.trimMs + local;
+    second.trimMs = clip.trimMs + (local * clip.speed).round();
     second.durationMs = clip.durationMs - local;
     second.fadeInMs = 0;
     clip.durationMs = local;
@@ -2206,12 +2206,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.speed, 'Speed', _audioSettings),
         (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_soundSel != null) {
       tools.addAll([
         (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.speed, 'Speed', _volume),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (layer != null) {
@@ -2363,7 +2365,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (lesson == null || player == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: Text('This lesson no longer exists.')),
+        body: const Center(child: Text('This video no longer exists.')),
       );
     }
     if (lesson.scenes.isEmpty) {

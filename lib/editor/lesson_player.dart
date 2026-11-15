@@ -81,7 +81,7 @@ class LessonPlayer extends ChangeNotifier {
     if (muted || spot.localMs > 400) return;
     final scene = lesson.scenes[spot.index];
     if (scene.narrationPath.isNotEmpty) {
-      KainuwaEncoder.playAudio(scene.narrationPath, volume: scene.narrationVolume)
+      KainuwaEncoder.playAudio(scene.narrationPath, volume: scene.narrationVolume, speed: scene.narrationSpeed)
           .then((_) {}, onError: (_) {});
     }
   }
@@ -119,8 +119,9 @@ class LessonPlayer extends ChangeNotifier {
         KainuwaEncoder.playClip(
           clip.id,
           clip.path,
-          seekMs: clip.trimMs + (pos - clip.startMs),
+          seekMs: clip.trimMs + ((pos - clip.startMs) * clip.speed).round(),
           volume: g,
+          speed: clip.speed,
         ).then((_) {}, onError: (_) {});
       } else if (!inside && on) {
         _clipsOn.remove(clip.id);

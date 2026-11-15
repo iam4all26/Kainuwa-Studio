@@ -8,6 +8,7 @@ import '../models.dart';
 import '../project_package.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'lesson_editor_screen.dart';
 import 'lessons_screen.dart';
 
 class CoursesTab extends StatelessWidget {
@@ -20,17 +21,92 @@ class CoursesTab extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenTemplates;
 
+  Widget _choiceTile(BuildContext context, IconData icon, String title, String subtitle, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).pop(value),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: KColors.lavender,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: KColors.selected,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(color: Color(0xFFB5ABD6))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _create(BuildContext context) async {
     final state = AppScope.read(context);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Create video', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              _choiceTile(sheetContext, Icons.movie_creation_outlined, 'Video',
+                  'Open the canvas and start right away', 'video'),
+              _choiceTile(sheetContext, Icons.school_outlined, 'Course',
+                  'A set of lessons, each one a video', 'course'),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+    if (choice == 'video') {
+      final ids = await state.addVideo();
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LessonEditorScreen(courseId: ids.$1, lessonId: ids.$2),
+        ),
+      );
+      return;
+    }
     final title = await promptText(
       context,
       title: 'New course',
       label: 'Course title',
       confirm: 'Create',
     );
-    if (title != null) {
-      await state.addCourse(title);
-    }
+    if (title == null || !context.mounted) return;
+    final id = await state.addCourse(title);
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => LessonsScreen(courseId: id)),
+    );
   }
 
   void _busy(BuildContext context, String text) {
@@ -134,8 +210,8 @@ class CoursesTab extends StatelessWidget {
     final state = AppScope.read(context);
     final title = await promptText(
       context,
-      title: 'Rename course',
-      label: 'Course title',
+      title: course.isVideo ? 'Rename video' : 'Rename course',
+      label: course.isVideo ? 'Video title' : 'Course title',
       initial: course.title,
     );
     if (title != null) {
@@ -147,8 +223,10 @@ class CoursesTab extends StatelessWidget {
     final state = AppScope.read(context);
     final ok = await confirmDialog(
       context,
-      title: 'Delete course',
-      message: 'Delete "${course.title}" and all of its lessons from this phone?',
+      title: course.isVideo ? 'Delete video' : 'Delete course',
+      message: course.isVideo
+          ? 'Delete "${course.title}" from this phone?'
+          : 'Delete "${course.title}" and all of its lessons from this phone?',
     );
     if (ok) {
       await state.deleteCourse(course.id);
@@ -203,7 +281,7 @@ class CoursesTab extends StatelessWidget {
                     ),
                     onPressed: () => _create(context),
                     icon: const Icon(Icons.add),
-                    label: const Text('Create Course'),
+                    label: const Text('Create Video'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -220,7 +298,7 @@ class CoursesTab extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(
-              'My Courses (${courses.length})',
+              'My Projects (${courses.length})',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ),
@@ -230,7 +308,7 @@ class CoursesTab extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: Text(
-                        'No courses yet. Tap Create Course to start your first one.',
+                        'Nothing here yet. Tap Create Video to start.',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -244,7 +322,7 @@ class CoursesTab extends StatelessWidget {
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           contentPadding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-                          leading: const CourseCover(),
+                          leading: course.isVideo ? const VideoCover() : const CourseCover(),
                           title: Text(
                             course.title,
                             maxLines: 1,
@@ -252,11 +330,15 @@ class CoursesTab extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
-                            '${lessonCountText(course.lessons.length)} - ${minutesText(course.totalMs)}',
+                            course.isVideo
+                                ? formatClock(course.totalMs)
+                                : '${lessonCountText(course.lessons.length)} - ${minutesText(course.totalMs)}',
                           ),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => LessonsScreen(courseId: course.id),
+                              builder: (_) => course.isVideo && course.lessons.isNotEmpty
+                                  ? LessonEditorScreen(courseId: course.id, lessonId: course.lessons.first.id)
+                                  : LessonsScreen(courseId: course.id),
                             ),
                           ),
                           trailing: PopupMenuButton<String>(

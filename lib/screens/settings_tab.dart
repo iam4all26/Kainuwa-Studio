@@ -158,7 +158,7 @@ class _SettingsTabState extends State<SettingsTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Kainuwa Studio', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-                  Text('Course Video Editor', style: TextStyle(color: Color(0xFFB5ABD6))),
+                  Text('Video Editor', style: TextStyle(color: Color(0xFFB5ABD6))),
                 ],
               ),
             ],
@@ -279,7 +279,7 @@ class _SettingsTabState extends State<SettingsTab> {
             key: _keys[1],
             icon: Icons.play_circle_outline,
             title: 'Export Defaults',
-            subtitle: 'Set the default export options for your lessons.',
+            subtitle: 'Set the default export options for your videos.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -308,7 +308,7 @@ class _SettingsTabState extends State<SettingsTab> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'You can still change quality, frame rate and bitrate on the Export screen of each lesson.',
+                  'You can still change quality, frame rate and bitrate on the Export screen of each video.',
                   style: TextStyle(fontSize: 12, color: Color(0xFFB5ABD6)),
                 ),
               ],
@@ -319,7 +319,7 @@ class _SettingsTabState extends State<SettingsTab> {
             icon: Icons.tune,
             title: 'Editing',
             subtitle: 'How the editor keeps your work.',
-            child: const Text('Every change is saved automatically, and Undo and Redo work while a lesson is open.'),
+            child: const Text('Every change is saved automatically, and Undo and Redo work while a video is open.'),
           ),
           _card(
             key: _keys[3],
@@ -341,7 +341,7 @@ class _SettingsTabState extends State<SettingsTab> {
             key: _keys[4],
             icon: Icons.info_outline,
             title: 'About Kainuwa Studio',
-            child: const Text('Version 1.0.0. Works fully offline. Your courses are saved on this phone only.'),
+            child: const Text('Version 1.0.0. Works fully offline. Your projects are saved on this phone only.'),
           ),
           if (state.loadError != null)
             Padding(

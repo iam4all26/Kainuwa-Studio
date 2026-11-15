@@ -8,6 +8,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import '../media/media_library.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets.dart';
 
 /// Narration for the current scene and music for the whole lesson.
 Future<void> showAudioSheet(
@@ -80,7 +81,8 @@ class _AudioSheetState extends State<_AudioSheet> {
     final scene = widget.scene;
     scene.narrationPath = path;
     scene.narrationMs = ms;
-    scene.durationMs = math.max(1000, ms);
+    scene.narrationSpeed = 1.0;
+    // The slide keeps its length. Use Fit slide to narration if you want them to match.
     await widget.onChanged();
     if (mounted) setState(() => _message = null);
   }
@@ -281,7 +283,9 @@ class _AudioSheetState extends State<_AudioSheet> {
               child: ListTile(
                 leading: const Icon(Icons.graphic_eq, color: KColors.purple),
                 title: Text(_shortName(scene.narrationPath), maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text('Length ${_clock(scene.narrationMs)}. The scene is as long as the narration.'),
+                subtitle: Text(scene.narrationLenMs > scene.durationMs
+                    ? 'Length ${_clock(scene.narrationLenMs)}. It is longer than this slide (${_clock(scene.durationMs)}), so the end is cut off.'
+                    : 'Length ${_clock(scene.narrationLenMs)}. The slide stays ${_clock(scene.durationMs)}.'),
                 trailing: IconButton(
                   onPressed: _togglePlay,
                   icon: Icon(_playing ? Icons.stop_circle_outlined : Icons.play_circle_outline, size: 32),
@@ -289,6 +293,25 @@ class _AudioSheetState extends State<_AudioSheet> {
               ),
             ),
             const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                setState(() => scene.durationMs = math.max(1000, scene.narrationLenMs));
+                await widget.onChanged();
+              },
+              icon: const Icon(Icons.timer_outlined),
+              label: const Text('Fit slide to narration'),
+            ),
+            const SizedBox(height: 12),
+            Text('Narration speed ${scene.narrationSpeed}x'.replaceAll('.0x', 'x')),
+            const SizedBox(height: 6),
+            SpeedChips(
+              value: scene.narrationSpeed,
+              onChanged: (v) {
+                setState(() => scene.narrationSpeed = v);
+                widget.onChanged();
+              },
+            ),
+            const SizedBox(height: 12),
             Text('Narration volume ${(scene.narrationVolume * 100).round()}%'),
             Slider(
               value: scene.narrationVolume.clamp(0.0, 1.0).toDouble(),
@@ -300,7 +323,7 @@ class _AudioSheetState extends State<_AudioSheet> {
               contentPadding: EdgeInsets.zero,
               title: const Text('Clean the voice when exporting'),
               subtitle: const Text(
-                'Cuts low rumble and quiets the gaps between words. It is applied when the lesson is exported.',
+                'Cuts low rumble and quiets the gaps between words. It is applied when the video is exported.',
                 style: TextStyle(fontSize: 12),
               ),
               value: scene.narrationClean,
@@ -329,7 +352,7 @@ class _AudioSheetState extends State<_AudioSheet> {
           ],
           const Divider(height: 32),
           const Text(
-            'Music for the whole lesson',
+            'Music for the whole video',
             style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent),
           ),
           const SizedBox(height: 8),
@@ -349,6 +372,16 @@ class _AudioSheetState extends State<_AudioSheet> {
               ),
             ),
             const SizedBox(height: 8),
+            Text('Music speed ${lesson.musicSpeed}x'.replaceAll('.0x', 'x')),
+            const SizedBox(height: 6),
+            SpeedChips(
+              value: lesson.musicSpeed,
+              onChanged: (v) {
+                setState(() => lesson.musicSpeed = v);
+                widget.onChanged();
+              },
+            ),
+            const SizedBox(height: 12),
             Text('Music volume ${(lesson.musicVolume * 100).round()}%'),
             Slider(
               value: lesson.musicVolume.clamp(0.0, 1.0).toDouble(),
@@ -366,7 +399,7 @@ class _AudioSheetState extends State<_AudioSheet> {
               },
             ),
             const Text(
-              'The music plays under the whole lesson. If it is shorter than the lesson it will stop when it ends.',
+              'The music plays under the whole video. If it is shorter than the video it will stop when it ends.',
               style: TextStyle(fontSize: 12),
             ),
           ],

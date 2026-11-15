@@ -269,7 +269,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
       }
       if (scene.narrationPath.isNotEmpty) {
         anyNarration = true;
-        final length = scene.narrationMs > 0 ? math.min(scene.narrationMs, scene.durationMs) : scene.durationMs;
+        final length = scene.narrationMs > 0 ? math.min(scene.narrationLenMs, scene.durationMs) : scene.durationMs;
         audio.add(_Clip(
           kind: 'narration',
           startMs: start,
@@ -368,13 +368,13 @@ class _TimelinePanelState extends State<TimelinePanel> {
           var deltaMs = (_dragAccum / _pps * 1000);
           deltaMs = (deltaMs / 100).round() * 100.0;
           if (!left) {
-            final minMs = math.max(500, scene.narrationMs);
+            final minMs = math.max(500, scene.narrationLenMs);
             final ms = math.max(minMs, _dragStartThis + deltaMs.round());
             widget.onSceneDuration(index, ms);
           } else if (index > 0) {
             final prev = lesson.scenes[index - 1];
-            final minPrev = math.max(500, prev.narrationMs);
-            final minThis = math.max(500, scene.narrationMs);
+            final minPrev = math.max(500, prev.narrationLenMs);
+            final minThis = math.max(500, scene.narrationLenMs);
             final low = (minPrev - _dragStartPrev).toDouble();
             final high = (_dragStartThis - minThis).toDouble();
             if (high >= low) {

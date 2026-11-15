@@ -14,6 +14,7 @@ Scene viewScene(Scene scene, Set<String> hidden) {
     narrationPath: scene.narrationPath,
     narrationMs: scene.narrationMs,
     narrationVolume: scene.narrationVolume,
+    narrationSpeed: scene.narrationSpeed,
     narrationClean: scene.narrationClean,
     videoPath: scene.videoPath,
     videoStartMs: scene.videoStartMs,

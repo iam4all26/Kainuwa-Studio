@@ -258,6 +258,7 @@ class Scene {
     this.narrationPath = '',
     this.narrationMs = 0,
     this.narrationVolume = 1.0,
+    this.narrationSpeed = 1.0,
     this.narrationClean = true,
     this.videoPath = '',
     this.videoStartMs = 0,
@@ -285,6 +286,12 @@ class Scene {
   String narrationPath;
   int narrationMs;
   double narrationVolume;
+
+  /// Playback speed of the narration, 0.5 to 2. The narration is not pitched up or down.
+  double narrationSpeed;
+
+  /// How long the narration plays on the timeline, after the speed is applied.
+  int get narrationLenMs => narrationMs <= 0 ? 0 : (narrationMs / narrationSpeed).round();
 
   /// Clean the voice (cut rumble, quiet the gaps) when the lesson is exported.
   bool narrationClean;
@@ -331,6 +338,7 @@ class Scene {
         narrationPath: narrationPath,
         narrationMs: narrationMs,
         narrationVolume: narrationVolume,
+        narrationSpeed: narrationSpeed,
         narrationClean: narrationClean,
         videoPath: videoPath,
         videoStartMs: videoStartMs,
@@ -355,6 +363,7 @@ class Scene {
         'narrationPath': narrationPath,
         'narrationMs': narrationMs,
         'narrationVolume': narrationVolume,
+        'narrationSpeed': narrationSpeed,
         'narrationClean': narrationClean,
         'videoPath': videoPath,
         'videoStartMs': videoStartMs,
@@ -387,6 +396,7 @@ class Scene {
       narrationPath: _str(json['narrationPath'], ''),
       narrationMs: _int(json['narrationMs'], 0),
       narrationVolume: _num(json['narrationVolume'], 1.0),
+      narrationSpeed: _num(json['narrationSpeed'], 1.0).clamp(0.5, 2.0).toDouble(),
       narrationClean: json['narrationClean'] is bool ? json['narrationClean'] as bool : true,
       videoPath: _str(json['videoPath'], ''),
       videoStartMs: _int(json['videoStartMs'], 0),
@@ -417,6 +427,7 @@ class AudioClip {
     this.durationMs = 1000,
     this.sourceMs = 1000,
     this.volume = 1.0,
+    this.speed = 1.0,
     this.fadeInMs = 0,
     this.fadeOutMs = 0,
   });
@@ -440,6 +451,9 @@ class AudioClip {
   /// Length of the whole file.
   int sourceMs;
   double volume;
+
+  /// Playback speed, 0.5 to 2. [durationMs] is the time it takes on the timeline.
+  double speed;
   int fadeInMs;
   int fadeOutMs;
 
@@ -457,6 +471,7 @@ class AudioClip {
         'durationMs': durationMs,
         'sourceMs': sourceMs,
         'volume': volume,
+        'speed': speed,
         'fadeInMs': fadeInMs,
         'fadeOutMs': fadeOutMs,
       };
@@ -471,6 +486,7 @@ class AudioClip {
         durationMs: _int(json['durationMs'], 1000),
         sourceMs: _int(json['sourceMs'], 1000),
         volume: _num(json['volume'], 1.0).clamp(0.0, 1.0).toDouble(),
+        speed: _num(json['speed'], 1.0).clamp(0.5, 2.0).toDouble(),
         fadeInMs: _int(json['fadeInMs'], 0),
         fadeOutMs: _int(json['fadeOutMs'], 0),
       );
@@ -483,6 +499,7 @@ class Lesson {
     List<Scene>? scenes,
     this.musicPath = '',
     this.musicVolume = 0.3,
+    this.musicSpeed = 1.0,
     this.musicFade = true,
     Set<String>? hiddenTracks,
     List<AudioClip>? audioClips,
@@ -497,6 +514,7 @@ class Lesson {
   /// Background music for the whole lesson. Empty means none.
   String musicPath;
   double musicVolume;
+  double musicSpeed;
   bool musicFade;
 
   /// Tracks switched off with the eye icon (image, text, audio). They are left
@@ -514,6 +532,7 @@ class Lesson {
         'title': title,
         'musicPath': musicPath,
         'musicVolume': musicVolume,
+        'musicSpeed': musicSpeed,
         'musicFade': musicFade,
         'hiddenTracks': hiddenTracks.toList(),
         'audioClips': audioClips.map((c) => c.toJson()).toList(),
@@ -533,6 +552,7 @@ class Lesson {
       title: _str(json['title'], 'Untitled lesson'),
       musicPath: _str(json['musicPath'], ''),
       musicVolume: _num(json['musicVolume'], 0.3),
+      musicSpeed: _num(json['musicSpeed'], 1.0).clamp(0.5, 2.0).toDouble(),
       musicFade: json['musicFade'] is bool ? json['musicFade'] as bool : true,
       hiddenTracks: json['hiddenTracks'] is List
           ? (json['hiddenTracks'] as List).whereType<String>().toSet()
@@ -553,6 +573,7 @@ class Course {
     required this.title,
     this.description = '',
     required this.createdAt,
+    this.isVideo = false,
     List<Lesson>? lessons,
   }) : lessons = lessons ?? <Lesson>[];
 
@@ -562,6 +583,9 @@ class Course {
   final int createdAt;
   final List<Lesson> lessons;
 
+  /// True for a single video made without a course: it opens straight in the editor.
+  final bool isVideo;
+
   int get totalMs => lessons.fold<int>(0, (sum, lesson) => sum + lesson.durationMs);
 
   Map<String, dynamic> toJson() => {
@@ -569,6 +593,7 @@ class Course {
         'title': title,
         'description': description,
         'createdAt': createdAt,
+        'video': isVideo,
         'lessons': lessons.map((l) => l.toJson()).toList(),
       };
 
@@ -585,6 +610,7 @@ class Course {
       title: _str(json['title'], 'Untitled course'),
       description: _str(json['description'], ''),
       createdAt: _int(json['createdAt'], 0),
+      isVideo: json['video'] == true,
       lessons: lessons,
     );
   }

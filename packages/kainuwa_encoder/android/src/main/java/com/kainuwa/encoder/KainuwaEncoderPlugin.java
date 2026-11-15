@@ -357,7 +357,7 @@ public class KainuwaEncoderPlugin
                 result.success((int) Math.max(readDurationMs(String.valueOf((String) call.argument("path"))), 0));
                 break;
             case "playAudio":
-                playAudio((String) call.argument("path"), num(call, "volume", 1.0), result);
+                playAudio((String) call.argument("path"), num(call, "volume", 1.0), num(call, "speed", 1.0), result);
                 break;
             case "stopAudio":
                 stopPlayerQuietly();
@@ -365,7 +365,7 @@ public class KainuwaEncoderPlugin
                 break;
             case "playClip":
                 playClip((String) call.argument("id"), (String) call.argument("path"),
-                        longOf((Object) call.argument("seekMs"), 0), num(call, "volume", 1.0), result);
+                        longOf((Object) call.argument("seekMs"), 0), num(call, "volume", 1.0), num(call, "speed", 1.0), result);
                 break;
             case "setClipVolume":
                 setClipVolume((String) call.argument("id"), num(call, "volume", 1.0));
@@ -830,6 +830,7 @@ public class KainuwaEncoderPlugin
         lessonBitrate = (int) num(call, "bitrate", 0);
         final float musicVolume = (float) num(call, "musicVolume", 0.3);
         final long musicFadeMs = (long) num(call, "musicFadeMs", 0);
+        final double musicSpeed = num(call, "musicSpeed", 1.0);
         final List<LessonAudioMixer.Clip> clips = new ArrayList<>();
         final List<Map<String, Object>> rawClips = call.argument("clips");
         if (rawClips != null) {
@@ -843,6 +844,7 @@ public class KainuwaEncoderPlugin
                 c.trimMs = longOf(m.get("trimMs"), 0);
                 c.durMs = longOf(m.get("durMs"), 0);
                 c.volume = (float) doubleOf(m.get("volume"), 1.0);
+                c.speed = doubleOf(m.get("speed"), 1.0);
                 c.fadeInMs = longOf(m.get("fadeInMs"), 0);
                 c.fadeOutMs = longOf(m.get("fadeOutMs"), 0);
                 clips.add(c);
@@ -890,6 +892,7 @@ public class KainuwaEncoderPlugin
             spec.path = narr instanceof String && !((String) narr).isEmpty() ? (String) narr : null;
             spec.durationMs = dur;
             spec.volume = (float) doubleOf(sc.get("volume"), 1.0);
+            spec.speed = doubleOf(sc.get("speed"), 1.0);
             spec.clean = Boolean.TRUE.equals(sc.get("clean"));
             specs.add(spec);
 
@@ -1003,9 +1006,16 @@ public class KainuwaEncoderPlugin
                 if (!clips.isEmpty()) {
                     LessonAudioMixer.addClips(wav, clips, control);
                 }
+                String musicUse = musicPath;
+                if (musicPath != null && Math.abs(musicSpeed - 1.0) > 0.01) {
+                    File sped = new File(dir, "music_speed.wav");
+                    LessonAudioMixer.renderSpeed(musicPath, musicSpeed, total, sped, control);
+                    musicUse = sped.getAbsolutePath();
+                }
+                final String musicFinal = musicUse;
                 long musicMs = 0;
                 if (musicPath != null) {
-                    musicMs = readDurationMs(musicPath);
+                    musicMs = readDurationMs(musicFinal);
                     if (musicMs <= 0) {
                         throw new IOException("Could not read the length of the music file.");
                     }
@@ -1016,7 +1026,7 @@ public class KainuwaEncoderPlugin
                         return;
                     }
                     try {
-                        startLessonVideo(images, durations, wav, musicPath, musicLen, musicVolume,
+                        startLessonVideo(images, durations, wav, musicFinal, musicLen, musicVolume,
                                 musicFadeMs, overlays, width, height, fps, total, outputPath);
                     } catch (Exception e) {
                         failLesson(gen, String.valueOf(e.getMessage()));
@@ -1483,7 +1493,19 @@ public class KainuwaEncoderPlugin
         }
     }
 
-    private void playAudio(String path, double volume, MethodChannel.Result result) {
+    /** Plays slower or faster with the pitch kept. Needs Android 6 or newer; older phones play at normal speed. */
+    private static void applySpeed(MediaPlayer mp, double speed) {
+        if (Math.abs(speed - 1.0) < 0.01 || Build.VERSION.SDK_INT < 23) {
+            return;
+        }
+        try {
+            mp.setPlaybackParams(mp.getPlaybackParams().setSpeed((float) speed));
+        } catch (Exception ignored) {
+            // keep normal speed
+        }
+    }
+
+    private void playAudio(String path, double volume, final double speed, MethodChannel.Result result) {
         stopPlayerQuietly();
         if (path == null) {
             result.error("bad_arguments", "A file path is required.", null);
@@ -1494,7 +1516,10 @@ public class KainuwaEncoderPlugin
             p.setDataSource(path);
             float v = (float) Math.max(0.0, Math.min(1.0, volume));
             p.setVolume(v, v);
-            p.setOnPreparedListener(mp -> mp.start());
+            p.setOnPreparedListener(mp -> {
+                mp.start();
+                applySpeed(mp, speed);
+            });
             p.setOnCompletionListener(mp -> {
                 releasePlayer(mp);
                 if (channel != null) {
@@ -1522,7 +1547,7 @@ public class KainuwaEncoderPlugin
     private final java.util.Map<String, MediaPlayer> clipPlayers = new java.util.HashMap<>();
 
     private void playClip(final String id, String path, final long seekMs, double volume,
-                          MethodChannel.Result result) {
+                          final double speed, MethodChannel.Result result) {
         if (id == null || path == null) {
             result.error("bad_arguments", "A clip id and file path are required.", null);
             return;
@@ -1539,6 +1564,7 @@ public class KainuwaEncoderPlugin
                         mp.seekTo((int) seekMs);
                     }
                     mp.start();
+                    applySpeed(mp, speed);
                 } catch (Exception ignored) {
                     // nothing to do
                 }

@@ -79,9 +79,9 @@ class KainuwaEncoder {
     return (await _channel.invokeMethod<int>('audioDuration', {'path': path})) ?? 0;
   }
 
-  static Future<void> playAudio(String path, {double volume = 1.0}) async {
+  static Future<void> playAudio(String path, {double volume = 1.0, double speed = 1.0}) async {
     _init();
-    await _channel.invokeMethod<bool>('playAudio', {'path': path, 'volume': volume});
+    await _channel.invokeMethod<bool>('playAudio', {'path': path, 'volume': volume, 'speed': speed});
   }
 
   static Future<void> stopAudio() async {
@@ -90,13 +90,15 @@ class KainuwaEncoder {
   }
 
   /// Plays an extra clip next to other sounds, starting [seekMs] into the file.
-  static Future<void> playClip(String id, String path, {int seekMs = 0, double volume = 1.0}) async {
+  static Future<void> playClip(String id, String path,
+      {int seekMs = 0, double volume = 1.0, double speed = 1.0}) async {
     _init();
     await _channel.invokeMethod<bool>('playClip', {
       'id': id,
       'path': path,
       'seekMs': seekMs,
       'volume': volume,
+      'speed': speed,
     });
   }
 
@@ -144,6 +146,7 @@ class KainuwaEncoder {
     required String outputPath,
     String? musicPath,
     double musicVolume = 0.3,
+    double musicSpeed = 1.0,
     int musicFadeMs = 0,
     int width = 1280,
     int height = 720,
@@ -161,6 +164,7 @@ class KainuwaEncoder {
       'output': outputPath,
       'music': musicPath,
       'musicVolume': musicVolume,
+      'musicSpeed': musicSpeed,
       'musicFadeMs': musicFadeMs,
       'width': width,
       'height': height,

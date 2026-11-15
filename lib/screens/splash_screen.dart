@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
-                  'Create Professional\nVideo Courses on Your Phone\n(Offline)',
+                  'Create Professional\nVideos on Your Phone\n(Offline)',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
                 ),

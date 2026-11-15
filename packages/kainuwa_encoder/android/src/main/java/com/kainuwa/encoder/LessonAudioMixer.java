@@ -36,6 +36,7 @@ final class LessonAudioMixer {
         String path;       // null means silence
         long durationMs;
         float volume = 1f;
+        double speed = 1.0;
         boolean clean;
     }
 
@@ -46,6 +47,7 @@ final class LessonAudioMixer {
         long trimMs;      // how far into the file it starts playing
         long durMs;       // how long it plays
         float volume = 1f;
+        double speed = 1.0;
         long fadeInMs;
         long fadeOutMs;
     }
@@ -93,8 +95,16 @@ final class LessonAudioMixer {
                     continue;
                 }
                 short[] pcm;
+                double sp = clip.speed >= 0.25 && clip.speed <= 4.0 ? clip.speed : 1.0;
                 try {
-                    pcm = decode(clip.path, (long) trim + dur, control);
+                    long srcNeed = (long) trim + (long) Math.ceil(dur * sp);
+                    pcm = decode(clip.path, srcNeed, control);
+                    if (Math.abs(sp - 1.0) > 0.01) {
+                        int from = Math.min(trim, pcm.length);
+                        int to = (int) Math.min((long) pcm.length, srcNeed);
+                        pcm = stretch(Arrays.copyOfRange(pcm, from, Math.max(from, to)), sp, control);
+                        trim = 0;
+                    }
                 } catch (IOException e) {
                     if (String.valueOf(e.getMessage()).contains("no sound")) {
                         continue;
@@ -176,7 +186,11 @@ final class LessonAudioMixer {
                 short[] pcm = null;
                 if (spec.path != null) {
                     try {
-                        pcm = decode(spec.path, sceneFrames, control);
+                        double sp = spec.speed >= 0.25 && spec.speed <= 4.0 ? spec.speed : 1.0;
+                        pcm = decode(spec.path, (long) Math.ceil(sceneFrames * sp) + RATE / 10, control);
+                        if (Math.abs(sp - 1.0) > 0.01) {
+                            pcm = stretch(pcm, sp, control);
+                        }
                     } catch (IOException e) {
                         throw e;
                     } catch (Exception e) {
@@ -193,6 +207,99 @@ final class LessonAudioMixer {
                 control.progress((int) ((i + 1) * 100L / specs.size()));
             }
         }
+    }
+
+    /**
+     * Makes a copy of an audio file that plays at [speed] with the pitch kept, as a mono WAV
+     * long enough for [neededMs] of the lesson.
+     */
+    static void renderSpeed(String path, double speed, long neededMs, File out, Control control)
+            throws IOException {
+        long needFrames = frames(neededMs);
+        short[] pcm = decode(path, (long) Math.ceil(needFrames * speed) + RATE, control);
+        short[] fast = stretch(pcm, speed, control);
+        int n = (int) Math.min((long) fast.length, needFrames);
+        try (OutputStream os = new BufferedOutputStream(new FileOutputStream(out), 256 * 1024)) {
+            writeHeader(os, n);
+            writeFrames(os, fast, n);
+        }
+    }
+
+    /**
+     * Changes the speed without changing the pitch (overlap-add with the best matching
+     * join). speed 2 makes the sound half as long.
+     */
+    static short[] stretch(short[] in, double speed, Control control) throws IOException {
+        if (Math.abs(speed - 1.0) < 0.01) {
+            return in;
+        }
+        final int win = 1764;          // 40 ms
+        final int hs = win / 2;        // output step
+        final int tol = 441;           // 10 ms search either side
+        int outLen = (int) Math.max(0, Math.round(in.length / speed));
+        if (in.length < win * 3 || outLen < win) {
+            // too short to stretch cleanly: plain resampling
+            short[] out = new short[outLen];
+            for (int j = 0; j < outLen; j++) {
+                double pos = j * speed;
+                int i0 = (int) pos;
+                if (i0 >= in.length) {
+                    break;
+                }
+                int s1 = i0 + 1 < in.length ? in[i0 + 1] : in[i0];
+                out[j] = (short) Math.round(in[i0] + (s1 - in[i0]) * (pos - i0));
+            }
+            return out;
+        }
+        double[] hann = new double[win];
+        for (int i = 0; i < win; i++) {
+            hann[i] = 0.5 * (1.0 - Math.cos(2.0 * Math.PI * i / win));
+        }
+        double[] acc = new double[outLen + win * 2];
+        for (int i = 0; i < win; i++) {
+            acc[i] += in[i] * hann[i];
+        }
+        int prevStart = 0;
+        double ha = hs * speed;
+        for (int frame = 1; ; frame++) {
+            long outPos = (long) frame * hs;
+            if (outPos >= outLen) {
+                break;
+            }
+            if ((frame & 255) == 0 && control.cancelled()) {
+                throw new IOException("Export cancelled.");
+            }
+            int center = (int) Math.round(frame * ha);
+            int natural = prevStart + hs;
+            if (center + win > in.length || natural + hs > in.length) {
+                break;
+            }
+            int best = center;
+            double bestC = -Double.MAX_VALUE;
+            int lo = Math.max(0, center - tol);
+            int hi = Math.min(center + tol, in.length - win);
+            for (int cand = lo; cand <= hi; cand += 3) {
+                double c = 0;
+                for (int k = 0; k < hs; k += 6) {
+                    c += (double) in[cand + k] * in[natural + k];
+                }
+                if (c > bestC) {
+                    bestC = c;
+                    best = cand;
+                }
+            }
+            int base = (int) outPos;
+            for (int i = 0; i < win; i++) {
+                acc[base + i] += in[best + i] * hann[i];
+            }
+            prevStart = best;
+        }
+        short[] out = new short[outLen];
+        for (int i = 0; i < outLen; i++) {
+            long v = Math.round(acc[i]);
+            out[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, v));
+        }
+        return out;
     }
 
     // ---- WAV output ----

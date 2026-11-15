@@ -189,7 +189,7 @@ class _ExportScreenState extends State<ExportScreen> {
     final state = AppScope.read(context);
     final lesson = state.lessonById(widget.courseId, widget.lessonId);
     if (lesson == null || lesson.scenes.isEmpty) {
-      _set('This lesson has no slides to export.', failed: true);
+      _set('This video has no slides to export.', failed: true);
       return;
     }
     final hidden = Set<String>.of(lesson.hiddenTracks);
@@ -214,6 +214,7 @@ class _ExportScreenState extends State<ExportScreen> {
           'trimMs': clip.trimMs,
           'durMs': clip.durationMs,
           'volume': clip.volume,
+          'speed': clip.speed,
           'fadeInMs': clip.fadeInMs,
           'fadeOutMs': clip.fadeOutMs,
         });
@@ -485,6 +486,7 @@ class _ExportScreenState extends State<ExportScreen> {
           'durationMs': scene.durationMs,
           'narration': narration,
           'volume': scene.narrationVolume,
+          'speed': scene.narrationSpeed,
           'clean': scene.narrationClean,
           'overlays': overlays,
           'video': scene.hasVideo ? scene.videoPath : null,
@@ -513,13 +515,14 @@ class _ExportScreenState extends State<ExportScreen> {
       if (musicPath.isNotEmpty && await File(musicPath).exists()) music = musicPath;
 
       _setProgress(1, 0);
-      final output = '${root.path}/lesson_$stamp.mp4';
+      final output = '${root.path}/video_$stamp.mp4';
       await KainuwaEncoder.exportLesson(
         scenes: specs,
         workDir: work.path,
         outputPath: output,
         musicPath: music,
         musicVolume: musicVolume,
+        musicSpeed: lesson.musicSpeed,
         musicFadeMs: musicFade ? 2000 : 0,
         width: outW,
         height: outH,
@@ -560,7 +563,7 @@ class _ExportScreenState extends State<ExportScreen> {
 
   String _safeName(String title) {
     final cleaned = title.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
-    return cleaned.isEmpty ? 'Lesson' : cleaned;
+    return cleaned.isEmpty ? 'Video' : cleaned;
   }
 
   Future<void> _save(String output, String title, int missingNarration) async {
@@ -878,7 +881,7 @@ class _ExportScreenState extends State<ExportScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(lesson?.title ?? 'Lesson',
+                      Text(lesson?.title ?? 'Video',
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
@@ -972,7 +975,7 @@ class _ExportScreenState extends State<ExportScreen> {
           padding: EdgeInsets.only(bottom: 12),
           child: Text(
             'Keep the app open and the phone awake until the export finishes. '
-            'Long lessons take a long time; try a short lesson first.',
+            'Long videos take a long time; try a short one first.',
             style: TextStyle(fontSize: 13),
           ),
         ),
