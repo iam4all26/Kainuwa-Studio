@@ -24,6 +24,7 @@ class SceneCanvas extends StatefulWidget {
     this.onDuplicate,
     this.onDelete,
     this.interactive = false,
+    this.tapSelect = false,
     this.previewMs,
     this.ghostAtMs,
     this.demoId,
@@ -41,6 +42,9 @@ class SceneCanvas extends StatefulWidget {
   /// Called with the layer id when the delete button on the selection is tapped.
   final ValueChanged<String>? onDelete;
   final bool interactive;
+
+  /// While the slide plays (not interactive), a tap on an item still selects it.
+  final bool tapSelect;
 
   /// When set, the scene is drawn as it looks at this time (in milliseconds),
   /// with entrance animations applied.
@@ -67,6 +71,42 @@ class _SceneCanvasState extends State<SceneCanvas> {
   double _startH = 0;
   double _startRotation = 0;
   double _startDistance = 1;
+
+  /// True while the user is moving, resizing or turning the selected item: guide lines show.
+  bool _guiding = false;
+  bool _snapX = false;
+  bool _snapY = false;
+
+  void _guideOn() {
+    if (!_guiding) setState(() => _guiding = true);
+  }
+
+  void _guideOff() {
+    if (_guiding || _snapX || _snapY) {
+      setState(() {
+        _guiding = false;
+        _snapX = false;
+        _snapY = false;
+      });
+    }
+  }
+
+  /// Pulls [value] onto the slide centre or onto another item's centre when it is very close.
+  (double, bool) _snap(double value, Iterable<double> targets) {
+    const reach = 0.012;
+    var best = value;
+    var bestGap = reach;
+    var hit = false;
+    for (final t in targets) {
+      final gap = (value - t).abs();
+      if (gap < bestGap) {
+        best = t;
+        bestGap = gap;
+        hit = true;
+      }
+    }
+    return (best, hit);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,11 +137,50 @@ class _SceneCanvasState extends State<SceneCanvas> {
           final t = _timing(layer);
           if (t != null) children.add(_buildHand(t.$1, t.$2, width, height));
         }
+        if (selected != null && _guiding) {
+          children.add(_buildGuides(selected, width, height));
+        }
         if (selected != null) {
           children.add(_buildSelection(selected, width, height));
         }
         return ClipRect(child: Stack(children: children));
       },
+    );
+  }
+
+  // ---- guide lines and exact coordinates while adjusting ----
+
+  Widget _buildGuides(Layer layer, double width, double height) {
+    final x = layer.cx * width;
+    final y = layer.cy * height;
+    final label = 'X ${(layer.cx * 100).toStringAsFixed(1)}%   Y ${(layer.cy * 100).toStringAsFixed(1)}%';
+    final fs = math.max(10.0, width / 36);
+    final labelW = fs * 11.5;
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(painter: _GuidePainter(layer.cx, layer.cy, _snapX, _snapY)),
+            ),
+            Positioned(
+              left: (x + 10).clamp(4.0, math.max(4.0, width - labelW - 4)).toDouble(),
+              top: (y + 10).clamp(4.0, math.max(4.0, height - fs * 2.2)).toDouble(),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: fs * 0.6, vertical: fs * 0.3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7351FF),
+                  borderRadius: BorderRadius.circular(fs),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(color: Colors.white, fontSize: fs, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -153,6 +232,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onPanStart: (d) {
+            _guideOn();
             _startW = layer.w;
             _startH = layer.h;
             _startDistance = math.max(4.0, (_toLocal(d.globalPosition) - center).distance);
@@ -165,8 +245,14 @@ class _SceneCanvasState extends State<SceneCanvas> {
               layer.h = (_startH * f).clamp(0.03, 1.6).toDouble();
             });
           },
-          onPanEnd: (_) => widget.onCommit?.call(),
-          onPanCancel: () => widget.onCommit?.call(),
+          onPanEnd: (_) {
+            _guideOff();
+            widget.onCommit?.call();
+          },
+          onPanCancel: () {
+            _guideOff();
+            widget.onCommit?.call();
+          },
           child: Center(
             child: Container(
               width: dot,
@@ -236,6 +322,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
           height: btn,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => _guideOn(),
             onPanUpdate: (d) {
               final p = _toLocal(d.globalPosition) - center;
               var angle = math.atan2(p.dy, p.dx) + math.pi / 2;
@@ -244,8 +331,14 @@ class _SceneCanvasState extends State<SceneCanvas> {
               if ((angle - nearest).abs() < 0.05) angle = nearest;
               setState(() => layer.rotation = angle);
             },
-            onPanEnd: (_) => widget.onCommit?.call(),
-            onPanCancel: () => widget.onCommit?.call(),
+            onPanEnd: (_) {
+              _guideOff();
+              widget.onCommit?.call();
+            },
+            onPanCancel: () {
+              _guideOff();
+              widget.onCommit?.call();
+            },
             child: _roundButton(btn, Icons.rotate_right, null),
           ),
         ),
@@ -331,6 +424,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
         onTap: () => widget.onSelect?.call(layer.id),
         onScaleStart: (details) {
           widget.onSelect?.call(layer.id);
+          _guideOn();
           _startFocal = details.focalPoint;
           _startCx = layer.cx;
           _startCy = layer.cy;
@@ -342,12 +436,16 @@ class _SceneCanvasState extends State<SceneCanvas> {
           final start = _startFocal;
           if (start == null) return;
           setState(() {
-            layer.cx = (_startCx + (details.focalPoint.dx - start.dx) / width)
-                .clamp(0.0, 1.0)
-                .toDouble();
-            layer.cy = (_startCy + (details.focalPoint.dy - start.dy) / height)
-                .clamp(0.0, 1.0)
-                .toDouble();
+            final rawX = (_startCx + (details.focalPoint.dx - start.dx) / width).clamp(0.0, 1.0).toDouble();
+            final rawY = (_startCy + (details.focalPoint.dy - start.dy) / height).clamp(0.0, 1.0).toDouble();
+            final others = widget.scene.layers.where((l) => l.id != layer.id);
+            final sx = _snap(rawX, [0.5, ...others.map((l) => l.cx)]);
+            final sy = _snap(rawY, [0.5, ...others.map((l) => l.cy)]);
+            layer.cx = sx.$1;
+            layer.cy = sy.$1;
+            _snapX = sx.$2;
+            _snapY = sy.$2;
+            _guiding = true;
             layer.w = (_startW * details.scale).clamp(0.03, 1.6).toDouble();
             layer.h = (_startH * details.scale).clamp(0.03, 1.6).toDouble();
             layer.rotation = _startRotation + details.rotation;
@@ -355,8 +453,15 @@ class _SceneCanvasState extends State<SceneCanvas> {
         },
         onScaleEnd: (_) {
           _startFocal = null;
+          _guideOff();
           widget.onCommit?.call();
         },
+        child: content,
+      );
+    } else if (widget.tapSelect) {
+      content = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => widget.onSelect?.call(layer.id),
         child: content,
       );
     } else {
@@ -1113,4 +1218,50 @@ class _ShapedPicture extends StatelessWidget {
       },
     );
   }
+}
+
+
+/// Vertical and horizontal guide lines through the item's centre, plus the slide's centre lines.
+class _GuidePainter extends CustomPainter {
+  _GuidePainter(this.cx, this.cy, this.snapX, this.snapY);
+
+  final double cx;
+  final double cy;
+  final bool snapX;
+  final bool snapY;
+
+  void _dashed(Canvas canvas, Offset a, Offset b, Paint paint, double dash, double gap) {
+    final total = (b - a).distance;
+    if (total <= 0) return;
+    final dir = (b - a) / total;
+    var d = 0.0;
+    while (d < total) {
+      final e = math.min(total, d + dash);
+      canvas.drawLine(a + dir * d, a + dir * e, paint);
+      d = e + gap;
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final faint = Paint()
+      ..color = const Color(0x55FFFFFF)
+      ..strokeWidth = 1;
+    _dashed(canvas, Offset(size.width / 2, 0), Offset(size.width / 2, size.height), faint, 4, 5);
+    _dashed(canvas, Offset(0, size.height / 2), Offset(size.width, size.height / 2), faint, 4, 5);
+    final x = cx * size.width;
+    final y = cy * size.height;
+    final vp = Paint()
+      ..color = snapX ? const Color(0xFFF6C101) : const Color(0xFFB69CFF)
+      ..strokeWidth = snapX ? 2 : 1.4;
+    final hp = Paint()
+      ..color = snapY ? const Color(0xFFF6C101) : const Color(0xFFB69CFF)
+      ..strokeWidth = snapY ? 2 : 1.4;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), vp);
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), hp);
+  }
+
+  @override
+  bool shouldRepaint(_GuidePainter old) =>
+      old.cx != cx || old.cy != cy || old.snapX != snapX || old.snapY != snapY;
 }

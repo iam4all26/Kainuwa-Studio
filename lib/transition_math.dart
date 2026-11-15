@@ -97,6 +97,18 @@ int transitionHalfMs(Lesson lesson, int index) {
   return math.min(a.transMs ~/ 2, math.max(0, limit - 50));
 }
 
+/// The background colour for the transition that is running at [localMs] of scene [index].
+int transitionBgAt(Lesson lesson, int index, int localMs) {
+  final scene = lesson.scenes[index];
+  final out = transitionHalfMs(lesson, index);
+  if (out > 0 && localMs >= scene.durationMs - out) return scene.transBg;
+  if (index > 0) {
+    final inn = transitionHalfMs(lesson, index - 1);
+    if (inn > 0 && localMs < inn) return lesson.scenes[index - 1].transBg;
+  }
+  return 0xFF000000;
+}
+
 /// The transition frame to show at [localMs] of scene [index], or null for a normal frame.
 TransFrame? sceneTransitionFrame(Lesson lesson, int index, int localMs) {
   final scene = lesson.scenes[index];

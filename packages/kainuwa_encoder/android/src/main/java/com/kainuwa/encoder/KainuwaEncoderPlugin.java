@@ -865,6 +865,7 @@ public class KainuwaEncoderPlugin
                 t.halfMs = longOf(m.get("halfMs"), 0);
                 t.kind = m.get("kind") instanceof String ? (String) m.get("kind") : "none";
                 t.dir = m.get("dir") instanceof String ? (String) m.get("dir") : "left";
+                t.bg = longOf(m.get("bg"), 0xFF000000L);
                 lessonTransitions.add(t);
             }
         }

@@ -270,6 +270,7 @@ class Scene {
     this.transKind = 'none',
     this.transDir = 'left',
     this.transMs = 1000,
+    this.transBg = 0xFF000000,
     List<Layer>? layers,
   }) : layers = layers ?? <Layer>[];
 
@@ -306,6 +307,9 @@ class Scene {
   String transDir;
   int transMs;
 
+  /// Colour shown behind the slides while the transition runs (ARGB).
+  int transBg;
+
   bool get hasVideo => videoPath.isNotEmpty;
 
   bool get isDarkBackground {
@@ -339,6 +343,7 @@ class Scene {
         transKind: transKind,
         transDir: transDir,
         transMs: transMs,
+        transBg: transBg,
         layers: layers.map((l) => l.copy()).toList(),
       );
 
@@ -362,6 +367,7 @@ class Scene {
         'transKind': transKind,
         'transDir': transDir,
         'transMs': transMs,
+        'transBg': transBg,
         'layers': layers.map((l) => l.toJson()).toList(),
       };
 
@@ -393,6 +399,7 @@ class Scene {
       transKind: _str(json['transKind'], 'none'),
       transDir: _str(json['transDir'], 'left'),
       transMs: _int(json['transMs'], 1000),
+      transBg: _int(json['transBg'], 0xFF000000),
       layers: layers,
     );
   }

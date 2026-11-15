@@ -90,6 +90,7 @@ class TimelinePanel extends StatefulWidget {
     required this.onToggleHidden,
     required this.onAddTrack,
     required this.onAddScene,
+    required this.onTransition,
   });
 
   final Lesson lesson;
@@ -123,6 +124,9 @@ class TimelinePanel extends StatefulWidget {
   final ValueChanged<String> onToggleHidden;
   final VoidCallback onAddTrack;
   final VoidCallback onAddScene;
+
+  /// Opens the transition settings for the join after the slide with this index.
+  final ValueChanged<int> onTransition;
 
   @override
   State<TimelinePanel> createState() => _TimelinePanelState();
@@ -826,6 +830,31 @@ class _TimelinePanelState extends State<TimelinePanel> {
                 ),
               ),
             ));
+          }
+          if (id == 'image') {
+            final btn = math.min(clipH, math.max(22.0, clipH * 0.9));
+            for (var i = 0; i < widget.lesson.scenes.length - 1; i++) {
+              final boundaryMs = sceneStartMs(widget.lesson, i + 1);
+              final on = widget.lesson.scenes[i].transKind != 'none';
+              children.add(Positioned(
+                left: boundaryMs / 1000 * pps - btn / 2,
+                top: pad + (clipH - btn) / 2,
+                width: btn,
+                height: btn,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => widget.onTransition(i),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: on ? const Color(0xFF7351FF) : KColors.editorLabel,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF7351FF), width: 1.5),
+                    ),
+                    child: Icon(Icons.compare_arrows, size: btn * 0.62, color: Colors.white),
+                  ),
+                ),
+              ));
+            }
           }
           if (id == 'image') {
             children.add(Positioned(

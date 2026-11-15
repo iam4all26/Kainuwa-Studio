@@ -457,7 +457,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
           if (widget.multi)
             IconButton(
               tooltip: 'Select several',
-              icon: Icon(_selecting ? Icons.check_box : Icons.checklist),
+              icon: Icon(_selecting ? Icons.close : Icons.select_all),
               onPressed: () => setState(() {
                 _selecting = !_selecting;
                 if (!_selecting) _picked.clear();

@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
+import '../animation_math.dart';
 import '../app_state.dart';
 import '../demo_plan.dart';
 import '../editor/drawing_screen.dart';
@@ -120,6 +121,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (lesson == null || player == null || lesson.scenes.isEmpty) return null;
     return lesson.scenes[sceneAt(lesson, player.positionMs).index];
   }
+
+  /// The last item copied with Copy. Pasting places a new item at exactly the same spot.
+  static Map<String, dynamic>? _clipLayer;
+
+  /// The last position copied with Copy position, as fractions of the slide.
+  static (double, double)? _clipPos;
 
   Layer? _selectedLayer(Scene? scene) {
     if (scene == null || _selectedId == null) return null;
@@ -645,7 +652,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       if (!mounted) return;
       final item = await showStoreGraphicsSheet(context);
       if (item == null || !mounted) return;
-      await _addSvg(scene, item.path, tint: item.type == 'icon');
+      if (item.path.toLowerCase().endsWith('.svg')) {
+        await _addSvg(scene, item.path, tint: item.type == 'icon');
+      } else {
+        final aspect = await _imageAspect(item.path);
+        if (!mounted) return;
+        final pic = fitBox(aspect, maxW: 0.6, maxH: 0.8);
+        _addLayer(scene, Layer(id: newId(), type: 'image', w: pic.$1, h: pic.$2, path: item.path));
+      }
       return;
     }
     final box = kind == 'circle'
@@ -713,6 +727,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _splitAudio();
       return;
     }
+    final selScene = _currentScene();
+    final selLayer = _sceneSelected ? null : _selectedLayer(selScene);
+    if (selScene != null && selLayer != null) {
+      _splitLayer(selScene, selLayer);
+      return;
+    }
     final lesson = _lesson();
     final player = _player;
     if (lesson == null || player == null) return;
@@ -743,6 +763,158 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _selectedId = null;
     _sceneSelected = true;
     _commit();
+  }
+
+  /// Cuts an item (text, picture, icon, shape) in two at the playhead.
+  void _splitLayer(Scene scene, Layer layer) {
+    final lesson = _lesson();
+    final player = _player;
+    if (lesson == null || player == null) return;
+    _pause();
+    final spot = sceneAt(lesson, player.positionMs);
+    if (lesson.scenes[spot.index] != scene) {
+      _snack('Move the playhead inside this slide to split the item.');
+      return;
+    }
+    final local = spot.localMs;
+    final end = layerEndMs(layer, scene.durationMs);
+    if (local - layer.startMs < 300 || end - local < 300) {
+      _snack('Move the playhead inside the item, at least 0.3 seconds from its edges, to split it.');
+      return;
+    }
+    final second = layer.copy();
+    second.startMs = local;
+    second.endMs = layer.endMs;
+    second.animIn = 'none';
+    second.animStartMs = 0;
+    second.textAnim = 'none';
+    second.hand = '';
+    layer.endMs = local;
+    layer.animOut = 'none';
+    final at = scene.layers.indexOf(layer);
+    scene.layers.insert(at + 1, second);
+    _selectedId = second.id;
+    _sceneSelected = false;
+    _commit();
+  }
+
+  void _copyLayer() {
+    final layer = _selectedLayer(_currentScene());
+    if (layer == null) return;
+    _clipLayer = layer.toJson();
+    _clipPos = (layer.cx, layer.cy);
+    setState(() {});
+    _snack('Copied. Paste puts a new copy in exactly the same place, on any slide.');
+  }
+
+  void _pasteLayer() {
+    final scene = _currentScene();
+    final clip = _clipLayer;
+    if (scene == null || clip == null) return;
+    final copy = Layer.fromJson({...clip, 'id': newId()});
+    if (copy.startMs >= scene.durationMs - 300) copy.startMs = 0;
+    if (copy.endMs >= 0 && copy.endMs > scene.durationMs) copy.endMs = -1;
+    _addLayer(scene, copy);
+  }
+
+  /// Exact X and Y of the selected item's centre, in percent of the slide, with copy and paste of the position.
+  Future<void> _positionSheet() async {
+    final scene = _currentScene();
+    final layer = _selectedLayer(scene);
+    if (layer == null) return;
+    _pause();
+    String fmt(double v) => (v * 100).toStringAsFixed(1);
+    final xc = TextEditingController(text: fmt(layer.cx));
+    final yc = TextEditingController(text: fmt(layer.cy));
+    void apply() {
+      final x = double.tryParse(xc.text.trim().replaceAll(',', '.'));
+      final y = double.tryParse(yc.text.trim().replaceAll(',', '.'));
+      if (x != null) layer.cx = (x / 100).clamp(0.0, 1.0).toDouble();
+      if (y != null) layer.cy = (y / 100).clamp(0.0, 1.0).toDouble();
+      _commit();
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheet) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Position', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                const Text('Centre of the item, in percent of the slide. 0 is left or top, 100 is right or bottom.',
+                    style: TextStyle(color: Color(0xFFB5ABD6))),
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: xc,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'X %', border: OutlineInputBorder()),
+                      onChanged: (_) => apply(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: yc,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Y %', border: OutlineInputBorder()),
+                      onChanged: (_) => apply(),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                Wrap(spacing: 10, runSpacing: 10, children: [
+                  FilledButton(
+                    onPressed: () {
+                      apply();
+                      _clipPos = (layer.cx, layer.cy);
+                      setSheet(() {});
+                      _snack('Position copied: X ${fmt(layer.cx)}%  Y ${fmt(layer.cy)}%');
+                    },
+                    child: const Text('Copy position'),
+                  ),
+                  FilledButton(
+                    onPressed: _clipPos == null
+                        ? null
+                        : () {
+                            layer.cx = _clipPos!.$1;
+                            layer.cy = _clipPos!.$2;
+                            xc.text = fmt(layer.cx);
+                            yc.text = fmt(layer.cy);
+                            _commit();
+                            setSheet(() {});
+                          },
+                    child: Text(_clipPos == null
+                        ? 'Paste position'
+                        : 'Paste position (${fmt(_clipPos!.$1)}, ${fmt(_clipPos!.$2)})'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () {
+                      layer.cx = 0.5;
+                      layer.cy = 0.5;
+                      xc.text = '50.0';
+                      yc.text = '50.0';
+                      _commit();
+                      setSheet(() {});
+                    },
+                    child: const Text('Centre'),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    xc.dispose();
+    yc.dispose();
   }
 
   void _duplicateSelection() {
@@ -990,8 +1162,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     }
     final layer = _selectedLayer(scene);
     if (layer != null) {
+      if (layer.type == 'shape' && scene != null) {
+        await _replaceShape(scene, layer);
+        return;
+      }
       if (layer.type != 'image') {
-        _snack('Replace works for pictures. Delete and add a new one for this item.');
+        _snack('Replace works for pictures and shapes. Delete and add a new one for this item.');
         return;
       }
       String? path;
@@ -1038,6 +1214,57 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       scene.videoMs = ms;
       _commit();
     }
+  }
+
+  /// Swaps a shape for another shape (basic or from the store), keeping its place, size and timing.
+  Future<void> _replaceShape(Scene scene, Layer layer) async {
+    final kind = await showShapeSheet(context);
+    if (kind == null || !mounted) return;
+    final at = scene.layers.indexOf(layer);
+    if (at < 0) return;
+    Layer next;
+    if (kind == 'circle' || kind == 'round' || kind == 'rect') {
+      next = Layer.fromJson({...layer.toJson(), 'type': 'shape', 'shape': kind, 'path': ''});
+    } else {
+      String? svg;
+      var tint = false;
+      if (kind.startsWith('file:')) {
+        svg = kind.substring(5);
+      } else if (kind == 'store') {
+        final item = await showStoreGraphicsSheet(context);
+        if (item == null || !mounted) return;
+        svg = item.path;
+        tint = item.type == 'icon';
+      }
+      if (svg == null) return;
+      String use = svg;
+      double aspect = 1.0;
+      if (svg.toLowerCase().endsWith('.svg')) {
+        final raster = await rasterizeSvg(svg);
+        if (!mounted) return;
+        if (raster == null) {
+          _snack('That SVG could not be read.');
+          return;
+        }
+        use = raster.path;
+        aspect = raster.aspect;
+      } else {
+        aspect = await _imageAspect(svg);
+        if (!mounted) return;
+      }
+      final box = fitBox(aspect, maxW: math.max(0.1, layer.w), maxH: math.max(0.1, layer.h));
+      next = Layer.fromJson({
+        ...layer.toJson(),
+        'type': 'image',
+        'shape': tint ? 'tint' : 'rect',
+        'path': use,
+        'w': box.$1,
+        'h': box.$2,
+      });
+    }
+    scene.layers[at] = next;
+    _selectedId = next.id;
+    _commit();
   }
 
   Future<void> _videoSettings() async {
@@ -1597,11 +1824,15 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             scene: viewScene(scene, lesson.hiddenTracks),
             selectedId: playing ? null : _selectedId,
             interactive: !playing,
+            tapSelect: playing,
             previewMs: playing ? spot.localMs : null,
             ghostAtMs: playing ? null : spot.localMs,
             demoId: playing ? null : _demoId,
             demoMs: playing ? null : demoMs,
-            onSelect: _selectLayer,
+            onSelect: (id) {
+              if (playing && id != null) _pause();
+              _selectLayer(id);
+            },
             onCommit: _commit,
             onDuplicate: (id) {
               final layer = _selectedLayer(scene);
@@ -1625,7 +1856,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (f == null) return child;
     return ClipRect(
       child: ColoredBox(
-        color: Colors.black,
+        color: Color(transitionBgAt(lesson, spot.index, spot.localMs)),
         child: LayoutBuilder(builder: (context, c) {
           return Opacity(
             opacity: f.alpha.clamp(0.0, 1.0).toDouble(),
@@ -1642,10 +1873,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
   }
 
-  Future<void> _transitionSheet() async {
+  Future<void> _transitionSheet() => _transitionSheetAt(null);
+
+  /// Opens the transition settings. [at] is the slide the transition leaves from; null uses the current slide.
+  Future<void> _transitionSheetAt(int? at) async {
     final lesson = _lesson();
-    final scene = _currentScene();
-    if (lesson == null || scene == null) return;
+    if (lesson == null) return;
+    final scene = (at != null && at >= 0 && at < lesson.scenes.length) ? lesson.scenes[at] : _currentScene();
+    if (scene == null) return;
     final index = lesson.scenes.indexOf(scene);
     if (index < 0 || index >= lesson.scenes.length - 1) {
       _snack('A transition goes between two slides. Select a slide that has another one after it.');
@@ -1726,6 +1961,50 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                       divisions: 17,
                       onChanged: (v) => change(() => scene.transMs = v.round()),
                     ),
+                    const SizedBox(height: 6),
+                    const Text('Background behind the slides', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        for (final c in const [0xFF000000, 0xFFFFFFFF, 0xFF41038B, 0xFF1A1431, 0xFFF6C101, 0xFF2563EB])
+                          InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => change(() => scene.transBg = c),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Color(c),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: scene.transBg == c ? const Color(0xFF7351FF) : const Color(0x55FFFFFF),
+                                  width: scene.transBg == c ? 4 : 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () async {
+                            final picked = await pickColor(context, initial: scene.transBg, title: 'Transition background');
+                            if (picked != null) change(() => scene.transBg = picked);
+                          },
+                          child: Container(
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7351FF),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text('Other colour', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                     Row(children: [
                       Expanded(
                         child: FilledButton.icon(
@@ -1746,11 +2025,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                               s.transKind = scene.transKind;
                               s.transDir = scene.transDir;
                               s.transMs = scene.transMs;
+                              s.transBg = scene.transBg;
                             }
                             if (mounted) setState(() {});
                             _snack('Applied to every slide.');
                           },
-                          icon: const Icon(Icons.done_all),
+                          icon: const Icon(Icons.select_all),
                           label: const Text('Use for all'),
                         ),
                       ),
@@ -1936,12 +2216,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       ]);
     } else if (layer != null) {
       tools.addAll([
+        (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
+        (Icons.content_copy, 'Copy', _copyLayer),
+        if (_clipLayer != null) (Icons.content_paste, 'Paste', _pasteLayer),
+        (Icons.open_with, 'Position', _positionSheet),
         (Icons.layers_outlined, 'Layer', _openLayers),
         (Icons.tune, 'Adjust', _adjust),
         (Icons.auto_awesome_outlined, 'Animate', _openAnimate),
         (Icons.speed, 'Speed', _speed),
-        if (layer.type == 'image') (Icons.swap_horiz, 'Replace', _replaceMedia),
+        if (layer.type == 'image' || layer.type == 'shape') (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_sceneSelected && scene != null && scene.hasVideo) {
@@ -1961,13 +2245,19 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.compare_arrows, 'Transition', _transitionSheet),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
+    } else if (_clipLayer != null && scene != null) {
+      tools.add((Icons.content_paste, 'Paste', _pasteLayer));
     } else {
       return const SizedBox(height: 8);
     }
     final children = <Widget>[];
+    // With many tools the bar scrolls sideways so each button stays easy to hit.
+    final scrolls = tools.length > 6;
+    final itemW = (MediaQuery.of(context).size.width - 12) / 5.5;
     for (var i = 0; i < tools.length; i++) {
       if (i > 0) children.add(_toolDivider(u));
-      children.add(_toolItem(u, tools[i].$1, tools[i].$2, tools[i].$3));
+      final item = _toolItem(u, tools[i].$1, tools[i].$2, tools[i].$3);
+      children.add(scrolls ? SizedBox(width: itemW, child: Row(children: [item])) : item);
     }
     return Container(
       margin: EdgeInsets.fromLTRB(_s(u, 14, 6), _s(u, 12, 4), _s(u, 14, 6), _s(u, 10, 4)),
@@ -1977,7 +2267,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         borderRadius: BorderRadius.circular(_s(u, 28, 14)),
         boxShadow: const [BoxShadow(color: Color(0x1A3B0F8C), blurRadius: 10, offset: Offset(0, 2))],
       ),
-      child: Row(children: children),
+      child: scrolls
+          ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: children))
+          : Row(children: children),
     );
   }
 
@@ -2126,6 +2418,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         onToggleHidden: _toggleHidden,
                         onAddTrack: _addTrack,
                         onAddScene: _addScene,
+                        onTransition: (i) => _transitionSheetAt(i),
                       ),
                 ),
               ),

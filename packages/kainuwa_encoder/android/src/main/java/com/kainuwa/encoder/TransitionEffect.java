@@ -24,6 +24,8 @@ public final class TransitionEffect implements GlEffect {
         public String kind = "none";
         public String dir = "left";
         public long halfMs;
+        /** Colour behind the slides during the transition, 0xAARRGGBB. */
+        public long bg = 0xFF000000L;
     }
 
     private final List<Spec> specs;
@@ -43,20 +45,25 @@ public final class TransitionEffect implements GlEffect {
         return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
     }
 
-    /** Returns {scale, dx, dy, alpha, split} for the given time. */
+    /** Returns {scale, dx, dy, alpha, split, bgR, bgG, bgB} for the given time. */
     static double[] frameAt(List<Spec> specs, long tMs) {
         for (Spec s : specs) {
             if (s.halfMs <= 0 || "none".equals(s.kind)) {
                 continue;
             }
             if (tMs >= s.atMs - s.halfMs && tMs < s.atMs) {
-                return half(s, (tMs - (s.atMs - s.halfMs)) / (double) s.halfMs, true);
+                return withBg(s, half(s, (tMs - (s.atMs - s.halfMs)) / (double) s.halfMs, true));
             }
             if (tMs >= s.atMs && tMs < s.atMs + s.halfMs) {
-                return half(s, (tMs - s.atMs) / (double) s.halfMs, false);
+                return withBg(s, half(s, (tMs - s.atMs) / (double) s.halfMs, false));
             }
         }
-        return new double[]{1, 0, 0, 1, 0};
+        return new double[]{1, 0, 0, 1, 0, 0, 0, 0};
+    }
+
+    private static double[] withBg(Spec s, double[] f) {
+        return new double[]{f[0], f[1], f[2], f[3], f[4],
+                ((s.bg >> 16) & 0xFF) / 255.0, ((s.bg >> 8) & 0xFF) / 255.0, (s.bg & 0xFF) / 255.0};
     }
 
     private static double[] half(Spec s, double p, boolean exiting) {
@@ -105,10 +112,11 @@ public final class TransitionEffect implements GlEffect {
                         + "uniform vec2 uOffset;\n"
                         + "uniform float uAlpha;\n"
                         + "uniform float uSplit;\n"
+                        + "uniform vec3 uBg;\n"
                         + "varying vec2 vUv;\n"
                         + "vec4 pick(vec2 uv) {\n"
                         + "  vec2 p = (uv - 0.5 - uOffset) / uScale + 0.5;\n"
-                        + "  if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) return vec4(0.0, 0.0, 0.0, 1.0);\n"
+                        + "  if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) return vec4(uBg, 1.0);\n"
                         + "  return texture2D(uTexSampler, p);\n"
                         + "}\n"
                         + "void main() {\n"
@@ -118,7 +126,7 @@ public final class TransitionEffect implements GlEffect {
                         + "    float b = pick(vUv - vec2(uSplit, 0.0)).b;\n"
                         + "    c = vec4(r, c.g, b, 1.0);\n"
                         + "  }\n"
-                        + "  gl_FragColor = vec4(c.rgb * uAlpha, 1.0);\n"
+                        + "  gl_FragColor = vec4(mix(uBg, c.rgb, uAlpha), 1.0);\n"
                         + "}\n";
 
         private final List<Spec> specs;
@@ -151,6 +159,7 @@ public final class TransitionEffect implements GlEffect {
                 program.setFloatsUniform("uOffset", new float[]{(float) f[1], (float) f[2]});
                 program.setFloatUniform("uAlpha", (float) Math.max(0.0, Math.min(1.0, f[3])));
                 program.setFloatUniform("uSplit", (float) f[4]);
+                program.setFloatsUniform("uBg", new float[]{(float) f[5], (float) f[6], (float) f[7]});
                 program.bindAttributesAndUniforms();
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
             } catch (GlUtil.GlException e) {

@@ -1,9 +1,18 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme.dart';
 import 'store_service.dart';
+
+const List<(String, String)> _kTypes = [
+  ('font', 'Fonts'),
+  ('background', 'Backgrounds'),
+  ('shape', 'Shapes'),
+  ('icon', 'Icons'),
+  ('image', 'Images'),
+];
 
 class StoreTab extends StatefulWidget {
   const StoreTab({super.key, required this.active});
@@ -22,6 +31,9 @@ class _StoreTabState extends State<StoreTab> {
   bool _loaded = false;
   String? _error;
   int _tab = 0;
+  String _cat = 'All';
+  bool _selecting = false;
+  final Set<String> _sel = {};
   final Map<String, double> _progress = {};
 
   @override
@@ -47,6 +59,11 @@ class _StoreTabState extends State<StoreTab> {
     if (mounted) setState(() {});
   }
 
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -67,21 +84,47 @@ class _StoreTabState extends State<StoreTab> {
     }
   }
 
-  Future<void> _download(StoreItem item) async {
+  Future<bool> _downloadOne(StoreItem item) async {
     setState(() => _progress[item.id] = 0);
     try {
       await _store.download(item, (p) {
         if (mounted) setState(() => _progress[item.id] = p);
       });
+      return true;
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed. $e')),
-        );
-      }
+      return false;
     } finally {
       if (mounted) setState(() => _progress.remove(item.id));
     }
+  }
+
+  Future<void> _download(StoreItem item) async {
+    final ok = await _downloadOne(item);
+    if (!ok) _snack('Download failed for ${item.name}.');
+  }
+
+  Future<void> _downloadSelected() async {
+    final todo = _items.where((i) => _sel.contains(i.id) && !_store.isInstalled(i.id)).toList();
+    if (todo.isEmpty) {
+      setState(() {
+        _sel.clear();
+        _selecting = false;
+      });
+      return;
+    }
+    var failed = 0;
+    for (final item in todo) {
+      if (!mounted) return;
+      if (!await _downloadOne(item)) failed++;
+    }
+    if (!mounted) return;
+    setState(() {
+      _sel.clear();
+      _selecting = false;
+    });
+    _snack(failed == 0
+        ? 'Downloaded ${todo.length} item${todo.length == 1 ? '' : 's'}.'
+        : 'Downloaded ${todo.length - failed}. $failed failed, try those again.');
   }
 
   Future<void> _editAddress() async {
@@ -111,102 +154,239 @@ class _StoreTabState extends State<StoreTab> {
     controller.dispose();
   }
 
-  Widget _preview(StoreItem item) {
-    final box = BoxDecoration(color: KColors.lavender, borderRadius: BorderRadius.circular(12));
+  // ---- pictures ----
+
+  Widget _picture(String source, {required bool network, BoxFit fit = BoxFit.contain}) {
+    final lower = source.toLowerCase();
+    final fallback = const Center(child: Icon(Icons.image_outlined, color: Color(0xFFB5ABD6)));
+    if (lower.endsWith('.svg')) {
+      return network
+          ? SvgPicture.network(source, fit: fit, placeholderBuilder: (_) => fallback)
+          : SvgPicture.file(File(source), fit: fit);
+    }
+    return network
+        ? Image.network(source, fit: fit, errorBuilder: (_, __, ___) => fallback)
+        : Image.file(File(source), fit: fit, errorBuilder: (_, __, ___) => fallback);
+  }
+
+  /// A picture of the item: the downloaded file when we have it, otherwise the store preview.
+  Widget _thumb(StoreItem item, {BoxFit fit = BoxFit.contain}) {
     final installed = _store.installed.where((i) => i.id == item.id).toList();
-    if (installed.isNotEmpty && item.type == 'background') {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.file(File(installed.first.path), width: 96, height: 64, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(width: 96, height: 64, decoration: box)),
-      );
+    if (installed.isNotEmpty && item.type != 'font') {
+      return _picture(installed.first.path, network: false, fit: fit);
     }
-    if (item.preview.isEmpty) {
-      return Container(
-        width: 96,
-        height: 64,
-        decoration: box,
-        child: Icon(item.type == 'font' ? Icons.font_download_outlined : (item.type == 'background' ? Icons.image_outlined : Icons.category_outlined)),
-      );
+    final source = item.preview.isNotEmpty ? item.preview : (item.type == 'font' ? '' : item.file);
+    if (source.isEmpty) {
+      return Center(child: Icon(item.type == 'font' ? Icons.font_download_outlined : Icons.image_outlined));
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        _store.urlFor(item.preview),
-        width: 96,
-        height: 64,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(width: 96, height: 64, decoration: box, child: const Icon(Icons.image_outlined)),
-      ),
+    return _picture(_store.urlFor(source), network: true, fit: fit);
+  }
+
+  String _sizeText(StoreItem item) {
+    if (item.sizeKb <= 0) return '';
+    return item.sizeKb >= 1024 ? '${(item.sizeKb / 1024).toStringAsFixed(1)} MB' : '${item.sizeKb} KB';
+  }
+
+  // ---- preview ----
+
+  Future<void> _openPreview(StoreItem item) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final installed = _store.installed.where((i) => i.id == item.id).toList();
+        final isInstalled = installed.isNotEmpty;
+        final sample = item.type == 'font' && isInstalled && installed.first.family.isNotEmpty;
+        return Dialog(
+          backgroundColor: KColors.surface,
+          insetPadding: const EdgeInsets.all(18),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 240,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: KColors.lavender, borderRadius: BorderRadius.circular(16)),
+                  child: sample
+                      ? Center(
+                          child: Text(
+                            'Aa\nKainuwa ɓɗƙƴ',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontFamily: installed.first.family, fontSize: 40, color: Colors.white),
+                          ),
+                        )
+                      : _thumb(item),
+                ),
+                const SizedBox(height: 12),
+                Text(item.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (item.category.trim().isNotEmpty) item.category.trim(),
+                    _sizeText(item),
+                    if (isInstalled) 'Installed',
+                  ].where((e) => e.isNotEmpty).join('  -  '),
+                  style: const TextStyle(color: Color(0xFFB5ABD6)),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: isInstalled
+                          ? OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop();
+                                _store.remove(item.id);
+                              },
+                              child: const Text('Remove'),
+                            )
+                          : FilledButton(
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop();
+                                _download(item);
+                              },
+                              child: const Text('Download'),
+                            ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  // ---- cards ----
+
+  void _toggle(StoreItem item) {
+    setState(() {
+      if (!_sel.remove(item.id)) _sel.add(item.id);
+      if (_sel.isEmpty) _selecting = false;
+    });
   }
 
   Widget _card(StoreItem item) {
     final installed = _store.isInstalled(item.id);
     final progress = _progress[item.id];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: KColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF30265A)),
-      ),
-      child: Row(
-        children: [
-          _preview(item),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                if (item.sizeKb > 0)
-                  Text(item.sizeKb >= 1024 ? '${(item.sizeKb / 1024).toStringAsFixed(1)} MB' : '${item.sizeKb} KB',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6))),
-                if (progress != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: LinearProgressIndicator(value: progress <= 0 ? null : progress),
-                  ),
-              ],
+    final picked = _sel.contains(item.id);
+    final fg = picked ? Colors.white : KColors.ink;
+    final sub = picked ? Colors.white70 : const Color(0xFFB5ABD6);
+    final size = _sizeText(item);
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _selecting ? _toggle(item) : _openPreview(item),
+      onLongPress: () {
+        if (!_selecting) setState(() => _selecting = true);
+        _toggle(item);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: picked ? KColors.selected : KColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: picked ? KColors.selected : const Color(0xFF30265A)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: KColors.lavender, borderRadius: BorderRadius.circular(12)),
+                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: _thumb(item)),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          if (progress != null)
-            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-          else if (installed)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle, color: Color(0xFF22C55E)),
-                IconButton(
-                  tooltip: 'Remove',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _store.remove(item.id),
-                ),
-              ],
-            )
-          else
-            FilledButton(onPressed: () => _download(item), child: const Text('Download')),
-        ],
+            const SizedBox(height: 6),
+            Text(item.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: fg, height: 1.15)),
+            Text(
+              [if (size.isNotEmpty) size, if (installed) 'Installed'].join('  -  '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10.5, color: sub),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 32,
+              child: progress != null
+                  ? Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, value: progress <= 0 ? null : progress),
+                      ),
+                    )
+                  : installed
+                      ? OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            textStyle: const TextStyle(fontSize: 12),
+                            foregroundColor: fg,
+                            side: BorderSide(color: picked ? Colors.white54 : const Color(0xFF3D3266)),
+                          ),
+                          onPressed: _selecting ? null : () => _store.remove(item.id),
+                          child: const Text('Remove'),
+                        )
+                      : FilledButton(
+                          style: FilledButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            backgroundColor: picked ? Colors.white : null,
+                            foregroundColor: picked ? KColors.selected : null,
+                          ),
+                          onPressed: _selecting ? null : () => _download(item),
+                          child: const Text('Download'),
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Items grouped under their category headings (Sans Serif, Serif, Display ...).
-  List<Widget> _grouped(List<StoreItem> items) {
-    final groups = <String, List<StoreItem>>{};
-    for (final i in items) {
-      final c = i.category.trim().isEmpty ? 'Other' : i.category.trim();
-      groups.putIfAbsent(c, () => []).add(i);
-    }
-    if (groups.length == 1 && groups.containsKey('Other')) {
-      return [for (final item in items) _card(item)];
-    }
+  Widget _pill(String label, bool on, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            color: on ? KColors.selected : KColors.lavender,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(label,
+              style: TextStyle(color: on ? Colors.white : KColors.ink, fontWeight: FontWeight.w700, fontSize: 14)),
+        ),
+      ),
+    );
+  }
+
+  List<String> _categories(List<StoreItem> items) {
     const order = ['Hausa Ready', 'Sans Serif', 'Serif', 'Display', 'Handwriting', 'Monospace'];
-    final keys = groups.keys.toList()
+    final set = <String>{};
+    for (final i in items) {
+      set.add(i.category.trim().isEmpty ? 'Other' : i.category.trim());
+    }
+    final keys = set.toList()
       ..sort((a, b) {
         int rank(String k) {
           final i = order.indexOf(k);
@@ -216,22 +396,19 @@ class _StoreTabState extends State<StoreTab> {
         final d = rank(a).compareTo(rank(b));
         return d != 0 ? d : a.compareTo(b);
       });
-    return [
-      for (final k in keys) ...[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
-          child: Text(k, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-        ),
-        for (final item in groups[k]!) _card(item),
-      ],
-    ];
+    return keys;
   }
+
+  String _catOf(StoreItem i) => i.category.trim().isEmpty ? 'Other' : i.category.trim();
 
   @override
   Widget build(BuildContext context) {
-    const types = ['font', 'background', 'shape', 'icon'];
-    final type = types[_tab];
-    final shown = _items.where((i) => i.type == type).toList();
+    final type = _kTypes[_tab].$1;
+    final ofType = _items.where((i) => i.type == type).toList();
+    final cats = _categories(ofType);
+    if (_cat != 'All' && !cats.contains(_cat)) _cat = 'All';
+    final shown = ofType.where((i) => _cat == 'All' || _catOf(i) == _cat).toList();
+
     Widget body;
     if (_loading && !_loaded) {
       body = const Center(child: CircularProgressIndicator());
@@ -252,52 +429,130 @@ class _StoreTabState extends State<StoreTab> {
         ),
       );
     } else if (shown.isEmpty) {
-      body = const Center(child: Text('Nothing here yet.'));
+      body = RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(children: const [
+          SizedBox(height: 120),
+          Center(child: Text('Nothing here yet.')),
+        ]),
+      );
     } else {
       body = RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          children: _grouped(shown),
+        child: GridView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(14, 8, 14, _selecting ? 90 : 16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.64,
+          ),
+          itemCount: shown.length,
+          itemBuilder: (context, i) => _card(shown[i]),
         ),
       );
     }
 
+    final selectable = shown.where((i) => !_store.isInstalled(i.id)).toList();
     return SafeArea(
-      child: Column(
+      child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text('Store', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Store', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                    ),
+                    IconButton(
+                      tooltip: _selecting ? 'Cancel selecting' : 'Select several',
+                      icon: Icon(_selecting ? Icons.close : Icons.select_all),
+                      onPressed: () => setState(() {
+                        _selecting = !_selecting;
+                        if (!_selecting) _sel.clear();
+                      }),
+                    ),
+                    IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: _load),
+                    IconButton(tooltip: 'Store address', icon: const Icon(Icons.link), onPressed: _editAddress),
+                  ],
                 ),
-                IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: _load),
-                IconButton(tooltip: 'Store address', icon: const Icon(Icons.link), onPressed: _editAddress),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-              children: [
-                for (final entry in const [(0, 'Fonts'), (1, 'Backgrounds'), (2, 'Shapes'), (3, 'Icons')])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(entry.$2),
-                      selected: _tab == entry.$1,
-                      onSelected: (_) => setState(() => _tab = entry.$1),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var t = 0; t < _kTypes.length; t++)
+                        _pill(_kTypes[t].$2, _tab == t, () {
+                          setState(() {
+                            _tab = t;
+                            _cat = 'All';
+                            _sel.clear();
+                            _selecting = false;
+                          });
+                        }),
+                    ],
+                  ),
+                ),
+              ),
+              if (cats.length > 1 || (cats.length == 1 && cats.first != 'Other'))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _pill('All', _cat == 'All', () => setState(() => _cat = 'All')),
+                        for (final c in cats) _pill(c, _cat == c, () => setState(() => _cat = c)),
+                      ],
                     ),
                   ),
-              ],
-            ),
-            ),
+                ),
+              Expanded(child: body),
+            ],
           ),
-          Expanded(child: body),
+          if (_selecting)
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: KColors.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF3D3266)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('${_sel.length} selected', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                    TextButton(
+                      onPressed: selectable.isEmpty
+                          ? null
+                          : () => setState(() {
+                                if (selectable.every((i) => _sel.contains(i.id))) {
+                                  _sel.removeAll(selectable.map((i) => i.id));
+                                } else {
+                                  _sel.addAll(selectable.map((i) => i.id));
+                                }
+                              }),
+                      child: const Text('Select all'),
+                    ),
+                    const SizedBox(width: 6),
+                    FilledButton(
+                      onPressed: _sel.isEmpty || _progress.isNotEmpty ? null : _downloadSelected,
+                      child: Text('Download (${_sel.length})'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

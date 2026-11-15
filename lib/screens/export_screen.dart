@@ -501,6 +501,7 @@ class _ExportScreenState extends State<ExportScreen> {
             'kind': scene.transKind,
             'dir': scene.transDir,
             'halfMs': half,
+            'bg': scene.transBg & 0xFFFFFFFF,
           });
         }
       }
@@ -731,7 +732,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 if (i > 0) const SizedBox(width: 14),
                 Icon(
                   i < _phase
-                      ? Icons.check_circle
+                      ? Icons.circle
                       : (i == _phase ? Icons.timelapse : Icons.radio_button_unchecked),
                   size: 16,
                   color: i <= _phase ? KColors.gold : Colors.white38,
@@ -830,7 +831,7 @@ class _ExportScreenState extends State<ExportScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                 decoration: BoxDecoration(
-                  color: on ? KColors.lavender : KColors.surface,
+                  color: on ? KColors.selected : KColors.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: on ? KColors.purple : const Color(0xFF3D3266), width: on ? 2 : 1),
                 ),
@@ -852,8 +853,8 @@ class _ExportScreenState extends State<ExportScreen> {
                       child: Text('${info.$1}x$q', style: const TextStyle(fontSize: 10, color: Colors.white60)),
                     ),
                     const SizedBox(height: 4),
-                    Icon(on ? Icons.check_circle : Icons.circle_outlined,
-                        size: 16, color: on ? KColors.purple : Colors.white24),
+                    Icon(on ? Icons.circle : Icons.circle_outlined,
+                        size: 16, color: on ? Colors.white : Colors.white24),
                   ],
                 ),
               ),

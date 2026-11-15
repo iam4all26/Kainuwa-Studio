@@ -225,7 +225,9 @@ class _ColorPanelState extends State<_ColorPanel> {
           shape: BoxShape.circle,
           border: Border.all(color: selected ? Colors.white : const Color(0x33FFFFFF), width: selected ? 3 : 1),
         ),
-        child: selected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+        child: selected
+            ? Center(child: Container(width: 12, height: 12, decoration: const BoxDecoration(color: Color(0xFF7351FF), shape: BoxShape.circle)))
+            : null,
       ),
     );
   }
@@ -541,7 +543,11 @@ class _ColorPanelState extends State<_ColorPanel> {
                   Expanded(
                     child: Text(widget.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                   ),
-                  IconButton(icon: const Icon(Icons.check), onPressed: () => Navigator.of(context).pop(_argb)),
+                  TextButton(
+                    style: TextButton.styleFrom(backgroundColor: const Color(0xFF7351FF), foregroundColor: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(_argb),
+                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
                 ],
               ),
             ),

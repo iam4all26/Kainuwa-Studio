@@ -92,9 +92,9 @@ class _SettingsTabState extends State<SettingsTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: on ? const Color(0xFF2A1F5C) : const Color(0xFF1F1840),
+          color: on ? const Color(0xFF7351FF) : const Color(0xFF1F1840),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: on ? const Color(0xFF8B5CF6) : const Color(0xFF30265A), width: on ? 2 : 1),
+          border: Border.all(color: on ? const Color(0xFF7351FF) : const Color(0xFF30265A), width: on ? 2 : 1),
         ),
         child: child,
       ),
@@ -118,7 +118,6 @@ class _SettingsTabState extends State<SettingsTab> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Flexible(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700), textAlign: TextAlign.center)),
-              if (on) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.check, size: 16)),
             ],
           ),
         ),
@@ -248,7 +247,7 @@ class _SettingsTabState extends State<SettingsTab> {
                           ],
                         ),
                       ),
-                      Icon(!settings.landscape ? Icons.check_circle : Icons.circle_outlined),
+                      Icon(!settings.landscape ? Icons.circle : Icons.circle_outlined),
                     ],
                   ),
                 ),
@@ -269,7 +268,7 @@ class _SettingsTabState extends State<SettingsTab> {
                           ],
                         ),
                       ),
-                      Icon(settings.landscape ? Icons.check_circle : Icons.circle_outlined),
+                      Icon(settings.landscape ? Icons.circle : Icons.circle_outlined),
                     ],
                   ),
                 ),

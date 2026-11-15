@@ -15,6 +15,9 @@ class KColors {
   static const Color gold = Color(0xFFF6C101);
   static const Color ink = Color(0xFFEFEAFF);
 
+  /// Background of anything that is selected (tabs, chips, options). Text on it is white.
+  static const Color selected = Color(0xFF7351FF);
+
   // Lesson editor (multitrack timeline) colors, sampled from the mockup.
   static const Color editorPanel = Color(0xFF13102A);
   static const Color editorStrip = Color(0xFF241C48);
@@ -63,9 +66,40 @@ ThemeData buildTheme() {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: KColors.surface,
-      indicatorColor: KColors.lavender,
-      labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      indicatorColor: KColors.selected,
+      iconTheme: WidgetStateProperty.resolveWith(
+        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? Colors.white : KColors.accent),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (s) => TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: s.contains(WidgetState.selected) ? Colors.white : KColors.accent,
+        ),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      showCheckmark: false,
+      backgroundColor: KColors.lavender,
+      selectedColor: KColors.selected,
+      disabledColor: KColors.lavender,
+      side: BorderSide.none,
+      labelStyle: WidgetStateTextStyle.resolveWith(
+        (s) => TextStyle(
+          fontWeight: FontWeight.w600,
+          color: s.contains(WidgetState.selected) ? Colors.white : KColors.ink,
+        ),
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? KColors.selected : Colors.transparent,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Colors.white : KColors.ink,
+        ),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(

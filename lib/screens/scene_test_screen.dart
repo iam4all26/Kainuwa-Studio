@@ -287,6 +287,7 @@ class _SceneTestScreenState extends State<SceneTestScreen> {
               ),
               const SizedBox(height: 8),
               SegmentedButton<String>(
+                showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: 'fade', label: Text('Fade')),
                   ButtonSegment(value: 'slide', label: Text('Slide')),
