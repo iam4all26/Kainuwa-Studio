@@ -267,6 +267,9 @@ class Scene {
     this.phoneFrame = false,
     this.phoneScale = 0.9,
     this.phoneLight = false,
+    this.transKind = 'none',
+    this.transDir = 'left',
+    this.transMs = 1000,
     List<Layer>? layers,
   }) : layers = layers ?? <Layer>[];
 
@@ -298,6 +301,11 @@ class Scene {
   double phoneScale;
   bool phoneLight;
 
+  /// Transition from this slide into the next one.
+  String transKind;
+  String transDir;
+  int transMs;
+
   bool get hasVideo => videoPath.isNotEmpty;
 
   bool get isDarkBackground {
@@ -328,6 +336,9 @@ class Scene {
         phoneFrame: phoneFrame,
         phoneScale: phoneScale,
         phoneLight: phoneLight,
+        transKind: transKind,
+        transDir: transDir,
+        transMs: transMs,
         layers: layers.map((l) => l.copy()).toList(),
       );
 
@@ -348,6 +359,9 @@ class Scene {
         'phoneFrame': phoneFrame,
         'phoneScale': phoneScale,
         'phoneLight': phoneLight,
+        'transKind': transKind,
+        'transDir': transDir,
+        'transMs': transMs,
         'layers': layers.map((l) => l.toJson()).toList(),
       };
 
@@ -376,6 +390,9 @@ class Scene {
       phoneFrame: json['phoneFrame'] is bool ? json['phoneFrame'] as bool : false,
       phoneScale: _num(json['phoneScale'], 0.9),
       phoneLight: json['phoneLight'] is bool ? json['phoneLight'] as bool : false,
+      transKind: _str(json['transKind'], 'none'),
+      transDir: _str(json['transDir'], 'left'),
+      transMs: _int(json['transMs'], 1000),
       layers: layers,
     );
   }

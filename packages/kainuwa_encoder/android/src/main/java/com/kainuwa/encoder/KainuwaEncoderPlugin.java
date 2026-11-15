@@ -719,6 +719,7 @@ public class KainuwaEncoderPlugin
     private final List<String> lessonVideoPaths = new ArrayList<>();
     private final List<Long> lessonVideoStarts = new ArrayList<>();
     private final List<Double> lessonVideoScales = new ArrayList<>();
+    private final List<TransitionEffect.Spec> lessonTransitions = new ArrayList<>();
 
     // Live preview frames: one reader stays open so each frame is quicker to get.
     private final ExecutorService frameWorker = Executors.newSingleThreadExecutor();
@@ -855,6 +856,18 @@ public class KainuwaEncoderPlugin
         lessonVideoPaths.clear();
         lessonVideoStarts.clear();
         lessonVideoScales.clear();
+        lessonTransitions.clear();
+        final List<Map<String, Object>> rawTransitions = call.argument("transitions");
+        if (rawTransitions != null) {
+            for (Map<String, Object> m : rawTransitions) {
+                TransitionEffect.Spec t = new TransitionEffect.Spec();
+                t.atMs = longOf(m.get("atMs"), 0);
+                t.halfMs = longOf(m.get("halfMs"), 0);
+                t.kind = m.get("kind") instanceof String ? (String) m.get("kind") : "none";
+                t.dir = m.get("dir") instanceof String ? (String) m.get("dir") : "left";
+                lessonTransitions.add(t);
+            }
+        }
         long totalMs = 0;
         for (Map<String, Object> sc : scenes) {
             Object img = sc.get("image");
@@ -1109,6 +1122,9 @@ public class KainuwaEncoderPlugin
                 width, height, Presentation.LAYOUT_SCALE_TO_FIT));
         if (overlays.slotCount() > 0) {
             compositionVideoEffects.add(new OverlayEffect(overlays.build()));
+        }
+        if (!lessonTransitions.isEmpty()) {
+            compositionVideoEffects.add(new TransitionEffect(new ArrayList<>(lessonTransitions)));
         }
         Composition composition = new Composition.Builder(sequences)
                 .setEffects(new Effects(new ArrayList<AudioProcessor>(), compositionVideoEffects))

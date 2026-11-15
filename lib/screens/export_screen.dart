@@ -12,6 +12,7 @@ import '../animation_math.dart';
 import '../app_state.dart';
 import '../editor/track_visibility.dart';
 import '../models.dart';
+import '../transition_math.dart';
 import '../watermark.dart';
 import '../scene_canvas.dart';
 import '../hands.dart';
@@ -263,6 +264,7 @@ class _ExportScreenState extends State<ExportScreen> {
       await work.create(recursive: true);
 
       final specs = <Map<String, Object?>>[];
+      final transitions = <Map<String, Object?>>[];
       var missingNarration = 0;
       var offsetMs = 0;
       for (var i = 0; i < scenes.length; i++) {
@@ -492,6 +494,15 @@ class _ExportScreenState extends State<ExportScreen> {
               : 1.0,
         });
         offsetMs += scene.durationMs;
+        final half = transitionHalfMs(lesson, i);
+        if (half > 0) {
+          transitions.add({
+            'atMs': offsetMs,
+            'kind': scene.transKind,
+            'dir': scene.transDir,
+            'halfMs': half,
+          });
+        }
       }
 
       if (mounted) setState(() => _stageChild = null);
@@ -514,6 +525,7 @@ class _ExportScreenState extends State<ExportScreen> {
         fps: fps,
         bitrate: (_mbps * 1000000).round(),
         clips: clipMaps,
+        transitions: transitions,
       );
       try {
         await work.delete(recursive: true);

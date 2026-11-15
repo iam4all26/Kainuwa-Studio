@@ -10,6 +10,7 @@ import '../app_state.dart';
 import '../demo_plan.dart';
 import '../editor/drawing_screen.dart';
 import '../srt_import.dart';
+import '../transition_math.dart';
 import '../store/store_tab.dart';
 import '../editor/add_timeline_sheet.dart';
 import '../editor/edit_panel.dart';
@@ -1590,7 +1591,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         borderRadius: BorderRadius.circular(_s(u, 28, 12)),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: ValueListenableBuilder<int?>(
+          child: _withTransition(lesson, spot, playing, ValueListenableBuilder<int?>(
             valueListenable: _demoMs,
             builder: (context, demoMs, _) => SceneCanvas(
             scene: viewScene(scene, lesson.hiddenTracks),
@@ -1611,10 +1612,167 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
               if (layer != null && layer.id == id) _deleteLayer(scene, layer);
             },
             ),
-          ),
+          )),
         ),
       ),
     );
+  }
+
+  /// While playing, the slide moves, zooms or fades as its transition says.
+  Widget _withTransition(Lesson lesson, SceneSpot spot, bool playing, Widget child) {
+    if (!playing) return child;
+    final f = sceneTransitionFrame(lesson, spot.index, spot.localMs);
+    if (f == null) return child;
+    return ClipRect(
+      child: ColoredBox(
+        color: Colors.black,
+        child: LayoutBuilder(builder: (context, c) {
+          return Opacity(
+            opacity: f.alpha.clamp(0.0, 1.0).toDouble(),
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..translate(f.dx * c.maxWidth, -f.dy * c.maxHeight)
+                ..scale(f.scale, f.scale, 1.0),
+              child: child,
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Future<void> _transitionSheet() async {
+    final lesson = _lesson();
+    final scene = _currentScene();
+    if (lesson == null || scene == null) return;
+    final index = lesson.scenes.indexOf(scene);
+    if (index < 0 || index >= lesson.scenes.length - 1) {
+      _snack('A transition goes between two slides. Select a slide that has another one after it.');
+      return;
+    }
+    _pause();
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(builder: (context, setSheet) {
+        void change(VoidCallback f) {
+          setSheet(f);
+          if (mounted) setState(() {});
+        }
+
+        const icons = {
+          'left': Icons.arrow_back,
+          'right': Icons.arrow_forward,
+          'up': Icons.arrow_upward,
+          'down': Icons.arrow_downward,
+        };
+        const names = {
+          'left': 'Right to left',
+          'right': 'Left to right',
+          'up': 'Up',
+          'down': 'Down',
+        };
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Transition into slide ${index + 2}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final k in kTransitionKinds)
+                        ChoiceChip(
+                          label: Text(transitionLabel(k)),
+                          selected: scene.transKind == k,
+                          onSelected: (_) => change(() => scene.transKind = k),
+                        ),
+                    ],
+                  ),
+                  if (transitionUsesDirection(scene.transKind)) ...[
+                    const SizedBox(height: 14),
+                    const Text('Direction', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final d in kTransitionDirs)
+                          ChoiceChip(
+                            avatar: Icon(icons[d], size: 16),
+                            label: Text(names[d]!),
+                            selected: scene.transDir == d,
+                            onSelected: (_) => change(() => scene.transDir = d),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (scene.transKind != 'none') ...[
+                    const SizedBox(height: 14),
+                    Text('Length: ${(scene.transMs / 1000).toStringAsFixed(1)} seconds',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Slider(
+                      value: scene.transMs.clamp(300, 2000).toDouble(),
+                      min: 300,
+                      max: 2000,
+                      divisions: 17,
+                      onChanged: (v) => change(() => scene.transMs = v.round()),
+                    ),
+                    Row(children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _previewTransition(lesson, index);
+                          },
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text('Preview'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            for (var i = 0; i < lesson.scenes.length - 1; i++) {
+                              final s = lesson.scenes[i];
+                              s.transKind = scene.transKind;
+                              s.transDir = scene.transDir;
+                              s.transMs = scene.transMs;
+                            }
+                            if (mounted) setState(() {});
+                            _snack('Applied to every slide.');
+                          },
+                          icon: const Icon(Icons.done_all),
+                          label: const Text('Use for all'),
+                        ),
+                      ),
+                    ]),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+    _commit();
+  }
+
+  void _previewTransition(Lesson lesson, int index) {
+    final player = _player;
+    if (player == null) return;
+    final half = transitionHalfMs(lesson, index);
+    final boundary = sceneStartMs(lesson, index + 1);
+    player.seek(math.max(0, boundary - half - 600));
+    player.play();
   }
 
   Widget _roundIcon(double size, IconData icon, VoidCallback onTap, {Color? color, Color? iconColor}) {
@@ -1792,6 +1950,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.videocam_outlined, 'Video', _videoSettings),
         (Icons.swap_horiz, 'Replace', _replaceMedia),
+        (Icons.compare_arrows, 'Transition', _transitionSheet),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_sceneSelected) {
@@ -1799,6 +1958,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.compare_arrows, 'Transition', _transitionSheet),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else {

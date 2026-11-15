@@ -150,10 +150,12 @@ class KainuwaEncoder {
     int fps = 30,
     int bitrate = 0,
     List<Map<String, Object?>> clips = const [],
+    List<Map<String, Object?>> transitions = const [],
   }) async {
     _init();
     final result = await _channel.invokeMethod<String>('exportLesson', {
       'clips': clips,
+      'transitions': transitions,
       'scenes': scenes,
       'workDir': workDir,
       'output': outputPath,
