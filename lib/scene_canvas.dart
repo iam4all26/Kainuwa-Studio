@@ -605,6 +605,10 @@ class LiveVideo extends StatefulWidget {
 }
 
 class _LiveVideoState extends State<LiveVideo> {
+  /// There is one native player. Only the newest video widget may close it, otherwise the old
+  /// slide's video, disposed after the next slide's video opened, would shut the new one.
+  static _LiveVideoState? _active;
+
   int? _texture;
   double _aspect = 16 / 9;
   bool _failed = false;
@@ -634,10 +638,18 @@ class _LiveVideoState extends State<LiveVideo> {
 
   Future<void> _open() async {
     _opening = true;
+    _active = this;
     try {
       final r = await KainuwaEncoder.videoOpen(widget.path, widget.ms);
+      if (_active != this) {
+        // A newer video took over the player while this one was opening.
+        _opening = false;
+        return;
+      }
       if (!mounted) {
+        _active = null;
         await KainuwaEncoder.videoClose();
+        _opening = false;
         return;
       }
       if (r == null) {
@@ -659,7 +671,7 @@ class _LiveVideoState extends State<LiveVideo> {
   }
 
   Future<void> _checkDrift() async {
-    if (!_owner || !mounted) return;
+    if (!_owner || !mounted || _active != this) return;
     try {
       final pos = await KainuwaEncoder.videoPosition();
       if (pos < 0 || !_owner) return;
@@ -683,7 +695,10 @@ class _LiveVideoState extends State<LiveVideo> {
     _timer = null;
     if (_owner) {
       _owner = false;
-      KainuwaEncoder.videoClose();
+      if (_active == this) {
+        _active = null;
+        KainuwaEncoder.videoClose();
+      }
     }
     if (mounted) setState(() => _texture = null);
   }
@@ -693,7 +708,10 @@ class _LiveVideoState extends State<LiveVideo> {
     _timer?.cancel();
     if (_owner) {
       _owner = false;
-      KainuwaEncoder.videoClose();
+      if (_active == this) {
+        _active = null;
+        KainuwaEncoder.videoClose();
+      }
     }
     super.dispose();
   }

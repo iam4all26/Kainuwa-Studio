@@ -2288,17 +2288,23 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final landscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final gap = SizedBox(height: _s(u, 16, 8));
     final scrollingTimeline = SingleChildScrollView(child: Column(children: [timeline, gap]));
+    // Tapping empty space anywhere here lets go of the selected item or track.
+    Widget clearOnTap(Widget child) => GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => _selectLayer(null),
+          child: child,
+        );
     if (landscape) {
-      return Row(
+      return clearOnTap(Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(flex: 5, child: SingleChildScrollView(child: Column(children: [preview, transport]))),
           Expanded(flex: 6, child: scrollingTimeline),
         ],
-      );
+      ));
     }
     // Preview and transport stay in place; only the timeline scrolls.
-    return Column(children: [preview, transport, Expanded(child: scrollingTimeline)]);
+    return clearOnTap(Column(children: [preview, transport, Expanded(child: scrollingTimeline)]));
   }
 
   Widget _toolDivider(double u) {

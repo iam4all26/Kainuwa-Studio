@@ -25,10 +25,10 @@ class KColors {
   static const Color editorLabel = Color(0xFF1C1638);
   static const Color editorCard = Color(0xFF1C1638);
   static const Color editorNav = Color(0xFF6B10D1);
-  static const Color editorNavIcon = Color(0xFFB794F6);
+  static const Color editorNavIcon = Colors.white;
   static const Color editorPlay = Color(0xFF7514DF);
   static const Color editorPlayhead = Color(0xFF8E1BDC);
-  static const Color editorToolIcon = Color(0xFFD8CCFF);
+  static const Color editorToolIcon = Colors.white;
   static const Color editorExport = Color(0xFFFCBE12);
   static const Color clipText = Color(0xFFFDC018);
   static const Color clipAudio = Color(0xFF03A845);
@@ -75,20 +75,45 @@ ThemeData buildTheme() {
       indicatorColor: KColors.selected,
       iconTheme: WidgetStateProperty.resolveWith(
         (s) => IconThemeData(
-          color: s.contains(WidgetState.selected)
-              ? Colors.white
-              : KColors.accent,
+          color: Colors.white,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: s.contains(WidgetState.selected)
-              ? Colors.white
-              : KColors.accent,
+          color: Colors.white,
         ),
       ),
+    ),
+
+    tabBarTheme: TabBarThemeData(
+      labelColor: Colors.white,
+      unselectedLabelColor: Colors.white,
+      dividerColor: Colors.transparent,
+      indicatorSize: TabBarIndicatorSize.tab,
+      indicator: BoxDecoration(
+        color: KColors.selected,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+      overlayColor: WidgetStateProperty.all(Colors.transparent),
+    ),
+
+    sliderTheme: SliderThemeData(
+      trackHeight: 4,
+      activeTrackColor: KColors.selected,
+      inactiveTrackColor: const Color(0x33FFFFFF),
+      thumbColor: Colors.white,
+      disabledThumbColor: const Color(0x55FFFFFF),
+      overlayColor: const Color(0x227351FF),
+      trackShape: const ModernSliderTrack(),
+      tickMarkShape: SliderTickMarkShape.noTickMark,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0, pressedElevation: 0),
+      overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+      valueIndicatorColor: KColors.selected,
+      valueIndicatorTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
     ),
 
     chipTheme: ChipThemeData(
@@ -147,4 +172,45 @@ ThemeData buildTheme() {
       ),
     ),
   );
+}
+
+/// A plain rounded slider track with no end dots and no tick marks.
+class ModernSliderTrack extends SliderTrackShape with BaseSliderTrackShape {
+  const ModernSliderTrack();
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    required TextDirection textDirection,
+    double additionalActiveTrackHeight = 0,
+  }) {
+    final rect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    final radius = Radius.circular(rect.height / 2);
+    final canvas = context.canvas;
+    final inactive = Paint()..color = sliderTheme.inactiveTrackColor ?? const Color(0x33FFFFFF);
+    final active = Paint()..color = sliderTheme.activeTrackColor ?? KColors.selected;
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, radius), inactive);
+    final left = rect.left;
+    final right = thumbCenter.dx.clamp(rect.left, rect.right).toDouble();
+    if (right > left) {
+      canvas.drawRRect(
+        RRect.fromLTRBR(left, rect.top, right, rect.bottom, radius),
+        active,
+      );
+    }
+  }
 }

@@ -287,7 +287,7 @@ class _EditPanelState extends State<_EditPanel> {
       ('heart', 'Heart'),
     ];
     return _card(
-      'Crop & Mask',
+      'Crop and mask',
       Icons.crop,
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,11 +308,6 @@ class _EditPanelState extends State<_EditPanel> {
                 ActionChip(label: Text(p.$1), onPressed: () => _cropPreset(p.$2)),
             ],
           ),
-          const SizedBox(height: 8),
-          _cutField('Cut from the left', l.cropL, (v) => _setCrop(left: v)),
-          _cutField('Cut from the right', l.cropR, (v) => _setCrop(right: v)),
-          _cutField('Cut from the top', l.cropT, (v) => _setCrop(top: v)),
-          _cutField('Cut from the bottom', l.cropB, (v) => _setCrop(bottom: v)),
           const SizedBox(height: 8),
           const Text('Mask', style: TextStyle(fontSize: 12, color: KColors.ink)),
           const SizedBox(height: 4),
@@ -361,6 +356,7 @@ class _EditPanelState extends State<_EditPanel> {
   List<(String, String, IconData)> get _tabs => [
         if (_isText) ('content', 'Content', Icons.edit_outlined),
         ('style', 'Style', Icons.palette_outlined),
+        if (l.type == 'image' || l.type == 'asset') ('crop', 'Crop', Icons.crop),
         ('transform', 'Transform', Icons.open_with),
         ('arrange', 'Arrange', Icons.layers_outlined),
         ('animation', 'Animation', Icons.auto_awesome_outlined),
@@ -602,7 +598,6 @@ class _EditPanelState extends State<_EditPanel> {
     final colorable = _isText || l.type == 'shape' || (l.type == 'image' && l.shape == 'tint');
     return Column(
       children: [
-        if (l.type == 'image' || l.type == 'asset') _cropMaskCard(),
         if (l.type == 'image')
           _card(
             'Single color',
@@ -1029,7 +1024,7 @@ class _EditPanelState extends State<_EditPanel> {
                             ? Icons.arrow_downward
                             : Icons.arrow_forward,
                 size: 16,
-                color: selected == d ? Colors.white : KColors.accent,
+                color: Colors.white,
               ),
               label: Text(slideDirLabel(d)),
               selected: selected == d,
@@ -1176,6 +1171,37 @@ class _EditPanelState extends State<_EditPanel> {
 
   String _animSub = 'in';
 
+  /// True when this part of the animation is set, so a green dot can show it.
+  bool _partHasAnimation(String part) {
+    switch (part) {
+      case 'in':
+        return l.animIn != 'none';
+      case 'overall':
+        return l.animLoop != 'none';
+      case 'out':
+        return l.animOut != 'none';
+      case 'hand':
+        return l.hand.isNotEmpty;
+      case 'text':
+        return l.textAnim != 'none';
+      default:
+        return false;
+    }
+  }
+
+  bool get _anyAnimation =>
+      _partHasAnimation('in') ||
+      _partHasAnimation('overall') ||
+      _partHasAnimation('out') ||
+      _partHasAnimation('hand') ||
+      (_isText && _partHasAnimation('text'));
+
+  Widget _greenDot() => Container(
+        width: 7,
+        height: 7,
+        decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle),
+      );
+
   Widget _sub(String key, Widget child) => _animSub == key ? child : const SizedBox.shrink();
 
   Widget _animSubBar() {
@@ -1195,17 +1221,23 @@ class _EditPanelState extends State<_EditPanel> {
         runSpacing: 6,
         children: [
           for (final i in items)
-            ChoiceChip(
-              avatar: Icon(i.$3, size: 16, color: _animSub == i.$1 ? Colors.white : KColors.accent),
-              label: Text(i.$2),
-              selected: _animSub == i.$1,
-              selectedColor: KColors.purple,
-              labelStyle: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: _animSub == i.$1 ? Colors.white : KColors.ink,
-              ),
-              showCheckmark: false,
-              onSelected: (_) => setState(() => _animSub = i.$1),
+            Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                ChoiceChip(
+                  avatar: Icon(i.$3, size: 16, color: Colors.white),
+                  label: Text(i.$2),
+                  selected: _animSub == i.$1,
+                  selectedColor: KColors.purple,
+                  labelStyle: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _animSub == i.$1 ? Colors.white : KColors.ink,
+                  ),
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _animSub = i.$1),
+                ),
+                if (_partHasAnimation(i.$1)) Positioned(bottom: 1, child: _greenDot()),
+              ],
             ),
         ],
       ),
@@ -1505,6 +1537,8 @@ class _EditPanelState extends State<_EditPanel> {
     switch (_tab) {
       case 'content':
         return _contentTab();
+      case 'crop':
+        return Column(children: [_cropMaskCard()]);
       case 'transform':
         return _transformTab();
       case 'arrange':
@@ -1606,7 +1640,15 @@ class _EditPanelState extends State<_EditPanel> {
                                 children: [
                                   Tooltip(
                                     message: t.$2,
-                                    child: Icon(t.$3, size: 24, color: _tab == t.$1 ? Colors.white : KColors.deepPurple),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      alignment: Alignment.bottomCenter,
+                                      children: [
+                                        Icon(t.$3, size: 24, color: Colors.white),
+                                        if (t.$1 == 'animation' && _anyAnimation)
+                                          Positioned(bottom: -6, child: _greenDot()),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),

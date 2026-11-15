@@ -112,7 +112,10 @@ class _CropEditorState extends State<_CropEditor> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: Column(
+          children: [
+            _livePreview(),
+            Expanded(child: Padding(
           padding: const EdgeInsets.all(16),
           child: LayoutBuilder(builder: (context, c) {
             var w = c.maxWidth;
@@ -144,8 +147,55 @@ class _CropEditorState extends State<_CropEditor> {
               ]),
             );
           }),
+        )),
+          ],
         ),
       ),
+    );
+  }
+
+  /// A mirror of the result at the top, so the finger never hides what is being cut.
+  Widget _livePreview() {
+    return Container(
+      height: 150,
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF333333)),
+      ),
+      child: LayoutBuilder(builder: (context, c) {
+        final keepW = (_r - _l).clamp(0.01, 1.0).toDouble();
+        final keepH = (_b - _t).clamp(0.01, 1.0).toDouble();
+        final cropAspect = keepW * widget.aspect / keepH;
+        var w = c.maxWidth - 16;
+        var h = w / cropAspect;
+        if (h > c.maxHeight - 16) {
+          h = c.maxHeight - 16;
+          w = h * cropAspect;
+        }
+        return Center(
+          child: ClipRect(
+            child: SizedBox(
+              width: w,
+              height: h,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  Positioned(
+                    left: -_l / keepW * w,
+                    top: -_t / keepH * h,
+                    width: w / keepW,
+                    height: h / keepH,
+                    child: Image(image: _image, fit: BoxFit.fill, gaplessPlayback: true),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

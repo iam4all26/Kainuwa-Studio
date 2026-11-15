@@ -399,7 +399,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
                 ),
                 child: Icon(
                   _listenId == a.id ? Icons.stop : Icons.play_arrow,
-                  color: _listenId == a.id ? Colors.white : KColors.accent,
+                  color: Colors.white,
                 ),
               ),
             ),

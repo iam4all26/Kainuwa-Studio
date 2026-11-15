@@ -30,6 +30,8 @@ flutter:
     - assets/brands/dev/
     - assets/brands/lang/
     - assets/brands/crypto/
+    - assets/brands/apps/
+    - assets/brands/pay/
   fonts:
     - family: Andika
       fonts:

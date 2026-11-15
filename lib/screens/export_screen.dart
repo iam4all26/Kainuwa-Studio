@@ -74,6 +74,7 @@ class _ExportScreenState extends State<ExportScreen> {
   Widget? _thumbCache;
   String? _unsavedVideo;
   bool _canPlay = false;
+  bool _runPage = false;
   String _unsavedName = '';
 
   @override
@@ -983,19 +984,56 @@ class _ExportScreenState extends State<ExportScreen> {
             ),
           ],
         )),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Next you can turn the watermark on or off and start the export. '
+            'Keep the app open and the phone awake until it finishes.',
+            style: TextStyle(fontSize: 13),
+          ),
+        ),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: KColors.gold,
+            foregroundColor: KColors.onGold,
+          ),
+          onPressed: lesson == null ? null : () => setState(() => _runPage = true),
+          icon: const Icon(Icons.movie_creation_outlined),
+          label: const Text('Export Video'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Cancel')),
+      ],
+    );
+
+    // The final page: watermark switch, then the progress and the finished video.
+    final runContent = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        card(Row(
+          children: [
+            const Icon(Icons.movie_creation_outlined, color: KColors.purple, size: 30),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(lesson?.title ?? 'Video',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('${_quality}p  -  ${_fps} FPS  -  ${_mbps.round()} Mbps  -  about ${estMb.toStringAsFixed(estMb < 10 ? 1 : 0)} MB'),
+                ],
+              ),
+            ),
+          ],
+        )),
         card(WatermarkCard(
           wm: state.settings.wm,
           enabled: !_busy,
           onChanged: (w) => state.updateSettings(state.settings.copyWith(wm: w)),
         )),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: Text(
-            'Keep the app open and the phone awake until the export finishes. '
-            'Long videos take a long time; try a short one first.',
-            style: TextStyle(fontSize: 13),
-          ),
-        ),
         if (_busy) ...[
           _progressCard(),
           const SizedBox(height: 12),
@@ -1019,7 +1057,7 @@ class _ExportScreenState extends State<ExportScreen> {
           ),
           const SizedBox(height: 8),
         ],
-        if (!_busy)
+        if (!_busy && !_canPlay && _unsavedVideo == null)
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: KColors.gold,
@@ -1027,25 +1065,30 @@ class _ExportScreenState extends State<ExportScreen> {
             ),
             onPressed: lesson == null ? null : _start,
             icon: const Icon(Icons.movie_creation_outlined),
-            label: const Text('Export Video'),
+            label: Text(_failed ? 'Try again' : 'Start export'),
           ),
-        if (_busy && _phase != 99)
-          OutlinedButton(onPressed: _cancel, child: const Text('Cancel')),
+        if (_busy && _phase != 99) OutlinedButton(onPressed: _cancel, child: const Text('Cancel')),
+        if (_unsavedVideo != null && !_busy) ...[
+          FilledButton(onPressed: _retrySave, child: const Text('Save video')),
+          const SizedBox(height: 8),
+        ],
         if (!_busy) ...[
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Cancel')),
-        ],
-        if (_unsavedVideo != null && !_busy) ...[
-          const SizedBox(height: 8),
-          FilledButton(onPressed: _retrySave, child: const Text('Save video')),
+          OutlinedButton(
+            onPressed: () => setState(() => _runPage = false),
+            child: const Text('Back to settings'),
+          ),
         ],
       ],
     );
 
     return PopScope(
-      canPop: !_busy,
+      canPop: !_busy && !_runPage,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && !_busy && _runPage) setState(() => _runPage = false);
+      },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Export Video')),
+        appBar: AppBar(title: Text(_runPage ? 'Exporting' : 'Export Video')),
         body: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1060,7 +1103,7 @@ class _ExportScreenState extends State<ExportScreen> {
             Positioned.fill(
               child: ColoredBox(
                 color: Theme.of(context).scaffoldBackgroundColor,
-                child: SafeArea(child: content),
+                child: SafeArea(child: _runPage ? runContent : content),
               ),
             ),
           ],
