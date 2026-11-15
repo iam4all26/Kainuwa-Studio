@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -57,27 +58,39 @@ ThemeData buildTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: KColors.background,
     canvasColor: KColors.surface,
-    bottomSheetTheme: const BottomSheetThemeData(backgroundColor: KColors.surface),
+
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: KColors.surface,
+    ),
+
     appBarTheme: const AppBarTheme(
       backgroundColor: KColors.deepPurple,
       foregroundColor: Colors.white,
       centerTitle: false,
       systemOverlayStyle: SystemUiOverlayStyle.light,
     ),
+
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: KColors.surface,
       indicatorColor: KColors.selected,
       iconTheme: WidgetStateProperty.resolveWith(
-        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? Colors.white : KColors.accent),
+        (s) => IconThemeData(
+          color: s.contains(WidgetState.selected)
+              ? Colors.white
+              : KColors.accent,
+        ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: s.contains(WidgetState.selected) ? Colors.white : KColors.accent,
+          color: s.contains(WidgetState.selected)
+              ? Colors.white
+              : KColors.accent,
         ),
       ),
     ),
+
     chipTheme: ChipThemeData(
       showCheckmark: false,
       backgroundColor: KColors.lavender,
@@ -87,31 +100,50 @@ ThemeData buildTheme() {
       labelStyle: WidgetStateTextStyle.resolveWith(
         (s) => TextStyle(
           fontWeight: FontWeight.w600,
-          color: s.contains(WidgetState.selected) ? Colors.white : KColors.ink,
+          color: s.contains(WidgetState.selected)
+              ? Colors.white
+              : KColors.ink,
         ),
       ),
     ),
+
     segmentedButtonTheme: SegmentedButtonThemeData(
-      showSelectedIcon: false,
+      selectedIcon: SizedBox.shrink(),
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? KColors.selected : Colors.transparent,
+          (s) => s.contains(WidgetState.selected)
+              ? KColors.selected
+              : Colors.transparent,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? Colors.white : KColors.ink,
+          (s) => s.contains(WidgetState.selected)
+              ? Colors.white
+              : KColors.ink,
         ),
       ),
     ),
+
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
       ),
     ),
+
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
       ),
     ),
   );
