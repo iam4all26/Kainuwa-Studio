@@ -516,6 +516,124 @@ class _EditPanelState extends State<_EditPanel> {
 
   // ---- tabs ----
 
+  /// Gives the selected letters of the text their own colour.
+  void _paintSelection(int? argb) {
+    final sel = _text.selection;
+    final start = math.min(sel.start, sel.end);
+    final end = math.max(sel.start, sel.end);
+    if (!sel.isValid || start < 0 || end <= start) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Select some letters in the text box first.')));
+      return;
+    }
+    final next = <List<int>>[];
+    for (final s in l.colorSpans) {
+      if (s.length < 3) continue;
+      if (s[1] <= start || s[0] >= end) {
+        next.add(s);
+        continue;
+      }
+      if (s[0] < start) next.add([s[0], start, s[2]]);
+      if (s[1] > end) next.add([end, s[1], s[2]]);
+    }
+    if (argb != null) next.add([start, end, argb]);
+    l.colorSpans = next;
+    _changed();
+  }
+
+  Widget _partColorCard() {
+    const swatches = <int>[
+      0xFFFFFFFF,
+      0xFF000000,
+      0xFF7C3AED,
+      0xFFFFD54F,
+      0xFFEF4444,
+      0xFF22C55E,
+      0xFF3B82F6,
+      0xFFF97316,
+      0xFFEC4899,
+    ];
+    return _card(
+      'Colours inside the text',
+      Icons.format_color_text,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select some letters in the box above, then tap a colour. '
+            'Different parts of one text can have different colours.',
+            style: TextStyle(fontSize: 12, color: KColors.ink),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final c in swatches)
+                InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => _paintSelection(c),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: Color(c),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white54, width: 1.5),
+                    ),
+                  ),
+                ),
+              InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () async {
+                  final value = await pickColor(context, initial: l.color, title: 'Colour for the selected letters');
+                  if (value != null) _paintSelection(value);
+                },
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white54, width: 1.5),
+                  ),
+                  child: const Icon(Icons.colorize, size: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: () => _paintSelection(null),
+                child: const Text('Reset selected'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: l.colorSpans.isEmpty
+                    ? null
+                    : () {
+                        l.colorSpans = const [];
+                        _changed();
+                      },
+                child: const Text('Clear all'),
+              ),
+            ],
+          ),
+          if (l.gradOn)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'The gradient is on, so it covers these colours. Turn the gradient off in Style to see them.',
+                style: TextStyle(fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _contentTab() {
     return Column(
       children: [
@@ -537,12 +655,14 @@ class _EditPanelState extends State<_EditPanel> {
             ),
             onChanged: (v) {
               final size = layerTextSizePx(l);
+              l.colorSpans = shiftColorSpans(l.text, v, l.colorSpans);
               l.text = v;
               setLayerTextSizePx(l, size);
               _changed();
             },
           ),
         ),
+        _partColorCard(),
         _card(
           'Text Size',
           Icons.format_size,

@@ -124,7 +124,7 @@ class _TextRevealViewState extends State<TextRevealView> {
 
   String _keyOf(Layer l) =>
       '${l.text}|${l.fontFamily}|${l.bold}|${l.italic}|${l.underline}|${l.strike}|'
-      '${l.letterSpacing}|${l.lineHeight}|${l.align}|${l.color}|${l.textAnim}';
+      '${l.letterSpacing}|${l.lineHeight}|${l.align}|${l.color}|${l.textAnim}|${l.colorSpans}';
 
   void _prepare() {
     final l = widget.layer;
@@ -133,7 +133,7 @@ class _TextRevealViewState extends State<TextRevealView> {
     _key = key;
     _painter?.dispose();
     _painter = TextPainter(
-      text: TextSpan(text: l.text, style: layerTextStyle(l)),
+      text: layerTextSpan(l, layerTextStyle(l)),
       textDirection: TextDirection.ltr,
       textAlign: layerTextAlign(l),
     )..layout();

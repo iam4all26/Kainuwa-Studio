@@ -918,6 +918,65 @@ class SceneBackground extends StatelessWidget {
 }
 
 /// The text style of a text item, drawn at [size] (the slide scales it to fit the box).
+/// The text with the chosen parts in their own colours (the rest keeps the item colour).
+TextSpan layerTextSpan(Layer layer, TextStyle base, {String? text}) {
+  final t = text ?? layer.text;
+  if (layer.colorSpans.isEmpty || t.isEmpty) return TextSpan(text: t, style: base);
+  final colors = List<int?>.filled(t.length, null);
+  for (final s in layer.colorSpans) {
+    if (s.length < 3) continue;
+    for (var i = math.max(0, s[0]); i < math.min(t.length, s[1]); i++) {
+      colors[i] = s[2];
+    }
+  }
+  final parts = <TextSpan>[];
+  var start = 0;
+  while (start < t.length) {
+    var end = start + 1;
+    while (end < t.length && colors[end] == colors[start]) {
+      end++;
+    }
+    final c = colors[start];
+    parts.add(TextSpan(
+      text: t.substring(start, end),
+      style: c == null ? null : TextStyle(color: Color(c), decorationColor: Color(c)),
+    ));
+    start = end;
+  }
+  return TextSpan(style: base, children: parts);
+}
+
+/// Moves the coloured parts along when the text is edited.
+List<List<int>> shiftColorSpans(String oldText, String newText, List<List<int>> spans) {
+  if (spans.isEmpty) return spans;
+  final maxCommon = math.min(oldText.length, newText.length);
+  var prefix = 0;
+  while (prefix < maxCommon && oldText.codeUnitAt(prefix) == newText.codeUnitAt(prefix)) {
+    prefix++;
+  }
+  var suffix = 0;
+  while (suffix < maxCommon - prefix &&
+      oldText.codeUnitAt(oldText.length - 1 - suffix) == newText.codeUnitAt(newText.length - 1 - suffix)) {
+    suffix++;
+  }
+  final delta = newText.length - oldText.length;
+  final added = newText.length - prefix - suffix;
+  int map(int p, bool isEnd) {
+    if (p <= prefix) return p;
+    if (p >= oldText.length - suffix) return p + delta;
+    return isEnd ? prefix + added : prefix;
+  }
+
+  final out = <List<int>>[];
+  for (final s in spans) {
+    if (s.length < 3) continue;
+    final a = map(s[0], false);
+    final b = map(s[1], true);
+    if (b > a) out.add([a, b, s[2]]);
+  }
+  return out;
+}
+
 TextStyle layerTextStyle(Layer layer, {double size = 100}) {
   final color = Color(layer.color);
   final light = color.computeLuminance() > 0.7 && !layer.bgBox;
@@ -1042,10 +1101,9 @@ class LayerContent extends StatelessWidget {
       case 'text':
         Widget text = (revealMs != null && layer.textAnim != 'none')
             ? TextRevealView(layer: layer, timeMs: revealMs!)
-            : Text(
-                layer.text,
+            : Text.rich(
+                layerTextSpan(layer, layerTextStyle(layer)),
                 textAlign: layerTextAlign(layer),
-                style: layerTextStyle(layer),
               );
         if (layer.gradOn) {
           final a = layer.gradAngle * math.pi / 180;

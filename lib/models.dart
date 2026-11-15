@@ -57,6 +57,7 @@ class Layer {
     this.gradC1 = 0xFFFFD54F,
     this.gradC2 = 0xFFFF6F00,
     this.gradAngle = 90,
+    this.colorSpans = const [],
     this.animInDir = 'right',
     this.animOutDir = 'right',
     this.shadowOn = false,
@@ -138,6 +139,9 @@ class Layer {
   String animLoop;
   int animLoopMs;
 
+  /// Parts of the text in their own colour: [start, end, argb] over the text characters.
+  List<List<int>> colorSpans;
+
   /// Direction a Slide entrance or exit moves: left, right, up or down.
   String animInDir;
   String animOutDir;
@@ -209,6 +213,7 @@ class Layer {
         'gradC1': gradC1,
         'gradC2': gradC2,
         'gradAngle': gradAngle,
+        'colorSpans': colorSpans,
         'animInDir': animInDir,
         'animOutDir': animOutDir,
         'shadowOn': shadowOn,
@@ -264,6 +269,12 @@ class Layer {
         gradC1: _int(json['gradC1'], 0xFFFFD54F),
         gradC2: _int(json['gradC2'], 0xFFFF6F00),
         gradAngle: _num(json['gradAngle'], 90),
+        colorSpans: json['colorSpans'] is List
+            ? [
+                for (final e in json['colorSpans'] as List)
+                  if (e is List && e.length >= 3) [for (final x in e) x is num ? x.toInt() : 0]
+              ]
+            : const [],
         animInDir: _str(json['animInDir'], 'right'),
         animOutDir: _str(json['animOutDir'], 'right'),
         shadowOn: json['shadowOn'] is bool ? json['shadowOn'] as bool : false,
