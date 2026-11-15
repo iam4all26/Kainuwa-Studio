@@ -47,7 +47,29 @@ String animLabel(String kind) {
 
 /// Entrance. The same formulas are used by the video export (LessonOverlays.java),
 /// so the preview matches the video.
-AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs) {
+/// Slide distances: a fifth of the slide width, and the same on screen for up and down.
+const double kSlideX = 0.175;
+const double kSlideY = 0.31;
+
+const List<String> kSlideDirs = ['right', 'left', 'up', 'down'];
+
+String slideDirLabel(String dir) {
+  switch (dir) {
+    case 'left':
+      return 'Slide left';
+    case 'up':
+      return 'Slide up';
+    case 'down':
+      return 'Slide down';
+    default:
+      return 'Slide right';
+  }
+}
+
+/// The kind as sent to the video encoder: a slide carries its direction, for example slide:up.
+String kindWithDir(String kind, String dir) => kind == 'slide' ? 'slide:$dir' : kind;
+
+AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs, [String dir = 'right']) {
   if (kind == 'none') return const AnimFrame(1, 0, 1);
   final duration = math.max(1, durationMs);
   final double progress =
@@ -59,9 +81,22 @@ AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs) {
   var dx = 0.0;
   var scale = 1.0;
   var scaleX = 1.0;
+  var dy = 0.0;
   switch (kind) {
     case 'slide':
-      dx = -0.175 * (1 - eased);
+      switch (dir) {
+        case 'left':
+          dx = kSlideX * (1 - eased);
+          break;
+        case 'up':
+          dy = kSlideY * (1 - eased);
+          break;
+        case 'down':
+          dy = -kSlideY * (1 - eased);
+          break;
+        default:
+          dx = -kSlideX * (1 - eased);
+      }
       break;
     case 'pop':
       {
@@ -79,11 +114,11 @@ AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs) {
       break;
   }
   if (progress <= 0) alpha = 0;
-  return AnimFrame(alpha, dx, math.max(0.01, scale), scaleX);
+  return AnimFrame(alpha, dx, math.max(0.01, scale), scaleX, 0, dy);
 }
 
 /// Exit, played during the last [outDurMs] before the item leaves.
-AnimFrame exitFrame(String kind, int timeMs, int outStartMs, int outDurMs) {
+AnimFrame exitFrame(String kind, int timeMs, int outStartMs, int outDurMs, [String dir = 'right']) {
   if (kind == 'none') return const AnimFrame(1, 0, 1);
   final duration = math.max(1, outDurMs);
   final double p = timeMs <= outStartMs ? 0.0 : math.min(1.0, (timeMs - outStartMs) / duration);
@@ -92,7 +127,16 @@ AnimFrame exitFrame(String kind, int timeMs, int outStartMs, int outDurMs) {
     case 'fade':
       return AnimFrame(1 - e, 0, 1);
     case 'slide':
-      return AnimFrame(1 - e, 0.175 * e, 1);
+      switch (dir) {
+        case 'left':
+          return AnimFrame(1 - e, -kSlideX * e, 1);
+        case 'up':
+          return AnimFrame(1 - e, 0, 1, 1, 0, -kSlideY * e);
+        case 'down':
+          return AnimFrame(1 - e, 0, 1, 1, 0, kSlideY * e);
+        default:
+          return AnimFrame(1 - e, kSlideX * e, 1);
+      }
     case 'pop':
       return AnimFrame(1 - e, 0, math.max(0.01, 1 - 0.5 * e));
     case 'zoom':
@@ -116,10 +160,11 @@ AnimFrame layerFrame(Layer layer, int timeMs, int sceneMs) {
     timeMs,
     layer.startMs + layer.animStartMs,
     layer.animDurationMs,
+    layer.animInDir,
   );
   if (layer.animOut != 'none') {
-    final out = exitFrame(layer.animOut, timeMs, end - layer.animOutDurationMs, layer.animOutDurationMs);
-    f = AnimFrame(f.alpha * out.alpha, f.dx + out.dx, f.scale * out.scale, f.scaleX * out.scaleX, f.rot, f.dy);
+    final out = exitFrame(layer.animOut, timeMs, end - layer.animOutDurationMs, layer.animOutDurationMs, layer.animOutDir);
+    f = AnimFrame(f.alpha * out.alpha, f.dx + out.dx, f.scale * out.scale, f.scaleX * out.scaleX, f.rot, f.dy + out.dy);
   }
   if (layer.animLoop != 'none') {
     final lp = loopFrame(layer.animLoop, timeMs - layer.startMs, loopPeriodMs(layer));

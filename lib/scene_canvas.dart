@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
@@ -1076,6 +1077,36 @@ class LayerContent extends StatelessWidget {
     }
   }
 
+  /// A soft copy of the item behind it, in the shadow colour, moved and blurred as set.
+  Widget _withShadow(Widget body) {
+    return LayoutBuilder(builder: (context, c) {
+      final w = c.maxWidth.isFinite ? c.maxWidth : 100.0;
+      final h = c.maxHeight.isFinite ? c.maxHeight : 100.0;
+      final unit = math.min(w, h);
+      final sigma = layer.shadowBlur * unit;
+      Widget copy = ColorFiltered(
+        colorFilter: ColorFilter.mode(Color(layer.shadowColor), BlendMode.srcIn),
+        child: body,
+      );
+      if (sigma >= 0.3) {
+        copy = ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal),
+          child: copy,
+        );
+      }
+      return Stack(
+        clipBehavior: Clip.none,
+        fit: StackFit.passthrough,
+        children: [
+          Positioned.fill(
+            child: Transform.translate(offset: Offset(layer.shadowX * unit, layer.shadowY * unit), child: copy),
+          ),
+          body,
+        ],
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     var body = _body();
@@ -1083,6 +1114,7 @@ class LayerContent extends StatelessWidget {
     if (clip != null && clip < 1) {
       body = ClipRect(clipper: FractionClipper(clip), child: body);
     }
+    if (layer.shadowOn) body = _withShadow(body);
     if (layer.opacity >= 0.999) return body;
     return Opacity(opacity: layer.opacity.clamp(0.0, 1.0).toDouble(), child: body);
   }

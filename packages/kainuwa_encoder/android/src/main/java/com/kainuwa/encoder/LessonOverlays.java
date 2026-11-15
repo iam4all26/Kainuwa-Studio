@@ -182,7 +182,7 @@ final class LessonOverlays {
         }
     }
 
-    /** Timing, entrance and exit together. Returns alpha, dx, scale, scaleX. */
+    /** Timing, entrance and exit together. Returns alpha, dx, scale, scaleX, rotation, dy. */
     static double[] fullFrame(Item item, double timeMs) {
         if (timeMs < item.showMs || timeMs >= item.hideMs) {
             return new double[]{0, 0, 1, 1, 0, 0};
@@ -193,13 +193,14 @@ final class LessonOverlays {
         double sc = in[2];
         double sx = in[3];
         double rot = 0;
-        double dy = 0;
+        double dy = in[4];
         if (item.outKind != null && !item.outKind.equals("none")) {
             double[] out = exitFrame(item.outKind, timeMs, item.outStartMs, item.outDurMs);
             a *= out[0];
             dx += out[1];
             sc *= out[2];
             sx *= out[3];
+            dy += out[4];
         }
         if (item.loopKind != null && !item.loopKind.equals("none")) {
             double[] lp = loopFrame(item.loopKind, timeMs - item.showMs, item.loopMs);
@@ -254,24 +255,53 @@ final class LessonOverlays {
         }
     }
 
-    /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale, scaleX. */
-    static double[] frame(String kind, double timeMs, long startMs, long durMs) {
+    /** Direction part of a kind such as slide:up (the movement direction, default right). */
+    private static String dirOf(String kind) {
+        int i = kind == null ? -1 : kind.indexOf(':');
+        return i < 0 ? "right" : kind.substring(i + 1);
+    }
+
+    private static String baseOf(String kind) {
+        int i = kind == null ? -1 : kind.indexOf(':');
+        return i < 0 ? kind : kind.substring(0, i);
+    }
+
+    private static final double SLIDE_X = 0.175;
+    private static final double SLIDE_Y = 0.31;
+
+    /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale, scaleX, dy. */
+    static double[] frame(String fullKind, double timeMs, long startMs, long durMs) {
+        String kind = baseOf(fullKind);
         if (kind == null || kind.equals("none")) {
-            return new double[]{1, 0, 1, 1};
+            return new double[]{1, 0, 1, 1, 0};
         }
         double duration = Math.max(1, durMs);
         double progress = timeMs <= startMs ? 0.0 : Math.min(1.0, (timeMs - startMs) / duration);
         if (kind.equals("appear")) {
-            return new double[]{progress > 0 ? 1 : 0, 0, 1, 1};
+            return new double[]{progress > 0 ? 1 : 0, 0, 1, 1, 0};
         }
         double eased = 1 - Math.pow(1 - progress, 3);
         double alpha = eased;
         double dx = 0;
+        double dy = 0;
         double scale = 1;
         double scaleX = 1;
         switch (kind) {
             case "slide":
-                dx = -0.175 * (1 - eased);
+                switch (dirOf(fullKind)) {
+                    case "left":
+                        dx = SLIDE_X * (1 - eased);
+                        break;
+                    case "up":
+                        dy = SLIDE_Y * (1 - eased);
+                        break;
+                    case "down":
+                        dy = -SLIDE_Y * (1 - eased);
+                        break;
+                    default:
+                        dx = -SLIDE_X * (1 - eased);
+                        break;
+                }
                 break;
             case "pop": {
                 double q = progress - 1;
@@ -292,27 +322,37 @@ final class LessonOverlays {
         if (progress <= 0) {
             alpha = 0;
         }
-        return new double[]{alpha, dx, Math.max(0.01, scale), scaleX};
+        return new double[]{alpha, dx, Math.max(0.01, scale), scaleX, dy};
     }
 
-    /** Exit animation. Returns alpha, dx, scale, scaleX (same formulas as the editor). */
-    static double[] exitFrame(String kind, double timeMs, long outStartMs, long outDurMs) {
+    /** Exit animation. Returns alpha, dx, scale, scaleX, dy (same formulas as the editor). */
+    static double[] exitFrame(String fullKind, double timeMs, long outStartMs, long outDurMs) {
+        String kind = baseOf(fullKind);
         double duration = Math.max(1, outDurMs);
         double p = timeMs <= outStartMs ? 0.0 : Math.min(1.0, (timeMs - outStartMs) / duration);
         double e = p * p;
         switch (kind) {
             case "fade":
-                return new double[]{1 - e, 0, 1, 1};
+                return new double[]{1 - e, 0, 1, 1, 0};
             case "slide":
-                return new double[]{1 - e, 0.175 * e, 1, 1};
+                switch (dirOf(fullKind)) {
+                    case "left":
+                        return new double[]{1 - e, -SLIDE_X * e, 1, 1, 0};
+                    case "up":
+                        return new double[]{1 - e, 0, 1, 1, -SLIDE_Y * e};
+                    case "down":
+                        return new double[]{1 - e, 0, 1, 1, SLIDE_Y * e};
+                    default:
+                        return new double[]{1 - e, SLIDE_X * e, 1, 1, 0};
+                }
             case "pop":
-                return new double[]{1 - e, 0, Math.max(0.01, 1 - 0.5 * e), 1};
+                return new double[]{1 - e, 0, Math.max(0.01, 1 - 0.5 * e), 1, 0};
             case "zoom":
-                return new double[]{1 - e, 0, 1 + 0.6 * e, 1};
+                return new double[]{1 - e, 0, 1 + 0.6 * e, 1, 0};
             case "draw":
-                return new double[]{1, 0, 1, Math.max(0.01, 1 - e)};
+                return new double[]{1, 0, 1, Math.max(0.01, 1 - e), 0};
             default:
-                return new double[]{1, 0, 1, 1};
+                return new double[]{1, 0, 1, 1, 0};
         }
     }
 }

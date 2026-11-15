@@ -168,8 +168,15 @@ class _ExportScreenState extends State<ExportScreen> {
     final lh = l.h * _kStageH;
     final c = math.cos(l.rotation).abs();
     final s = math.sin(l.rotation).abs();
-    final bw = math.max(2.0, lw * c + lh * s + _kPad * 2);
-    final bh = math.max(2.0, lw * s + lh * c + _kPad * 2);
+    // Room around the item for its shadow.
+    var pad = _kPad;
+    if (l.shadowOn) {
+      final unit = math.min(lw, lh);
+      final reach = (math.max(l.shadowX.abs(), l.shadowY.abs()) + l.shadowBlur * 3) * unit;
+      pad = math.max(_kPad, reach + 4);
+    }
+    final bw = math.max(2.0, lw * c + lh * s + pad * 2);
+    final bh = math.max(2.0, lw * s + lh * c + pad * 2);
     final widget = SizedBox(
       width: bw,
       height: bh,
@@ -460,12 +467,12 @@ class _ExportScreenState extends State<ExportScreen> {
               'path': path,
               'cx': layer.cx,
               'cy': layer.cy,
-              'anim': layer.animIn,
+              'anim': kindWithDir(layer.animIn, layer.animInDir),
               'startMs': layer.startMs + layer.animStartMs,
               'durMs': layer.animDurationMs,
               'showMs': layer.startMs,
               'hideMs': end,
-              'outAnim': layer.animOut,
+              'outAnim': kindWithDir(layer.animOut, layer.animOutDir),
               'outStartMs': end - layer.animOutDurationMs,
               'outDurMs': layer.animOutDurationMs,
               'loop': layer.animLoop,

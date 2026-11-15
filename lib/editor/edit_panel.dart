@@ -77,6 +77,7 @@ Future<void> showEditPanel(
   required String initialTab,
   required VoidCallback onLive,
   required ValueChanged<Layer?> onDemo,
+  required int Function(Layer source, String part, bool wholeVideo) onApplyAll,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -94,6 +95,7 @@ Future<void> showEditPanel(
           initialTab: initialTab,
           onLive: onLive,
           onDemo: onDemo,
+          onApplyAll: onApplyAll,
         ),
       ),
     ),
@@ -107,6 +109,7 @@ class _EditPanel extends StatefulWidget {
     required this.initialTab,
     required this.onLive,
     required this.onDemo,
+    required this.onApplyAll,
   });
 
   final Layer layer;
@@ -116,6 +119,10 @@ class _EditPanel extends StatefulWidget {
 
   /// Asks the editor to play this item's animations on the canvas (null to stop).
   final ValueChanged<Layer?> onDemo;
+
+  /// Copies one part of this item's animation (in, overall, out, text) to every item of the same
+  /// kind on this slide or in the whole video. Returns how many items were changed.
+  final int Function(Layer source, String part, bool wholeVideo) onApplyAll;
 
   @override
   State<_EditPanel> createState() => _EditPanelState();
@@ -743,6 +750,7 @@ class _EditPanelState extends State<_EditPanel> {
               ],
             ),
           ),
+        _shadowCard(),
         _card(
           'Opacity',
           Icons.opacity,
@@ -1003,6 +1011,169 @@ class _EditPanelState extends State<_EditPanel> {
     );
   }
 
+  Widget _dirChips(String selected, ValueChanged<String> onPick) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          for (final d in kSlideDirs)
+            ChoiceChip(
+              avatar: Icon(
+                d == 'left'
+                    ? Icons.arrow_back
+                    : d == 'up'
+                        ? Icons.arrow_upward
+                        : d == 'down'
+                            ? Icons.arrow_downward
+                            : Icons.arrow_forward,
+                size: 16,
+                color: selected == d ? Colors.white : KColors.accent,
+              ),
+              label: Text(slideDirLabel(d)),
+              selected: selected == d,
+              showCheckmark: false,
+              onSelected: (_) => onPick(d),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _applyAllCard() {
+    final part = _animSub;
+    final what = part == 'in'
+        ? 'In animation'
+        : part == 'out'
+            ? 'Out animation'
+            : part == 'overall'
+                ? 'Overall animation'
+                : 'Text animation';
+    final group = _isText ? 'texts' : 'pictures and shapes';
+    void run(bool whole) {
+      final n = widget.onApplyAll(l, part, whole);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(n == 0
+              ? 'There are no other $group to change.'
+              : '$what applied to $n other ${n == 1 ? 'item' : 'items'}.'),
+        ));
+    }
+
+    return _card(
+      'Apply to all',
+      Icons.copy_all,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Use this $what on every other $group.', style: const TextStyle(fontSize: 12, color: KColors.ink)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: OutlinedButton(onPressed: () => run(false), child: const Text('This slide'))),
+              const SizedBox(width: 8),
+              Expanded(child: FilledButton(onPressed: () => run(true), child: const Text('Whole video'))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _shadowCard() {
+    void preset(double x, double y, double blur) {
+      l.shadowX = x;
+      l.shadowY = y;
+      l.shadowBlur = blur;
+      _changed();
+    }
+
+    Widget slider(String label, double value, double min, double max, ValueChanged<double> on) {
+      return Row(
+        children: [
+          SizedBox(width: 84, child: Text(label, style: const TextStyle(fontSize: 12, color: KColors.ink))),
+          Expanded(
+            child: Slider(
+              value: value.clamp(min, max).toDouble(),
+              min: min,
+              max: max,
+              onChanged: (v) {
+                on(v);
+                _changed();
+              },
+            ),
+          ),
+          SizedBox(
+            width: 38,
+            child: Text('${(value * 100).round()}', style: const TextStyle(fontSize: 12, color: KColors.ink)),
+          ),
+        ],
+      );
+    }
+
+    return _card(
+      'Shadow',
+      Icons.filter_none,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _labeled(
+            'Show a shadow',
+            Switch(
+              value: l.shadowOn,
+              onChanged: (v) {
+                l.shadowOn = v;
+                _changed();
+              },
+            ),
+          ),
+          if (l.shadowOn) ...[
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ActionChip(label: const Text('Bottom'), onPressed: () => preset(0, 0.08, 0.08)),
+                ActionChip(label: const Text('Top'), onPressed: () => preset(0, -0.08, 0.08)),
+                ActionChip(label: const Text('Left'), onPressed: () => preset(-0.08, 0, 0.08)),
+                ActionChip(label: const Text('Right'), onPressed: () => preset(0.08, 0, 0.08)),
+                ActionChip(label: const Text('Glow'), onPressed: () => preset(0, 0, 0.2)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _labeled(
+              'Shadow colour',
+              _colorEditor(l.shadowColor, (v) {
+                l.shadowColor = v;
+                _changed();
+              }),
+            ),
+            _labeled(
+              'Strength',
+              _NumField(
+                value: ((l.shadowColor >> 24) & 0xFF) * 100 / 255,
+                min: 0,
+                max: 100,
+                step: 5,
+                suffix: '%',
+                width: 52,
+                onChanged: (v) {
+                  l.shadowColor = ((v * 255 / 100).round() << 24) | (l.shadowColor & 0xFFFFFF);
+                  _changed();
+                },
+              ),
+            ),
+            slider('Blur', l.shadowBlur, 0, 0.4, (v) => l.shadowBlur = v),
+            slider('Left / right', l.shadowX, -0.5, 0.5, (v) => l.shadowX = v),
+            slider('Up / down', l.shadowY, -0.5, 0.5, (v) => l.shadowY = v),
+          ],
+        ],
+      ),
+    );
+  }
+
   String _animSub = 'in';
 
   Widget _sub(String key, Widget child) => _animSub == key ? child : const SizedBox.shrink();
@@ -1116,6 +1287,11 @@ class _EditPanelState extends State<_EditPanel> {
                 l.animIn = k;
                 _changed();
               }),
+              if (l.animIn == 'slide')
+                _dirChips(l.animInDir, (d) {
+                  l.animInDir = d;
+                  _changed();
+                }),
               if (l.animIn != 'none' && l.animIn != 'appear') ...[
                 const SizedBox(height: 8),
                 _labeled(
@@ -1288,6 +1464,11 @@ class _EditPanelState extends State<_EditPanel> {
                 l.animOut = k;
                 _changed();
               }),
+              if (l.animOut == 'slide')
+                _dirChips(l.animOutDir, (d) {
+                  l.animOutDir = d;
+                  _changed();
+                }),
               if (l.animOut != 'none') ...[
                 const SizedBox(height: 8),
                 _labeled(
@@ -1315,6 +1496,7 @@ class _EditPanelState extends State<_EditPanel> {
             ],
           ),
         )),
+        if (_animSub == 'in' || _animSub == 'overall' || _animSub == 'out' || _animSub == 'text') _applyAllCard(),
       ],
     );
   }

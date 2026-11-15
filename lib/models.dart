@@ -57,6 +57,13 @@ class Layer {
     this.gradC1 = 0xFFFFD54F,
     this.gradC2 = 0xFFFF6F00,
     this.gradAngle = 90,
+    this.animInDir = 'right',
+    this.animOutDir = 'right',
+    this.shadowOn = false,
+    this.shadowColor = 0xB3000000,
+    this.shadowBlur = 0.08,
+    this.shadowX = 0.0,
+    this.shadowY = 0.08,
     this.cropL = 0,
     this.cropT = 0,
     this.cropR = 0,
@@ -131,6 +138,17 @@ class Layer {
   String animLoop;
   int animLoopMs;
 
+  /// Direction a Slide entrance or exit moves: left, right, up or down.
+  String animInDir;
+  String animOutDir;
+
+  /// Drop shadow. Blur and distances are fractions of the item's smaller side.
+  bool shadowOn;
+  int shadowColor;
+  double shadowBlur;
+  double shadowX;
+  double shadowY;
+
   /// Gradient fill for text (two colours and an angle in degrees: 0 left to right, 90 top to bottom).
   bool gradOn;
   int gradC1;
@@ -191,6 +209,13 @@ class Layer {
         'gradC1': gradC1,
         'gradC2': gradC2,
         'gradAngle': gradAngle,
+        'animInDir': animInDir,
+        'animOutDir': animOutDir,
+        'shadowOn': shadowOn,
+        'shadowColor': shadowColor,
+        'shadowBlur': shadowBlur,
+        'shadowX': shadowX,
+        'shadowY': shadowY,
         'cropL': cropL,
         'cropT': cropT,
         'cropR': cropR,
@@ -239,6 +264,13 @@ class Layer {
         gradC1: _int(json['gradC1'], 0xFFFFD54F),
         gradC2: _int(json['gradC2'], 0xFFFF6F00),
         gradAngle: _num(json['gradAngle'], 90),
+        animInDir: _str(json['animInDir'], 'right'),
+        animOutDir: _str(json['animOutDir'], 'right'),
+        shadowOn: json['shadowOn'] is bool ? json['shadowOn'] as bool : false,
+        shadowColor: _int(json['shadowColor'], 0xB3000000),
+        shadowBlur: _num(json['shadowBlur'], 0.08),
+        shadowX: _num(json['shadowX'], 0.0),
+        shadowY: _num(json['shadowY'], 0.08),
         cropL: _num(json['cropL'], 0),
         cropT: _num(json['cropT'], 0),
         cropR: _num(json['cropR'], 0),

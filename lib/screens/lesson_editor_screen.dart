@@ -707,12 +707,55 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         if (mounted) setState(() {});
       },
       onDemo: _onDemo,
+      onApplyAll: _applyAnimToAll,
     );
     _stopDemo();
     _commit();
   }
 
   Future<void> _openAnimate() => _openEdit('animation');
+
+  /// Copies one part of an item's animation to every other item of the same kind
+  /// (texts with texts, pictures and shapes together) on this slide or in the whole video.
+  int _applyAnimToAll(Layer source, String part, bool wholeVideo) {
+    final lesson = _lesson();
+    if (lesson == null) return 0;
+    final scenes = wholeVideo ? lesson.scenes : <Scene>[if (_currentScene() != null) _currentScene()!];
+    final sourceIsText = source.type == 'text';
+    var count = 0;
+    for (final scene in scenes) {
+      for (final other in scene.layers) {
+        if (identical(other, source)) continue;
+        if ((other.type == 'text') != sourceIsText) continue;
+        switch (part) {
+          case 'in':
+            other.animIn = source.animIn;
+            other.animInDir = source.animInDir;
+            other.animDurationMs = source.animDurationMs;
+            other.animStartMs = source.animStartMs;
+            break;
+          case 'out':
+            other.animOut = source.animOut;
+            other.animOutDir = source.animOutDir;
+            other.animOutDurationMs = source.animOutDurationMs;
+            break;
+          case 'overall':
+            other.animLoop = source.animLoop;
+            other.animLoopMs = source.animLoopMs;
+            break;
+          case 'text':
+            other.textAnim = source.textAnim;
+            other.textAnimMs = source.textAnimMs;
+            break;
+          default:
+            continue;
+        }
+        count++;
+      }
+    }
+    if (count > 0) _commit();
+    return count;
+  }
 
   Future<void> _setDuration() async {
     final scene = _currentScene();
