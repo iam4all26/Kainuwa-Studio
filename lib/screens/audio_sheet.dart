@@ -178,7 +178,7 @@ class _AudioSheetState extends State<_AudioSheet> {
       return;
     }
     try {
-      await KainuwaEncoder.playAudio(scene.narrationPath, volume: scene.narrationVolume);
+      await KainuwaEncoder.playAudio(scene.narrationPath, volume: scene.narrationVolume, speed: scene.narrationSpeed);
       if (mounted) setState(() => _playing = true);
     } on PlatformException catch (e) {
       _say('Could not play the audio: ${e.message}');

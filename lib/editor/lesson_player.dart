@@ -134,6 +134,30 @@ class LessonPlayer extends ChangeNotifier {
         }
       }
     }
+    // Background music of the whole video, with its volume and speed.
+    ids.add('music');
+    final hasMusic = lesson.musicPath.isNotEmpty;
+    final musicOn = _clipsOn.contains('music');
+    if (hasMusic && !musicOn) {
+      _clipsOn.add('music');
+      _clipVol['music'] = lesson.musicVolume;
+      KainuwaEncoder.playClip(
+        'music',
+        lesson.musicPath,
+        seekMs: (pos * lesson.musicSpeed).round(),
+        volume: lesson.musicVolume.clamp(0.0, 1.0).toDouble(),
+        speed: lesson.musicSpeed,
+      ).then((_) {}, onError: (_) {});
+    } else if (!hasMusic && musicOn) {
+      _clipsOn.remove('music');
+      KainuwaEncoder.stopClip('music').then((_) {}, onError: (_) {});
+    } else if (hasMusic && pos - _lastVolMs >= 100) {
+      final g = lesson.musicVolume.clamp(0.0, 1.0).toDouble();
+      if ((g - (_clipVol['music'] ?? g)).abs() > 0.01) {
+        _clipVol['music'] = g;
+        KainuwaEncoder.setClipVolume('music', g).then((_) {}, onError: (_) {});
+      }
+    }
     var sceneStart = 0;
     for (final scene in lesson.scenes) {
       final sceneEnd = sceneStart + scene.durationMs;
