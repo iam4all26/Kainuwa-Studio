@@ -414,20 +414,19 @@ class _EditPanelState extends State<_EditPanel> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        color: const Color(0xCC1A1333),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3D3266)),
+        color: const Color(0xFF1E1938),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: KColors.accent),
-              const SizedBox(width: 6),
+              Icon(icon, size: 17, color: Colors.white70),
+              const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: KColors.ink),
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: KColors.ink),
               ),
             ],
           ),
@@ -1675,11 +1674,7 @@ class _EditPanelState extends State<_EditPanel> {
     final tabs = _tabs;
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF211A3F), Color(0xFF251C47)],
-        ),
+        color: Color(0xFF16122B),
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
@@ -1697,20 +1692,20 @@ class _EditPanelState extends State<_EditPanel> {
               child: Row(
                 children: [
                   Container(
-                    width: 46,
-                    height: 46,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [KColors.purple, Color(0xFF8B3DF0)]),
+                      color: KColors.selected.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(_titleIcon, color: Colors.white, size: 28),
+                    child: Icon(_titleIcon, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: KColors.ink)),
+                        Text(_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: KColors.ink)),
                         Text(
                           _isText
                               ? 'Customize the selected text on the slide'
@@ -1733,8 +1728,8 @@ class _EditPanelState extends State<_EditPanel> {
               child: Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: const Color(0xCC1A1333),
-                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF1E1938),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [

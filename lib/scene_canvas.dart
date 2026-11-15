@@ -989,7 +989,8 @@ TextStyle layerTextStyle(Layer layer, {double size = 100}) {
     height: layer.lineHeight,
     fontWeight: layer.bold ? FontWeight.w800 : FontWeight.w500,
     fontStyle: layer.italic ? FontStyle.italic : FontStyle.normal,
-    fontFamily: layer.fontFamily.isEmpty ? null : layer.fontFamily,
+    // The Default font stays the phone's own font, whatever font the app itself uses.
+    fontFamily: layer.fontFamily.isEmpty ? 'sans-serif' : layer.fontFamily,
     letterSpacing: layer.letterSpacing * size / 72,
     decoration: decorations.isEmpty ? TextDecoration.none : TextDecoration.combine(decorations),
     decorationColor: color,

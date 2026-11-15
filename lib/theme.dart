@@ -55,23 +55,84 @@ ThemeData buildTheme() {
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    fontFamily: 'Inter',
     colorScheme: scheme,
     scaffoldBackgroundColor: KColors.background,
     canvasColor: KColors.surface,
 
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: KColors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     ),
 
     appBarTheme: const AppBarTheme(
-      backgroundColor: KColors.deepPurple,
+      backgroundColor: KColors.background,
+      surfaceTintColor: Colors.transparent,
       foregroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: false,
+      titleTextStyle: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
       systemOverlayStyle: SystemUiOverlayStyle.light,
     ),
 
+    cardTheme: CardThemeData(
+      color: const Color(0xFF1E1938),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+
+    dialogTheme: DialogThemeData(
+      backgroundColor: const Color(0xFF1E1938),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      titleTextStyle: const TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+    ),
+
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFF2E2653),
+      contentTextStyle: const TextStyle(fontFamily: 'Inter', color: Colors.white, fontWeight: FontWeight.w500),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+
+    popupMenuTheme: PopupMenuThemeData(
+      color: const Color(0xFF2A2250),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF2A2150),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: KColors.selected, width: 1.5),
+      ),
+    ),
+
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.all(Colors.white),
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? KColors.selected : const Color(0xFF3A3262),
+      ),
+      trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+    ),
+
+    dividerTheme: const DividerThemeData(color: Color(0x1FFFFFFF), space: 1, thickness: 1),
+
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: KColors.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      height: 68,
+      indicatorShape: const StadiumBorder(),
       indicatorColor: KColors.selected,
       iconTheme: WidgetStateProperty.resolveWith(
         (s) => IconThemeData(

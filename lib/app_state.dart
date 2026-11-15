@@ -91,10 +91,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// A single video with no course around it. Returns the ids to open the editor with.
-  Future<(String, String)> addVideo() async {
+  Future<(String, String)> addVideo({String title = 'Untitled video'}) async {
     final courseId = _newId();
     final lessonId = _newId();
-    const title = 'Untitled video';
     courses.insert(
       0,
       Course(

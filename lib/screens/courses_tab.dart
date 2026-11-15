@@ -86,7 +86,14 @@ class CoursesTab extends StatelessWidget {
     );
     if (choice == null || !context.mounted) return;
     if (choice == 'video') {
-      final ids = await state.addVideo();
+      final name = await promptText(
+        context,
+        title: 'Name your video',
+        label: 'Video name',
+        confirm: 'Create',
+      );
+      if (name == null || !context.mounted) return;
+      final ids = await state.addVideo(title: name.trim().isEmpty ? 'Untitled video' : name.trim());
       if (!context.mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -233,131 +240,231 @@ class CoursesTab extends StatelessWidget {
     }
   }
 
+  Widget _roundButton(IconData icon, String tip, VoidCallback onTap) {
+    return Tooltip(
+      message: tip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: const Color(0xFF241D45),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickCard(IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1938),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: KColors.selected.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(height: 10),
+              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _projectCard(BuildContext context, Course course) {
+    final meta = course.isVideo
+        ? formatClock(course.totalMs)
+        : '${lessonCountText(course.lessons.length)} - ${minutesText(course.totalMs)}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => course.isVideo && course.lessons.isNotEmpty
+                ? LessonEditorScreen(courseId: course.id, lessonId: course.lessons.first.id)
+                : LessonsScreen(courseId: course.id),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1938),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              course.isVideo ? const VideoCover(size: 60) : const CourseCover(size: 60),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      course.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(course.isVideo ? Icons.videocam_outlined : Icons.school_outlined,
+                            size: 14, color: const Color(0xFFB5ABD6)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            '${course.isVideo ? 'Video' : 'Course'}  -  $meta',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.white70),
+                onSelected: (value) {
+                  if (value == 'rename') _rename(context, course);
+                  if (value == 'export') _export(context, course);
+                  if (value == 'delete') _delete(context, course);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Rename')),
+                  PopupMenuItem(value: 'export', child: Text('Export (.kainuwa)')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final courses = AppScope.of(context).courses;
 
     return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
-            child: Row(
-              children: [
-                Image.asset('assets/icon/app_icon.png', height: 40),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Kainuwa Studio',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: KColors.accent,
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset('assets/icon/app_icon.png', height: 44, width: 44),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Kainuwa Studio', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                    Text('Make videos, even offline',
+                        style: TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6))),
+                  ],
+                ),
+              ),
+              _roundButton(Icons.settings_outlined, 'Settings', onOpenSettings),
+            ],
+          ),
+          const SizedBox(height: 18),
+          InkWell(
+            borderRadius: BorderRadius.circular(26),
+            onTap: () => _create(context),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF5B21B6), Color(0xFF8B5CF6)],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Create a new video',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text('Name it, then open the canvas and start.',
+                            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
+                      ],
                     ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Import project',
-                  onPressed: () => _import(context),
-                  icon: const Icon(Icons.file_download_outlined, color: KColors.accent),
-                ),
-                IconButton(
-                  onPressed: onOpenSettings,
-                  icon: const Icon(Icons.settings, color: KColors.accent),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: const BoxDecoration(color: KColors.gold, shape: BoxShape.circle),
+                    child: const Icon(Icons.add, color: KColors.onGold, size: 30),
+                  ),
+                ],
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: KColors.gold,
-                      foregroundColor: KColors.onGold,
-                    ),
-                    onPressed: () => _create(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create Video'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: onOpenTemplates,
-                    icon: const Icon(Icons.dashboard_customize_outlined),
-                    label: const Text('Templates'),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _quickCard(Icons.dashboard_customize_outlined, 'Templates', 'Start from a design', onOpenTemplates),
+              const SizedBox(width: 12),
+              _quickCard(Icons.file_download_outlined, 'Import', 'Open a .kainuwa file', () => _import(context)),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Text(
-              'My Projects (${courses.length})',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
+          const SizedBox(height: 22),
+          Text(
+            'My projects  (${courses.length})',
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
-          Expanded(
-            child: courses.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text(
-                        'Nothing here yet. Tap Create Video to start.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    itemCount: courses.length,
-                    itemBuilder: (context, index) {
-                      final course = courses[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-                          leading: course.isVideo ? const VideoCover() : const CourseCover(),
-                          title: Text(
-                            course.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: Text(
-                            course.isVideo
-                                ? formatClock(course.totalMs)
-                                : '${lessonCountText(course.lessons.length)} - ${minutesText(course.totalMs)}',
-                          ),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => course.isVideo && course.lessons.isNotEmpty
-                                  ? LessonEditorScreen(courseId: course.id, lessonId: course.lessons.first.id)
-                                  : LessonsScreen(courseId: course.id),
-                            ),
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'rename') _rename(context, course);
-                              if (value == 'export') _export(context, course);
-                              if (value == 'delete') _delete(context, course);
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'rename', child: Text('Rename')),
-                              PopupMenuItem(value: 'export', child: Text('Export (.kainuwa)')),
-                              PopupMenuItem(value: 'delete', child: Text('Delete')),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+          const SizedBox(height: 12),
+          if (courses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  Icon(Icons.movie_creation_outlined, size: 54, color: Colors.white.withValues(alpha: 0.3)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Nothing here yet.\nTap the purple card to make your first video.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFFB5ABD6)),
                   ),
-          ),
+                ],
+              ),
+            )
+          else
+            for (final course in courses) _projectCard(context, course),
         ],
       ),
     );
