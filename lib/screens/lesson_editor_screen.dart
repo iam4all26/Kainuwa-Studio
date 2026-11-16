@@ -2257,8 +2257,15 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: _s(u, 44, 22), color: KColors.editorToolIcon),
-              SizedBox(height: _s(u, 8, 2)),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: _s(u, 20, 9), vertical: _s(u, 10, 4)),
+                decoration: BoxDecoration(
+                  color: const Color(0x1AFFFFFF),
+                  borderRadius: BorderRadius.circular(_s(u, 24, 12)),
+                ),
+                child: Icon(icon, size: _s(u, 40, 20), color: KColors.editorToolIcon),
+              ),
+              SizedBox(height: _s(u, 8, 3)),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -2422,7 +2429,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       padding: EdgeInsets.fromLTRB(_s(u, 12, 4), _s(u, 14, 4), _s(u, 12, 4), _s(u, 12, 4) + bottom),
       decoration: const BoxDecoration(
         color: KColors.editorCard,
-        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, -2))],
+        border: Border(top: BorderSide(color: Color(0x1FFFFFFF))),
       ),
       child: Row(
         children: [
@@ -2434,17 +2441,21 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 child: Container(
                   height: math.max(52.0, _s(u, 116)),
                   margin: const EdgeInsets.symmetric(horizontal: 1),
-                  decoration: BoxDecoration(
-                    color: _tab == i ? KColors.editorNav : Colors.transparent,
-                    borderRadius: BorderRadius.circular(_s(u, 30, 14)),
-                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        items[i].$1,
-                        size: _s(u, 50, 24),
-                        color: _tab == i ? Colors.white : KColors.editorNavIcon,
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: EdgeInsets.symmetric(horizontal: _s(u, 28, 14), vertical: _s(u, 8, 3)),
+                        decoration: BoxDecoration(
+                          color: _tab == i ? KColors.selected : Colors.transparent,
+                          borderRadius: BorderRadius.circular(_s(u, 30, 14)),
+                        ),
+                        child: Icon(
+                          items[i].$1,
+                          size: _s(u, 46, 22),
+                          color: _tab == i ? Colors.white : KColors.editorNavIcon,
+                        ),
                       ),
                       SizedBox(height: _s(u, 6, 2)),
                       FittedBox(

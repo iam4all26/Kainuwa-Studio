@@ -286,18 +286,17 @@ class _StoreTabState extends State<StoreTab> {
     final sub = picked ? Colors.white70 : const Color(0xFFB5ABD6);
     final size = _sizeText(item);
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       onTap: () => _selecting ? _toggle(item) : _openPreview(item),
       onLongPress: () {
         if (!_selecting) setState(() => _selecting = true);
         _toggle(item);
       },
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
           color: picked ? KColors.selected : KColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: picked ? KColors.selected : const Color(0xFF30265A)),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -305,8 +304,8 @@ class _StoreTabState extends State<StoreTab> {
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: KColors.lavender, borderRadius: BorderRadius.circular(12)),
-                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: _thumb(item)),
+                decoration: BoxDecoration(color: KColors.lavender, borderRadius: BorderRadius.circular(14)),
+                child: ClipRRect(borderRadius: BorderRadius.circular(10), child: _thumb(item)),
               ),
             ),
             const SizedBox(height: 6),
@@ -337,6 +336,7 @@ class _StoreTabState extends State<StoreTab> {
                       ? OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             padding: EdgeInsets.zero,
+                            shape: const StadiumBorder(),
                             textStyle: const TextStyle(fontSize: 12),
                             foregroundColor: fg,
                             side: BorderSide(color: picked ? Colors.white54 : const Color(0xFF3D3266)),
@@ -347,6 +347,7 @@ class _StoreTabState extends State<StoreTab> {
                       : FilledButton(
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
+                            shape: const StadiumBorder(),
                             textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                             backgroundColor: picked ? Colors.white : null,
                             foregroundColor: picked ? KColors.selected : null,
@@ -370,11 +371,11 @@ class _StoreTabState extends State<StoreTab> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
-            color: on ? KColors.selected : KColors.lavender,
+            color: on ? KColors.selected : KColors.surface,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(label,
-              style: TextStyle(color: on ? Colors.white : KColors.ink, fontWeight: FontWeight.w700, fontSize: 14)),
+              style: TextStyle(color: Colors.white, fontWeight: on ? FontWeight.w700 : FontWeight.w500, fontSize: 14)),
         ),
       ),
     );
@@ -465,7 +466,7 @@ class _StoreTabState extends State<StoreTab> {
                 child: Row(
                   children: [
                     const Expanded(
-                      child: Text('Store', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                      child: Text('Store', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
                     ),
                     IconButton(
                       tooltip: _selecting ? 'Cancel selecting' : 'Select several',
