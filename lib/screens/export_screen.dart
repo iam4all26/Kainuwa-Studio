@@ -18,6 +18,7 @@ import '../scene_canvas.dart';
 import '../hands.dart';
 import '../text_reveal.dart';
 import '../theme.dart';
+import '../widgets.dart';
 
 const double _kStageW = 1280;
 const double _kStageH = 720;
@@ -968,6 +969,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 const Expanded(
                   child: Text('Video bitrate', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
                 ),
+                const HelpIcon('Higher bitrate looks sharper and makes a bigger file.', title: 'Video bitrate'),
                 Text('${_mbps.round()} Mbps', style: const TextStyle(fontWeight: FontWeight.w700)),
               ],
             ),
@@ -978,20 +980,8 @@ class _ExportScreenState extends State<ExportScreen> {
               divisions: 29,
               onChanged: _busy ? null : (v) => setState(() => _mbps = v),
             ),
-            const Text(
-              'Higher bitrate looks sharper and makes a bigger file.',
-              style: TextStyle(fontSize: 12),
-            ),
           ],
         )),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: Text(
-            'Next you can turn the watermark on or off and start the export. '
-            'Keep the app open and the phone awake until it finishes.',
-            style: TextStyle(fontSize: 13),
-          ),
-        ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
             backgroundColor: KColors.gold,

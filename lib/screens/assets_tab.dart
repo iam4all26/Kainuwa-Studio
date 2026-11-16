@@ -19,7 +19,7 @@ class AssetsTab extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Assets',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
                 ),
               ),
             ),
@@ -132,9 +132,8 @@ class _AssetGrid extends StatelessWidget {
           onTap: () => _preview(context, item),
           child: Container(
             decoration: BoxDecoration(
-              color: KColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: KColors.lavender),
+              color: const Color(0xFF1E1938),
+              borderRadius: BorderRadius.circular(16),
             ),
             padding: const EdgeInsets.all(6),
             child: Column(

@@ -684,3 +684,33 @@ class CourseCover extends StatelessWidget {
     );
   }
 }
+
+/// A small question mark that explains something when tapped. Used only where a label alone is not enough.
+class HelpIcon extends StatelessWidget {
+  const HelpIcon(this.text, {super.key, this.title});
+
+  final String text;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'What is this?',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+      iconSize: 18,
+      icon: const Icon(Icons.help_outline, color: Colors.white54),
+      onPressed: () => showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: title == null ? null : Text(title!),
+          content: Text(text),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('OK')),
+          ],
+        ),
+      ),
+    );
+  }
+}

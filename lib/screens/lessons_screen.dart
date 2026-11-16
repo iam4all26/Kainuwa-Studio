@@ -130,10 +130,16 @@ class LessonsScreen extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              'Lessons (${course.lessons.length})',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+            child: Row(
+              children: [
+                Text(
+                  'Lessons (${course.lessons.length})',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(width: 2),
+                const HelpIcon('Drag the handle on a lesson to change the order.', title: 'Lessons'),
+              ],
             ),
           ),
           Expanded(
@@ -142,8 +148,9 @@ class LessonsScreen extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: Text(
-                        'No lessons yet. Tap Add Lesson. Drag the handle on a lesson to change the order.',
+                        'No lessons yet.',
                         textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFFB5ABD6)),
                       ),
                     ),
                   )

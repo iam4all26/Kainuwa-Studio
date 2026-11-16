@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../theme.dart';
+import '../widgets.dart';
 import 'scene_test_screen.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -13,7 +14,7 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> {
   final ScrollController _scroll = ScrollController();
-  final List<GlobalKey> _keys = List.generate(5, (_) => GlobalKey());
+  final List<GlobalKey> _keys = List.generate(4, (_) => GlobalKey());
   int _tab = 0;
 
   @override
@@ -34,7 +35,7 @@ class _SettingsTabState extends State<SettingsTab> {
     required Key key,
     required IconData icon,
     required String title,
-    String? subtitle,
+    String? help,
     required Widget child,
   }) {
     return Container(
@@ -43,9 +44,8 @@ class _SettingsTabState extends State<SettingsTab> {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: KColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF30265A)),
+        color: const Color(0xFF1E1938),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,25 +53,19 @@ class _SettingsTabState extends State<SettingsTab> {
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: KColors.lavender,
+                  color: KColors.selected.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: KColors.accent),
+                child: Icon(icon, color: Colors.white, size: 21),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                    if (subtitle != null)
-                      Text(subtitle, style: const TextStyle(fontSize: 13, color: Color(0xFFB5ABD6))),
-                  ],
-                ),
+                child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               ),
+              if (help != null) HelpIcon(help, title: title),
             ],
           ),
           const SizedBox(height: 12),
@@ -132,8 +126,7 @@ class _SettingsTabState extends State<SettingsTab> {
     const tabs = <(IconData, String)>[
       (Icons.settings_outlined, 'General'),
       (Icons.file_download_outlined, 'Export'),
-      (Icons.tune, 'Editing'),
-      (Icons.smartphone, 'App'),
+      (Icons.code, 'Tools'),
       (Icons.info_outline, 'About'),
     ];
 
@@ -142,61 +135,15 @@ class _SettingsTabState extends State<SettingsTab> {
         controller: _scroll,
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [KColors.purple, Color(0xFF8B3DF0)]),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Kainuwa Studio', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-                  Text('Video Editor', style: TextStyle(color: Color(0xFFB5ABD6))),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: KColors.lavender,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(Icons.settings, color: Colors.white, size: 30),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Settings', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                    Text('Customize Kainuwa Studio to match your workflow.',
-                        style: TextStyle(color: Color(0xFFB5ABD6))),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          const Text('Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 16),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: KColors.surface,
+                color: const Color(0xFF1E1938),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFF30265A)),
               ),
               child: Row(
                 children: [
@@ -228,7 +175,6 @@ class _SettingsTabState extends State<SettingsTab> {
             key: _keys[0],
             icon: Icons.stay_current_portrait,
             title: 'App Layout',
-            subtitle: 'Choose how you want the editor to be displayed.',
             child: Column(
               children: [
                 _choice(
@@ -243,7 +189,7 @@ class _SettingsTabState extends State<SettingsTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Portrait', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                            Text('Tall layout (phone style)', style: TextStyle(color: Color(0xFFB5ABD6))),
+                            Text('Tall, phone style', style: TextStyle(color: Color(0xFFB5ABD6))),
                           ],
                         ),
                       ),
@@ -264,7 +210,7 @@ class _SettingsTabState extends State<SettingsTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Landscape', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                            Text('Wide layout (video style)', style: TextStyle(color: Color(0xFFB5ABD6))),
+                            Text('Wide, video style', style: TextStyle(color: Color(0xFFB5ABD6))),
                           ],
                         ),
                       ),
@@ -279,7 +225,7 @@ class _SettingsTabState extends State<SettingsTab> {
             key: _keys[1],
             icon: Icons.play_circle_outline,
             title: 'Export Defaults',
-            subtitle: 'Set the default export options for your videos.',
+            help: 'The starting choices for every new export. You can still change quality, frame rate and bitrate on the export page of each video.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -306,31 +252,17 @@ class _SettingsTabState extends State<SettingsTab> {
                         () => state.updateSettings(settings.copyWith(frameRate: 30))),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'You can still change quality, frame rate and bitrate on the Export screen of each video.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFFB5ABD6)),
-                ),
               ],
             ),
           ),
           _card(
             key: _keys[2],
-            icon: Icons.tune,
-            title: 'Editing',
-            subtitle: 'How the editor keeps your work.',
-            child: const Text('Every change is saved automatically, and Undo and Redo work while a video is open.'),
-          ),
-          _card(
-            key: _keys[3],
             icon: Icons.code,
-            title: 'Developer Tools',
-            subtitle: 'Tools for testing and advanced use.',
+            title: 'Tools',
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.movie_creation_outlined),
               title: const Text('Export Test'),
-              subtitle: const Text('The step 2 test: sound mixing and one animated label.'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const SceneTestScreen()),
@@ -338,10 +270,10 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
           ),
           _card(
-            key: _keys[4],
+            key: _keys[3],
             icon: Icons.info_outline,
             title: 'About Kainuwa Studio',
-            child: const Text('Version 1.0.0. Works fully offline. Your projects are saved on this phone only.'),
+            child: const Text('Version 1.0.0. Works offline. Projects stay on this phone.'),
           ),
           if (state.loadError != null)
             Padding(

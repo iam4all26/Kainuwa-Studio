@@ -408,6 +408,15 @@ class _EditPanelState extends State<_EditPanel> {
 
   // ---- building blocks ----
 
+  static const Map<String, String> _cardHelp = {
+    'Overall animation': 'Keeps moving the whole time the item is on screen, for example spin, shake or pulse.',
+    'Hand reveal': 'A hand draws the item on the slide from left to right.',
+    'Apply to all': 'Copies this animation to every other item of the same kind, on this slide or in the whole video.',
+    'Colours inside the text': 'Select some letters in the text box, then tap a colour. Different parts of one text can have different colours.',
+    'On screen': 'When the item appears and when it leaves. You can also drag its ends on the timeline.',
+    'Shadow': 'Blur and distance are relative to the size of the item.',
+  };
+
   Widget _card(String title, IconData icon, Widget child) {
     return Container(
       width: double.infinity,
@@ -424,10 +433,13 @@ class _EditPanelState extends State<_EditPanel> {
             children: [
               Icon(icon, size: 17, color: Colors.white70),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: KColors.ink),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: KColors.ink),
+                ),
               ),
+              if (_cardHelp.containsKey(title)) HelpIcon(_cardHelp[title]!, title: title),
             ],
           ),
           const SizedBox(height: 8),
@@ -559,12 +571,6 @@ class _EditPanelState extends State<_EditPanel> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Select some letters in the box above, then tap a colour. '
-            'Different parts of one text can have different colours.',
-            style: TextStyle(fontSize: 12, color: KColors.ink),
-          ),
-          const SizedBox(height: 10),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -624,7 +630,7 @@ class _EditPanelState extends State<_EditPanel> {
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                'The gradient is on, so it covers these colours. Turn the gradient off in Style to see them.',
+                'The gradient covers these colours. Turn it off in Style.',
                 style: TextStyle(fontSize: 11),
               ),
             ),
@@ -1182,8 +1188,6 @@ class _EditPanelState extends State<_EditPanel> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Use this $what on every other $group.', style: const TextStyle(fontSize: 12, color: KColors.ink)),
-          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(child: OutlinedButton(onPressed: () => run(false), child: const Text('This slide'))),
@@ -1418,13 +1422,6 @@ class _EditPanelState extends State<_EditPanel> {
                     },
                   ),
                 ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'The slide is ${(sceneMs / 1000).toStringAsFixed(1)} s long. You can also drag the ends of the item on the timeline.',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
             ],
           ),
         )),
@@ -1544,13 +1541,6 @@ class _EditPanelState extends State<_EditPanel> {
                         },
                       ),
                     ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'The whole text takes ${(textRevealTotalMs(l) / 1000).toStringAsFixed(1)} s to appear.',
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                  ),
                 ],
               ],
             ),
@@ -1594,13 +1584,6 @@ class _EditPanelState extends State<_EditPanel> {
                     },
                   ),
                 ),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Keeps going the whole time the item is on screen.',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                ),
               ],
             ],
           ),
@@ -1639,11 +1622,6 @@ class _EditPanelState extends State<_EditPanel> {
                   ),
                 ),
               ],
-              const SizedBox(height: 4),
-              const Text(
-                'Close this panel and press play to see the animations.',
-                style: TextStyle(fontSize: 11),
-              ),
             ],
           ),
         )),
