@@ -351,11 +351,13 @@ class CoursesTab extends StatelessWidget {
                 icon: const Icon(Icons.more_vert, color: Colors.white70),
                 onSelected: (value) {
                   if (value == 'rename') _rename(context, course);
+                  if (value == 'duplicate') AppScope.read(context).duplicateCourse(course.id);
                   if (value == 'export') _export(context, course);
                   if (value == 'delete') _delete(context, course);
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'rename', child: Text('Rename')),
+                  PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
                   PopupMenuItem(value: 'export', child: Text('Export (.kainuwa)')),
                   PopupMenuItem(value: 'delete', child: Text('Delete')),
                 ],

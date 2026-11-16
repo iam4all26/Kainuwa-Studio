@@ -51,19 +51,25 @@ class _BackgroundSheet extends StatelessWidget {
         children: [
           const Text('Background', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: const Color(0xFF2A2250),
+              foregroundColor: Colors.white,
+              shape: const StadiumBorder(),
+            ),
             onPressed: () => _pickPhoto(context),
             icon: const Icon(Icons.photo_outlined),
-            label: const Text('Choose a photo from this phone'),
+            label: const Text('Choose a photo'),
           ),
           const SizedBox(height: 16),
-          const Text('Colors', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text('Colours', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFB5ABD6))),
           const SizedBox(height: 8),
           ColorSwatches(
             onPick: (value) => Navigator.of(context).pop(BackgroundChoice('color', '$value')),
           ),
           const SizedBox(height: 16),
-          const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFB5ABD6))),
           const SizedBox(height: 8),
           GridView.builder(
             shrinkWrap: true,
@@ -78,13 +84,13 @@ class _BackgroundSheet extends StatelessWidget {
             itemBuilder: (context, index) {
               final item = backgrounds[index];
               return InkWell(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 onTap: () => Navigator.of(context).pop(BackgroundChoice(item.isFile ? 'file' : 'asset', item.path)),
                 child: Column(
                   children: [
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(14),
                         child: SizedBox.expand(
                           child: catalogImage(item, fit: BoxFit.cover, cacheWidth: 400),
                         ),
@@ -432,17 +438,24 @@ class _AddOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(sheetContext).pop(value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            children: [
-              Icon(icon, size: 30, color: KColors.purple),
-              const SizedBox(height: 6),
-              Text(label),
-            ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => Navigator.of(sheetContext).pop(value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2250),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              children: [
+                Icon(icon, size: 28, color: Colors.white),
+                const SizedBox(height: 8),
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ],
+            ),
           ),
         ),
       ),

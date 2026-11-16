@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -114,6 +116,29 @@ class AppState extends ChangeNotifier {
       course.title = title;
       if (course.isVideo && course.lessons.isNotEmpty) course.lessons.first.title = title;
     }
+    return _saveCourses();
+  }
+
+  /// Makes an independent copy of a video or course, placed right after the original.
+  Future<void> duplicateCourse(String id) {
+    final index = courses.indexWhere((c) => c.id == id);
+    if (index < 0) return Future.value();
+    final json = jsonDecode(jsonEncode(courses[index].toJson())) as Map<String, dynamic>;
+    final title = '${courses[index].title} copy';
+    json['id'] = _newId();
+    json['title'] = title;
+    json['createdAt'] = DateTime.now().millisecondsSinceEpoch;
+    final lessons = json['lessons'];
+    if (lessons is List) {
+      for (final item in lessons) {
+        if (item is Map<String, dynamic>) item['id'] = _newId();
+      }
+      if (courses[index].isVideo && lessons.isNotEmpty && lessons.first is Map<String, dynamic>) {
+        (lessons.first as Map<String, dynamic>)['title'] = title;
+      }
+    }
+    final copy = Course.fromJson(json);
+    courses.insert(index + 1, copy);
     return _saveCourses();
   }
 
