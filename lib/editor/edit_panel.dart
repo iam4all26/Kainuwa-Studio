@@ -336,11 +336,6 @@ class _EditPanelState extends State<_EditPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'Circle, Star and Heart look best on a Square crop.',
-            style: TextStyle(fontSize: 11),
-          ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -536,45 +531,51 @@ class _EditPanelState extends State<_EditPanel> {
     }
   }
 
-  /// Rounded icon tiles, one per choice.
+  /// Rounded icon tiles, one per choice. The number per row follows the width (3 to 6),
+  /// so about four fit on a phone in portrait or in the landscape side panel.
   Widget _tiles(List<String> kinds, String selected, String Function(String) label, ValueChanged<String> onPick) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final kind in kinds)
-          Material(
-            color: selected == kind ? KColors.purple : const Color(0xFF2A2150),
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => onPick(kind),
-              child: SizedBox(
-                width: 74,
-                height: 62,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(_kindIcon(kind), size: 22, color: Colors.white),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          label(kind),
-                          maxLines: 1,
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white),
+    return LayoutBuilder(builder: (context, box) {
+      const gap = 6.0;
+      final cols = ((box.maxWidth + gap) / (58 + gap)).floor().clamp(3, 6).toInt();
+      final w = ((box.maxWidth - gap * (cols - 1)) / cols).floorToDouble();
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          for (final kind in kinds)
+            SizedBox(
+              width: w,
+              height: 50,
+              child: Material(
+                color: selected == kind ? KColors.purple : const Color(0xFF2A2150),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => onPick(kind),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(_kindIcon(kind), size: 19, color: Colors.white),
+                      const SizedBox(height: 3),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            label(kind),
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   Widget _chips(List<String> kinds, String selected, ValueChanged<String> onPick) {
@@ -741,14 +742,6 @@ class _EditPanelState extends State<_EditPanel> {
               ),
             ],
           ),
-          if (l.gradOn)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'The gradient covers these colours. Turn it off in Style.',
-                style: TextStyle(fontSize: 11),
-              ),
-            ),
         ],
       ),
     );
@@ -855,10 +848,6 @@ class _EditPanelState extends State<_EditPanel> {
                       _changed();
                     },
                   ),
-                ),
-                const Text(
-                  'Best for icons and drawings. Photos lose their colors.',
-                  style: TextStyle(fontSize: 11),
                 ),
               ],
             ),
@@ -1460,7 +1449,10 @@ class _EditPanelState extends State<_EditPanel> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Stack(
+                child: SizedBox(
+                  height: 50,
+                  child: Stack(
+                  fit: StackFit.expand,
                   children: [
                     Material(
                       color: _animSub == i.$1 ? KColors.purple : const Color(0xFF1E1938),
@@ -1468,12 +1460,10 @@ class _EditPanelState extends State<_EditPanel> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () => setState(() => _animSub = i.$1),
-                        child: SizedBox(
-                          height: 54,
-                          child: Column(
+                        child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(i.$3, size: 21, color: Colors.white),
+                              Icon(i.$3, size: 19, color: Colors.white),
                               const SizedBox(height: 3),
                               FittedBox(
                                 fit: BoxFit.scaleDown,
@@ -1485,11 +1475,11 @@ class _EditPanelState extends State<_EditPanel> {
                               ),
                             ],
                           ),
-                        ),
                       ),
                     ),
-                    if (_partHasAnimation(i.$1)) Positioned(top: 6, right: 7, child: _greenDot()),
+                    if (_partHasAnimation(i.$1)) Positioned(top: 5, right: 6, child: _greenDot()),
                   ],
+                ),
                 ),
               ),
             ),
@@ -1798,6 +1788,8 @@ class _EditPanelState extends State<_EditPanel> {
                           _isText
                               ? 'Customize the selected text on the slide'
                               : 'Customize the selected item on the slide',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6)),
                         ),
                       ],
