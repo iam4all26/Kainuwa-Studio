@@ -128,7 +128,10 @@ class ExportSuccessView extends StatelessWidget {
         children: [
           Expanded(
             flex: 12,
-            child: _Thumb(entry: latest, radius: 14, badgeSize: 12 * _k, aspect: 16 / 9),
+            child: SizedBox(
+              height: 150 * _k,
+              child: _Thumb(entry: latest, radius: 14, badgeSize: 12 * _k, maxHeight: 150 * _k),
+            ),
           ),
           SizedBox(width: 12 * _k),
           Expanded(
@@ -249,7 +252,11 @@ class ExportSuccessView extends StatelessWidget {
             padding: EdgeInsets.all(7 * _k),
             child: Row(
               children: [
-                SizedBox(width: 104 * _k / 0.8, child: _Thumb(entry: e, radius: 10, badgeSize: 10 * _k / 0.8, aspect: 16 / 9)),
+                SizedBox(
+                  width: 104 * _k / 0.8,
+                  height: 62 * _k / 0.8,
+                  child: _Thumb(entry: e, radius: 10, badgeSize: 10 * _k / 0.8, maxHeight: 62 * _k / 0.8),
+                ),
                 SizedBox(width: 10 * _k),
                 Expanded(
                   child: Column(
@@ -312,24 +319,36 @@ class ExportSuccessView extends StatelessWidget {
 
 /// Picture of the video with the play icon and length in the corner.
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.entry, required this.radius, required this.badgeSize, required this.aspect});
+  const _Thumb({required this.entry, required this.radius, required this.badgeSize, required this.maxHeight});
 
   final ExportEntry entry;
   final double radius;
   final double badgeSize;
-  final double aspect;
+  final double maxHeight;
 
   @override
   Widget build(BuildContext context) {
+    // The picture has the shape of the video: wide, tall or square.
+    final aspect = entry.width > 0 && entry.height > 0 ? entry.width / entry.height : 16 / 9;
     Widget picture;
     if (entry.thumbPath.isNotEmpty && File(entry.thumbPath).existsSync()) {
       picture = Image.file(File(entry.thumbPath), fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback());
     } else {
       picture = _fallback();
     }
-    return AspectRatio(
-      aspectRatio: aspect,
-      child: ClipRRect(
+    return LayoutBuilder(builder: (context, box) {
+      var w = box.maxWidth;
+      var h = w / aspect;
+      if (h > maxHeight) {
+        h = maxHeight;
+        w = h * aspect;
+      }
+      return Center(child: SizedBox(width: w, height: h, child: _frame(picture)));
+    });
+  }
+
+  Widget _frame(Widget picture) {
+    return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: Stack(
           fit: StackFit.expand,
@@ -357,7 +376,6 @@ class _Thumb extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 
