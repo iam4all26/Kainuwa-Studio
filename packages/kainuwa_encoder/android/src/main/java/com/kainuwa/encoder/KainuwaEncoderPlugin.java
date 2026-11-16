@@ -259,6 +259,16 @@ public class KainuwaEncoderPlugin
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
         activity = binding.getActivity();
+        // Let the app draw into the camera cutout area (no black strip in landscape).
+        // Done here so it works even when the build workflow cannot patch the theme.
+        try {
+            if (Build.VERSION.SDK_INT >= 28 && activity != null) {
+                WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
+                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                activity.getWindow().setAttributes(lp);
+            }
+        } catch (Throwable ignored) {
+        }
         activityBinding = binding;
         binding.addActivityResultListener(this);
         binding.addRequestPermissionsResultListener(this);
