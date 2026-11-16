@@ -1244,7 +1244,16 @@ public class KainuwaEncoderPlugin
                 done.put(MediaStore.Video.Media.IS_PENDING, 0);
                 resolver.update(uri, done, null, null);
                 lastSavedUri = uri;
-                mainHandler.post(() -> result.success("Movies/Kainuwa Studio/" + name));
+                String finalName = name;
+                try (android.database.Cursor c = resolver.query(uri,
+                        new String[]{MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null)) {
+                    if (c != null && c.moveToFirst() && c.getString(0) != null) {
+                        finalName = c.getString(0);
+                    }
+                } catch (Exception ignored) {
+                }
+                final String shownName = finalName;
+                mainHandler.post(() -> result.success("Movies/Kainuwa Studio/" + shownName));
             } catch (Exception e) {
                 final String message = String.valueOf(e.getMessage());
                 mainHandler.post(() -> result.error("save_failed", message, null));
