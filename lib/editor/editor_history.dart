@@ -50,6 +50,8 @@ class EditorHistory {
     if (data is! Map<String, dynamic>) return;
     final copy = Lesson.fromJson(data);
     lesson.title = copy.title;
+    lesson.aspectW = copy.aspectW;
+    lesson.aspectH = copy.aspectH;
     lesson.musicPath = copy.musicPath;
     lesson.musicVolume = copy.musicVolume;
     lesson.musicFade = copy.musicFade;

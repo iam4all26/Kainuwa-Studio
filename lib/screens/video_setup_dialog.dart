@@ -17,8 +17,21 @@ Future<VideoSetup?> showVideoSetup(BuildContext context) {
   return showDialog<VideoSetup>(context: context, builder: (_) => const _VideoSetupDialog());
 }
 
+/// Lets the person pick a new shape for a video that already exists.
+Future<(int, int)?> showShapePicker(BuildContext context, int currentW, int currentH) async {
+  final setup = await showDialog<VideoSetup>(
+    context: context,
+    builder: (_) => _VideoSetupDialog(askName: false, initW: currentW, initH: currentH),
+  );
+  return setup == null ? null : (setup.aspectW, setup.aspectH);
+}
+
 class _VideoSetupDialog extends StatefulWidget {
-  const _VideoSetupDialog();
+  const _VideoSetupDialog({this.askName = true, this.initW = 16, this.initH = 9});
+
+  final bool askName;
+  final int initW;
+  final int initH;
 
   @override
   State<_VideoSetupDialog> createState() => _VideoSetupDialogState();
@@ -29,6 +42,21 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
   final TextEditingController _cw = TextEditingController(text: '3');
   final TextEditingController _ch = TextEditingController(text: '4');
   int _index = 0; // 0..3 presets, 4 custom
+
+  @override
+  void initState() {
+    super.initState();
+    final hit = kStagePresets.indexWhere((p) => p.w == widget.initW && p.h == widget.initH);
+    if (hit >= 0) {
+      _index = hit;
+    } else if (widget.askName) {
+      _index = 0;
+    } else {
+      _index = kStagePresets.length;
+      _cw.text = '${widget.initW}';
+      _ch.text = '${widget.initH}';
+    }
+  }
 
   bool get _custom => _index >= kStagePresets.length;
 
@@ -139,19 +167,22 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('New video', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              Text(widget.askName ? 'New video' : 'Video shape',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
-              TextField(
-                controller: _name,
-                maxLength: 60,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Video name',
-                  counterText: '',
-                  border: OutlineInputBorder(),
+              if (widget.askName) ...[
+                TextField(
+                  controller: _name,
+                  maxLength: 60,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Video name',
+                    counterText: '',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+              ],
               const Text('Choose the shape', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
               const SizedBox(height: 10),
               // Shows exactly how the video will look.
@@ -212,6 +243,11 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
                   ],
                 ),
               ],
+              if (!widget.askName) ...[
+                const SizedBox(height: 12),
+                const Text('Everything on your slides is resized to fit the new shape. You can undo this.',
+                    style: TextStyle(fontSize: 12.5, color: Colors.white60)),
+              ],
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -221,7 +257,7 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
                   FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: KColors.gold, foregroundColor: KColors.onGold),
                     onPressed: _create,
-                    child: const Text('Create'),
+                    child: Text(widget.askName ? 'Create' : 'Apply'),
                   ),
                 ],
               ),

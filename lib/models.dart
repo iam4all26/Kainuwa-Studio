@@ -310,6 +310,7 @@ class Scene {
     this.videoVolume = 1.0,
     this.videoMuted = false,
     this.phoneFrame = false,
+    this.videoFill = false,
     this.phoneScale = 0.9,
     this.phoneLight = false,
     this.transKind = 'none',
@@ -350,6 +351,9 @@ class Scene {
 
   /// Shows a portrait video inside a phone shape on top of the slide background.
   bool phoneFrame;
+
+  /// A video clip fills the whole frame (edges are cropped) instead of fitting inside it with bars.
+  bool videoFill;
   double phoneScale;
   bool phoneLight;
 
@@ -390,6 +394,7 @@ class Scene {
         videoVolume: videoVolume,
         videoMuted: videoMuted,
         phoneFrame: phoneFrame,
+        videoFill: videoFill,
         phoneScale: phoneScale,
         phoneLight: phoneLight,
         transKind: transKind,
@@ -415,6 +420,7 @@ class Scene {
         'videoVolume': videoVolume,
         'videoMuted': videoMuted,
         'phoneFrame': phoneFrame,
+        'videoFill': videoFill,
         'phoneScale': phoneScale,
         'phoneLight': phoneLight,
         'transKind': transKind,
@@ -448,6 +454,7 @@ class Scene {
       videoVolume: _num(json['videoVolume'], 1.0),
       videoMuted: json['videoMuted'] is bool ? json['videoMuted'] as bool : false,
       phoneFrame: json['phoneFrame'] is bool ? json['phoneFrame'] as bool : false,
+      videoFill: json['videoFill'] is bool ? json['videoFill'] as bool : false,
       phoneScale: _num(json['phoneScale'], 0.9),
       phoneLight: json['phoneLight'] is bool ? json['phoneLight'] as bool : false,
       transKind: _str(json['transKind'], 'none'),

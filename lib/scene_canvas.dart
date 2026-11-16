@@ -524,10 +524,11 @@ class VideoFrames {
 
 /// Shows a video as a quick series of frames while the lesson plays.
 class LiveVideoFrame extends StatefulWidget {
-  const LiveVideoFrame({super.key, required this.path, required this.ms});
+  const LiveVideoFrame({super.key, required this.path, required this.ms, this.fill = false});
 
   final String path;
   final int ms;
+  final bool fill;
 
   @override
   State<LiveVideoFrame> createState() => _LiveVideoFrameState();
@@ -585,7 +586,7 @@ class _LiveVideoFrameState extends State<LiveVideoFrame> {
           ? const SizedBox.expand()
           : Image.memory(
               bytes,
-              fit: BoxFit.contain,
+              fit: widget.fill ? BoxFit.cover : BoxFit.contain,
               width: double.infinity,
               height: double.infinity,
               gaplessPlayback: true,
@@ -596,10 +597,11 @@ class _LiveVideoFrameState extends State<LiveVideoFrame> {
 
 /// Plays a video smoothly through a native texture, with a still frame underneath.
 class LiveVideo extends StatefulWidget {
-  const LiveVideo({super.key, required this.path, required this.ms});
+  const LiveVideo({super.key, required this.path, required this.ms, this.fill = false});
 
   final String path;
   final int ms;
+  final bool fill;
 
   @override
   State<LiveVideo> createState() => _LiveVideoState();
@@ -720,7 +722,7 @@ class _LiveVideoState extends State<LiveVideo> {
   @override
   Widget build(BuildContext context) {
     if (_failed) {
-      return LiveVideoFrame(path: widget.path, ms: widget.ms);
+      return LiveVideoFrame(path: widget.path, ms: widget.ms, fill: widget.fill);
     }
     final id = _texture;
     return ColoredBox(
@@ -734,8 +736,22 @@ class _LiveVideoState extends State<LiveVideo> {
               builder: (context, snap) {
                 final file = snap.data;
                 if (file == null) return const SizedBox.expand();
-                return Image.file(File(file), fit: BoxFit.contain);
+                return Image.file(File(file),
+                    fit: widget.fill ? BoxFit.cover : BoxFit.contain,
+                    width: double.infinity,
+                    height: double.infinity);
               },
+            )
+          else if (widget.fill)
+            ClipRect(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _aspect * 1000,
+                  height: 1000,
+                  child: Texture(textureId: id),
+                ),
+              ),
             )
           else
             Center(
@@ -871,6 +887,7 @@ class SceneBackground extends StatelessWidget {
         key: ValueKey('live-${scene.id}'),
         path: scene.videoPath,
         ms: scene.videoStartMs + liveMs!,
+        fill: scene.videoFill && !scene.phoneFrame,
       );
     }
     if (showVideo) {
@@ -885,7 +902,7 @@ class SceneBackground extends StatelessWidget {
             }
             return Image.file(
               File(file),
-              fit: BoxFit.contain,
+              fit: scene.videoFill && !scene.phoneFrame ? BoxFit.cover : BoxFit.contain,
               width: double.infinity,
               height: double.infinity,
               gaplessPlayback: true,

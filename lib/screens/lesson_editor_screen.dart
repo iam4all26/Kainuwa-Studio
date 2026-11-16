@@ -27,12 +27,14 @@ import '../models.dart';
 import '../store/store_graphics_sheet.dart';
 import '../svg/svg_raster.dart';
 import '../scene_canvas.dart';
+import '../shape_fit.dart';
 import '../stage_shape.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'audio_sheet.dart';
 import 'editor_sheets.dart';
 import 'export_screen.dart';
+import 'video_setup_dialog.dart';
 
 /// Width and height (as fractions of the slide) for an item with the given
 /// picture shape, kept inside the given limits.
@@ -291,6 +293,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (lesson == null || history == null) return;
     _pause();
     if (history.undo(lesson)) {
+      Stage.use(lesson.aspectW, lesson.aspectH);
       _player?.clampToLesson();
       setState(() {
         _selectedId = null;
@@ -307,6 +310,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (lesson == null || history == null) return;
     _pause();
     if (history.redo(lesson)) {
+      Stage.use(lesson.aspectW, lesson.aspectH);
       _player?.clampToLesson();
       setState(() {
         _selectedId = null;
@@ -1195,6 +1199,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
           bgValue: '4278190080',
           videoPath: path,
           videoMs: ms,
+          videoFill: true,
         ),
       );
       if (firstAt < 0) firstAt = insertAt;
@@ -1411,6 +1416,17 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                       ? null
                       : (v) => setSheet(() => scene.videoVolume = v),
                 ),
+                if (!scene.phoneFrame)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Fill the frame'),
+                    subtitle: const Text('Crops the edges so there are no black bars'),
+                    value: scene.videoFill,
+                    onChanged: (v) {
+                      setSheet(() => scene.videoFill = v);
+                      if (mounted) setState(() {});
+                    },
+                  ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Phone frame'),
@@ -2544,6 +2560,21 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
   }
 
+  /// Opens the shape picker; every item is resized to fit the new shape.
+  Future<void> _changeShape() async {
+    final lesson = _lesson();
+    if (lesson == null) return;
+    final pick = await showShapePicker(context, lesson.aspectW, lesson.aspectH);
+    if (pick == null || !mounted) return;
+    if (pick.$1 == lesson.aspectW && pick.$2 == lesson.aspectH) return;
+    applyVideoShape(lesson, pick.$1, pick.$2);
+    Stage.use(lesson.aspectW, lesson.aspectH);
+    _selectedId = null;
+    _soundSel = null;
+    _sceneSelected = false;
+    await _commit();
+  }
+
   Future<void> _navTap(int index) async {
     _pause();
     setState(() => _tab = index);
@@ -2561,6 +2592,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _setDuration();
         break;
       case 4:
+        await _changeShape();
+        break;
+      case 5:
         _toggleOrientation();
         break;
     }
@@ -2574,6 +2608,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       (Icons.add_box_outlined, 'Add'),
       (Icons.mic_none, 'Sound'),
       (Icons.timer_outlined, 'Time'),
+      (Icons.aspect_ratio, 'Shape'),
       (
         MediaQuery.of(context).orientation == Orientation.landscape
             ? Icons.stay_current_portrait
@@ -2644,6 +2679,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       (Icons.add_box_outlined, 'Add'),
       (Icons.mic_none, 'Sound'),
       (Icons.timer_outlined, 'Time'),
+      (Icons.aspect_ratio, 'Shape'),
       (
         MediaQuery.of(context).orientation == Orientation.landscape
             ? Icons.stay_current_portrait

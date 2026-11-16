@@ -21,6 +21,7 @@ Scene viewScene(Scene scene, Set<String> hidden) {
     videoMs: scene.videoMs,
     videoVolume: scene.videoVolume,
     videoMuted: scene.videoMuted,
+    videoFill: scene.videoFill,
     layers: scene.layers.where((l) => l.type == 'text' ? !hideText : !hideImage).toList(),
   );
 }

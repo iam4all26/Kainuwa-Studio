@@ -738,6 +738,7 @@ public class KainuwaEncoderPlugin
     private final List<String> lessonVideoPaths = new ArrayList<>();
     private final List<Long> lessonVideoStarts = new ArrayList<>();
     private final List<Double> lessonVideoScales = new ArrayList<>();
+    private final List<Boolean> lessonVideoFills = new ArrayList<>();
     private final List<TransitionEffect.Spec> lessonTransitions = new ArrayList<>();
 
     // Live preview frames: one reader stays open so each frame is quicker to get.
@@ -877,6 +878,7 @@ public class KainuwaEncoderPlugin
         lessonVideoPaths.clear();
         lessonVideoStarts.clear();
         lessonVideoScales.clear();
+        lessonVideoFills.clear();
         lessonTransitions.clear();
         final List<Map<String, Object>> rawTransitions = call.argument("transitions");
         if (rawTransitions != null) {
@@ -902,6 +904,7 @@ public class KainuwaEncoderPlugin
             Object vid = sc.get("video");
             lessonVideoPaths.add(vid instanceof String && !((String) vid).isEmpty() ? (String) vid : null);
             lessonVideoStarts.add(longOf(sc.get("videoStartMs"), 0));
+            lessonVideoFills.add(Boolean.TRUE.equals(sc.get("videoFill")));
             lessonVideoScales.add(sc.get("videoScale") instanceof Number ? ((Number) sc.get("videoScale")).doubleValue() : 1.0);
             durations.add(dur);
             totalMs += dur;
@@ -1102,9 +1105,12 @@ public class KainuwaEncoderPlugin
                         .build();
             }
             List<Effect> effects = new ArrayList<>();
-            effects.add(Presentation.createForWidthAndHeight(
-                    width, height, Presentation.LAYOUT_SCALE_TO_FIT));
             double vScale = i < lessonVideoScales.size() ? lessonVideoScales.get(i) : 1.0;
+            boolean fillFrame = videoPath != null && i < lessonVideoFills.size()
+                    && lessonVideoFills.get(i) && vScale >= 0.999;
+            effects.add(Presentation.createForWidthAndHeight(
+                    width, height,
+                    fillFrame ? Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP : Presentation.LAYOUT_SCALE_TO_FIT));
             if (videoPath != null && vScale > 0.05 && vScale < 0.999) {
                 // Phone frame: shrink the video into the phone screen; the frame picture hides the rest.
                 effects.add(new androidx.media3.effect.ScaleAndRotateTransformation.Builder()
