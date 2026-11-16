@@ -369,9 +369,10 @@ class CoursesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final courses = AppScope.of(context).courses;
 
-    return SafeArea(
+    return Stack(children: [
+      Positioned.fill(child: SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
           Row(
             children: [
@@ -465,6 +466,19 @@ class CoursesTab extends StatelessWidget {
             for (final course in courses) _projectCard(context, course),
         ],
       ),
-    );
+    )),
+      Positioned(
+        right: 18,
+        bottom: 18,
+        child: FloatingActionButton(
+          heroTag: 'create_video_fab',
+          backgroundColor: KColors.gold,
+          foregroundColor: KColors.onGold,
+          tooltip: 'Create video',
+          onPressed: () => _create(context),
+          child: const Icon(Icons.add, size: 32),
+        ),
+      ),
+    ]);
   }
 }
