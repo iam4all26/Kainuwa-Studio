@@ -9,6 +9,8 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Draw behind the status bar and the camera cutout (the editor handles safe areas itself).
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await StoreService.instance.init();
   runApp(const KainuwaStudioApp());
 }
