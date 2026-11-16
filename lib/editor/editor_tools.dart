@@ -344,11 +344,43 @@ class _LayersSheetState extends State<_LayersSheet> {
 /// What to add from the Sound button. Returns narration, clip or sfx.
 Future<String?> showSoundChooser(BuildContext context) {
   Widget option(BuildContext c, IconData icon, String title, String subtitle, String value) {
-    return ListTile(
-      leading: Icon(icon, color: KColors.purple),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      onTap: () => Navigator.of(c).pop(value),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(c).pop(value),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2250),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: KColors.selected,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -363,9 +395,10 @@ Future<String?> showSoundChooser(BuildContext context) {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
             child: _sheetTitle('Sound'),
           ),
-          option(c, Icons.mic_none, 'Narration and music', 'Record or import the narration of this slide, or set the music of the video', 'narration'),
-          option(c, Icons.library_music_outlined, 'Music or audio clip', 'Place an audio file on the timeline at the playhead', 'clip'),
-          option(c, Icons.graphic_eq, 'Sound effect', 'Place a short sound at the playhead', 'sfx'),
+          option(c, Icons.mic_none, 'Narration and music', 'Record or import narration, or set the video music', 'narration'),
+          option(c, Icons.library_music_outlined, 'Music or audio clip', 'Add an audio file at the playhead', 'clip'),
+          option(c, Icons.graphic_eq, 'Sound effect', 'Add a short sound at the playhead', 'sfx'),
+          const SizedBox(height: 8),
         ],
       ),
     ),
