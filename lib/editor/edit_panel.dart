@@ -1294,9 +1294,37 @@ class _EditPanelState extends State<_EditPanel> {
         children: [
           Row(
             children: [
-              Expanded(child: OutlinedButton(onPressed: () => run(false), child: const Text('This slide'))),
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => run(false),
+                  child: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('This slide', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: FilledButton(onPressed: () => run(true), child: const Text('Whole video'))),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => run(true),
+                  child: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Whole video', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
             ],
           ),
         ],

@@ -1833,6 +1833,15 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     return '${(total ~/ 60).toString().padLeft(2, '0')}:${(total % 60).toString().padLeft(2, '0')}';
   }
 
+  /// Turns the editor between portrait and landscape (same setting as in Settings).
+  void _toggleOrientation() {
+    final state = AppScope.read(context);
+    final toLandscape = !state.settings.landscape;
+    state.updateSettings(state.settings.copyWith(orientation: toLandscape ? 'landscape' : 'portrait'));
+    AppState.editorLandscape = toLandscape;
+    AppState.setOrientation(landscape: toLandscape);
+  }
+
   Widget _headerIcon(double u, IconData icon, VoidCallback? onTap, {String? tooltip}) {
     return IconButton(
       tooltip: tooltip,
@@ -1877,6 +1886,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   fontWeight: FontWeight.w800,
                 ),
               ),
+            ),
+            _headerIcon(
+              u,
+              MediaQuery.of(context).orientation == Orientation.landscape
+                  ? Icons.stay_current_portrait
+                  : Icons.stay_current_landscape,
+              _toggleOrientation,
+              tooltip: 'Rotate editor',
             ),
             _headerIcon(u, Icons.undo, (history?.canUndo ?? false) ? _undo : null, tooltip: 'Undo'),
             _headerIcon(u, Icons.redo, (history?.canRedo ?? false) ? _redo : null, tooltip: 'Redo'),

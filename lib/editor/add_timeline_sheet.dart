@@ -1,7 +1,7 @@
-import 'side_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'side_sheet.dart';
 
 /// "Add to Timeline" sheet. Returns one of: slide, duplicate, image,
 /// illustration, shape, text, subtitles, drawing, audio, video, screen, voice,
@@ -16,129 +16,91 @@ Future<String?> showAddTimelineSheet(BuildContext context) {
   );
 }
 
+typedef _Item = (IconData, Color, String, String);
+
 class _AddTimelineSheet extends StatelessWidget {
   const _AddTimelineSheet();
+
+  static const _blue = Color(0xFF2F80ED);
+  static const _orange = Color(0xFFF2994A);
+  static const _pink = Color(0xFFE0407B);
+  static const _green = Color(0xFF1FA463);
+  static const _red = Color(0xFFE5532D);
 
   Widget _section(IconData icon, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(10, 5, 16, 5),
-          decoration: BoxDecoration(
-            color: const Color(0x33B9A8F0),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: KColors.purple),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: KColors.ink),
-              ),
-            ],
-          ),
-        ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: KColors.purple),
+          const SizedBox(width: 8),
+          Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: KColors.ink)),
+          const SizedBox(width: 10),
+          const Expanded(child: Divider(height: 1, color: Color(0x1FFFFFFF))),
+        ],
       ),
     );
   }
 
-  Widget _tile(
-    BuildContext context, {
-    required IconData icon,
-    required Color accent,
-    required String title,
-    required String subtitle,
-    required String value,
-    bool compact = false,
-  }) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Material(
-          color: Color.alphaBlend(accent.withAlpha(28), const Color(0xFF211A3F)),
-          borderRadius: BorderRadius.circular(16),
-          elevation: 0.5,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => Navigator.of(context).pop(value),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: compact ? 10 : 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: compact ? 28 : 32, color: accent),
-                  const SizedBox(width: 8),
-                  Expanded(
+  /// Tiles in a grid. The number per row follows the width (2 to 5), and every label is shown in full.
+  Widget _grid(BuildContext context, List<_Item> items) {
+    return LayoutBuilder(builder: (context, box) {
+      const gap = 8.0;
+      final cols = ((box.maxWidth + gap) / (84 + gap)).floor().clamp(2, 5).toInt();
+      final w = ((box.maxWidth - gap * (cols - 1)) / cols).floorToDouble();
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          for (final it in items)
+            SizedBox(
+              width: w,
+              height: 72,
+              child: Material(
+                color: Color.alphaBlend(it.$2.withAlpha(22), const Color(0xFF211A3F)),
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => Navigator.of(context).pop(it.$4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        Icon(it.$1, size: 24, color: it.$2),
+                        const SizedBox(height: 5),
                         Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: KColors.ink),
+                          it.$3,
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: KColors.ink, height: 1.1),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 18, color: KColors.ink),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _small(BuildContext context, IconData icon, String title, String value) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Material(
-          color: const Color(0xFF211A3F),
-          borderRadius: BorderRadius.circular(14),
-          elevation: 0.5,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => Navigator.of(context).pop(value),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 26, color: KColors.purple),
-                  const SizedBox(height: 4),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: KColors.ink)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+        ],
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height * 0.9;
+    final mq = MediaQuery.of(context);
+    final side = mq.orientation == Orientation.landscape;
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
+      constraints: BoxConstraints(maxHeight: side ? double.infinity : mq.size.height * 0.9),
       child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
+        height: side ? double.infinity : null,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [Color(0xFF1A1333), Color(0xFF251C47)],
           ),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          borderRadius: side ? BorderRadius.zero : const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: SafeArea(
           top: false,
@@ -147,87 +109,68 @@ class _AddTimelineSheet extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(color: const Color(0xFF5A4C8E), borderRadius: BorderRadius.circular(3)),
+                if (!side)
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(color: const Color(0xFF5A4C8E), borderRadius: BorderRadius.circular(3)),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
+                SizedBox(height: side ? 4 : 10),
                 Row(
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(colors: [KColors.purple, Color(0xFF8B3DF0)]),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.movie_creation_outlined, color: Colors.white, size: 32),
+                      child: const Icon(Icons.movie_creation_outlined, color: Colors.white, size: 26),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Add to Timeline',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: KColors.ink),
-                          ),
-                        ],
+                      child: Text(
+                        'Add to Timeline',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: KColors.ink),
                       ),
                     ),
-                    IconButton.filledTonal(
+                    IconButton(
+                      tooltip: 'Close',
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close),
                     ),
                   ],
                 ),
                 _section(Icons.layers_outlined, 'Scene'),
-                Row(
-                  children: [
-                    _tile(context, icon: Icons.add_box_outlined, accent: KColors.purple, title: 'New Slide', subtitle: 'Add a new scene after the current one', value: 'slide'),
-                    _tile(context, icon: Icons.copy_all_outlined, accent: KColors.purple, title: 'Duplicate Slide', subtitle: 'Create a copy of the current scene', value: 'duplicate'),
-                  ],
-                ),
+                _grid(context, const [
+                  (Icons.add_box_outlined, KColors.purple, 'New Slide', 'slide'),
+                  (Icons.copy_all_outlined, KColors.purple, 'Duplicate Slide', 'duplicate'),
+                ]),
                 _section(Icons.image_outlined, 'Visual Elements'),
-                Row(
-                  children: [
-                    _tile(context, icon: Icons.image, accent: const Color(0xFF2F80ED), title: 'Add Image', subtitle: 'Insert a photo from your device', value: 'image', compact: true),
-                    _tile(context, icon: Icons.emoji_objects, accent: KColors.purple, title: 'Add Illustration', subtitle: 'Use icons, graphics or illustrations', value: 'illustration', compact: true),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _tile(context, icon: Icons.crop_square, accent: const Color(0xFFF2994A), title: 'Add Shape', subtitle: 'Insert a shape (box, circle, etc.)', value: 'shape', compact: true),
-                    _tile(context, icon: Icons.title, accent: KColors.purple, title: 'Add Text', subtitle: 'Insert a text box (title, caption, etc.)', value: 'text', compact: true),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _tile(context, icon: Icons.closed_caption_outlined, accent: const Color(0xFF2F80ED), title: 'Add Subtitles', subtitle: 'Insert a caption at the bottom of the slide', value: 'subtitles', compact: true),
-                    _tile(context, icon: Icons.draw_outlined, accent: const Color(0xFFE0407B), title: 'Add Drawing', subtitle: 'Draw or highlight on the slide', value: 'drawing', compact: true),
-                  ],
-                ),
+                _grid(context, const [
+                  (Icons.image, _blue, 'Add Image', 'image'),
+                  (Icons.emoji_objects, KColors.purple, 'Add Illustration', 'illustration'),
+                  (Icons.crop_square, _orange, 'Add Shape', 'shape'),
+                  (Icons.title, KColors.purple, 'Add Text', 'text'),
+                  (Icons.closed_caption_outlined, _blue, 'Add Subtitles', 'subtitles'),
+                  (Icons.draw_outlined, _pink, 'Add Drawing', 'drawing'),
+                ]),
                 _section(Icons.play_circle_outline, 'Media'),
-                Row(
-                  children: [
-                    _tile(context, icon: Icons.headphones, accent: const Color(0xFF1FA463), title: 'Add Audio', subtitle: 'Record narration, add music or sound effect', value: 'audio'),
-                    _tile(context, icon: Icons.videocam, accent: const Color(0xFFE5532D), title: 'Add Video', subtitle: 'Insert a video clip (MP4, MOV, etc.)', value: 'video'),
-                  ],
-                ),
+                _grid(context, const [
+                  (Icons.headphones, _green, 'Add Audio', 'audio'),
+                  (Icons.videocam, _red, 'Add Video', 'video'),
+                ]),
                 _section(Icons.settings_outlined, 'More Options'),
-                Row(
-                  children: [
-                    _small(context, Icons.videocam_outlined, 'Screen Recording', 'screen'),
-                    _small(context, Icons.mic_none, 'Record Voice', 'voice'),
-                    _small(context, Icons.graphic_eq, 'Add Sound Effect', 'sfx'),
-                    _small(context, Icons.folder_open, 'From Library', 'library'),
-                  ],
-                ),
+                _grid(context, const [
+                  (Icons.videocam_outlined, Colors.white, 'Screen Recording', 'screen'),
+                  (Icons.mic_none, Colors.white, 'Record Voice', 'voice'),
+                  (Icons.graphic_eq, Colors.white, 'Add Sound Effect', 'sfx'),
+                  (Icons.folder_open, Colors.white, 'From Library', 'library'),
+                ]),
               ],
             ),
           ),

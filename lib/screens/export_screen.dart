@@ -698,6 +698,171 @@ class _ExportScreenState extends State<ExportScreen> {
     return '$m:$r';
   }
 
+  /// The page shown while exporting: ring with the percentage, the steps and Cancel.
+  Widget _exportingView() {
+    final pct = (_progress * 100).clamp(0, 100).round();
+    final videoPct = (((_progress - 0.35) / 0.65) * 100).clamp(0, 100).round();
+    final finalizing = _phase == 2 && _progress >= 0.995;
+    // 0 waiting, 1 working, 2 done
+    final steps = <(String, int)>[
+      ('Preparing project', _phase > 0 ? 2 : 1),
+      ('Mixing audio', _phase > 1 ? 2 : (_phase == 1 ? 1 : 0)),
+      (_phase == 2 && !finalizing ? 'Processing video ($videoPct%)' : 'Processing video',
+          finalizing ? 2 : (_phase == 2 ? 1 : 0)),
+      ('Finalizing', finalizing ? 1 : 0),
+    ];
+
+    Widget stepIcon(int st) {
+      if (st == 2) {
+        return Container(
+          width: 26,
+          height: 26,
+          decoration: const BoxDecoration(color: KColors.purple, shape: BoxShape.circle),
+          child: const Icon(Icons.check, size: 17, color: Colors.white),
+        );
+      }
+      if (st == 1) {
+        return const SizedBox(
+          width: 26,
+          height: 26,
+          child: Padding(
+            padding: EdgeInsets.all(2),
+            child: CircularProgressIndicator(strokeWidth: 3, color: KColors.gold),
+          ),
+        );
+      }
+      return Container(
+        width: 26,
+        height: 26,
+        decoration: const BoxDecoration(color: Color(0x33FFFFFF), shape: BoxShape.circle),
+        child: const Icon(Icons.check, size: 17, color: Color(0x55FFFFFF)),
+      );
+    }
+
+    final list = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x1FFFFFFF)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < steps.length; i++) ...[
+            if (i > 0) const Divider(height: 1, color: Color(0x1FFFFFFF)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              child: Row(
+                children: [
+                  stepIcon(steps[i].$2),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      steps[i].$1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: steps[i].$2 == 1 ? FontWeight.w700 : FontWeight.w500,
+                        color: steps[i].$2 == 0 ? Colors.white54 : Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final cancel = SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 50),
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Color(0x66B9A8F0), width: 1.4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        onPressed: _cancel,
+        child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      ),
+    );
+
+    return LayoutBuilder(builder: (context, box) {
+      final wide = box.maxWidth > box.maxHeight * 1.15;
+      final raw = wide ? box.maxHeight * 0.58 : (box.maxWidth * 0.62 < box.maxHeight * 0.34 ? box.maxWidth * 0.62 : box.maxHeight * 0.34);
+      final ringSize = raw.clamp(120.0, 260.0).toDouble();
+      final ring = SizedBox(
+        width: ringSize,
+        height: ringSize,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: _progress.clamp(0.0, 1.0)),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          builder: (context, v, _) => CustomPaint(
+            painter: _RingPainter(v),
+            child: Center(
+              child: Text(
+                '$pct%',
+                style: TextStyle(fontSize: ringSize * 0.25, fontWeight: FontWeight.w800, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
+      const title = Text('Exporting...', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white));
+      final sub = Column(
+        children: [
+          const Text('Rendering your video...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white)),
+          const SizedBox(height: 4),
+          Text('Elapsed ${_elapsed()}', style: const TextStyle(fontSize: 12.5, color: Colors.white54)),
+        ],
+      );
+      if (wide) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [title, const SizedBox(height: 12), ring, const SizedBox(height: 12), sub],
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [list, const SizedBox(height: 14), cancel],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          children: [
+            title,
+            const SizedBox(height: 22),
+            ring,
+            const SizedBox(height: 16),
+            sub,
+            const SizedBox(height: 22),
+            list,
+            const SizedBox(height: 16),
+            cancel,
+          ],
+        ),
+      );
+    });
+  }
+
   Widget _progressCard() {
     final pct = (_progress * 100).clamp(0, 100).round();
     const steps = ['Slides', 'Sound', 'Video'];
@@ -997,7 +1162,7 @@ class _ExportScreenState extends State<ExportScreen> {
     );
 
     // The final page: watermark switch, then the progress and the finished video.
-    final runContent = ListView(
+    final Widget runContent = _busy ? _exportingView() : ListView(
       padding: const EdgeInsets.all(16),
       children: [
         card(Row(
@@ -1078,7 +1243,7 @@ class _ExportScreenState extends State<ExportScreen> {
         if (!didPop && !_busy && _runPage) setState(() => _runPage = false);
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(_runPage ? 'Exporting' : 'Export Video')),
+        appBar: AppBar(title: Text(_runPage ? (_busy ? '' : 'Exporting') : 'Export Video')),
         body: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1101,4 +1266,37 @@ class _ExportScreenState extends State<ExportScreen> {
       ),
     );
   }
+}
+
+
+class _RingPainter extends CustomPainter {
+  _RingPainter(this.value);
+
+  final double value;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.width * 0.085;
+    final rect = Rect.fromLTWH(stroke / 2, stroke / 2, size.width - stroke, size.height - stroke);
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = const Color(0x33FFFFFF);
+    canvas.drawArc(rect, 0, 6.2831853, false, track);
+    if (value <= 0) return;
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = stroke
+      ..shader = const SweepGradient(
+        startAngle: 0,
+        endAngle: 6.2831853,
+        colors: [Color(0xFF7351FF), Color(0xFFB45CF5), Color(0xFFE879F9)],
+        transform: GradientRotation(-1.5707963),
+      ).createShader(rect);
+    canvas.drawArc(rect, -1.5707963, 6.2831853 * value.clamp(0.0, 1.0), false, arc);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.value != value;
 }
