@@ -475,18 +475,123 @@ class _EditPanelState extends State<_EditPanel> {
     );
   }
 
-  Widget _chips(List<String> kinds, String selected, ValueChanged<String> onPick) {
+  IconData _kindIcon(String kind) {
+    switch (kind) {
+      case 'none':
+        return Icons.block;
+      case 'appear':
+        return Icons.visibility_outlined;
+      case 'fade':
+        return Icons.blur_on;
+      case 'slide':
+      case 'wordslide':
+        return Icons.arrow_right_alt;
+      case 'pop':
+      case 'wordpop':
+        return Icons.open_in_full;
+      case 'zoom':
+        return Icons.zoom_in;
+      case 'draw':
+        return Icons.edit_outlined;
+      case 'spin':
+        return Icons.rotate_right;
+      case 'spinback':
+        return Icons.rotate_left;
+      case 'swing':
+        return Icons.sync_alt;
+      case 'wobble':
+        return Icons.waves;
+      case 'shake':
+        return Icons.vibration;
+      case 'pulse':
+        return Icons.radio_button_checked;
+      case 'heartbeat':
+        return Icons.favorite_border;
+      case 'float':
+        return Icons.cloud_queue;
+      case 'bounce':
+        return Icons.height;
+      case 'blink':
+        return Icons.lightbulb_outline;
+      case 'flip':
+        return Icons.flip;
+      case 'letter':
+        return Icons.text_fields;
+      case 'word':
+        return Icons.short_text;
+      case 'line':
+        return Icons.format_align_left;
+      default:
+        return Icons.auto_awesome_outlined;
+    }
+  }
+
+  /// Rounded icon tiles, one per choice.
+  Widget _tiles(List<String> kinds, String selected, String Function(String) label, ValueChanged<String> onPick) {
     return Wrap(
       spacing: 8,
-      runSpacing: 4,
+      runSpacing: 8,
       children: [
         for (final kind in kinds)
-          ChoiceChip(
-            label: Text(animLabel(kind)),
-            selected: selected == kind,
-            onSelected: (_) => onPick(kind),
+          Material(
+            color: selected == kind ? KColors.purple : const Color(0xFF2A2150),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => onPick(kind),
+              child: SizedBox(
+                width: 74,
+                height: 62,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(_kindIcon(kind), size: 22, color: Colors.white),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label(kind),
+                          maxLines: 1,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
+    );
+  }
+
+  Widget _chips(List<String> kinds, String selected, ValueChanged<String> onPick) {
+    return _tiles(kinds, selected, animLabel, onPick);
+  }
+
+  /// A card without a title (the sub tab above already names it). Keeps the help icon where one exists.
+  Widget _animCard(String title, IconData icon, Widget child) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1938),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_cardHelp.containsKey(title))
+            Align(
+              alignment: Alignment.centerRight,
+              child: HelpIcon(_cardHelp[title]!, title: title),
+            ),
+          child,
+        ],
+      ),
     );
   }
 
@@ -1339,28 +1444,44 @@ class _EditPanelState extends State<_EditPanel> {
     if (!items.any((i) => i.$1 == _animSub)) _animSub = 'in';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
+      child: Row(
         children: [
           for (final i in items)
-            Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                ChoiceChip(
-                  avatar: Icon(i.$3, size: 16, color: Colors.white),
-                  label: Text(i.$2),
-                  selected: _animSub == i.$1,
-                  selectedColor: KColors.purple,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: _animSub == i.$1 ? Colors.white : KColors.ink,
-                  ),
-                  showCheckmark: false,
-                  onSelected: (_) => setState(() => _animSub = i.$1),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Stack(
+                  children: [
+                    Material(
+                      color: _animSub == i.$1 ? KColors.purple : const Color(0xFF1E1938),
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => setState(() => _animSub = i.$1),
+                        child: SizedBox(
+                          height: 54,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(i.$3, size: 21, color: Colors.white),
+                              const SizedBox(height: 3),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  i.$2,
+                                  maxLines: 1,
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_partHasAnimation(i.$1)) Positioned(top: 6, right: 7, child: _greenDot()),
+                  ],
                 ),
-                if (_partHasAnimation(i.$1)) Positioned(bottom: 1, child: _greenDot()),
-              ],
+              ),
             ),
         ],
       ),
@@ -1373,7 +1494,7 @@ class _EditPanelState extends State<_EditPanel> {
     return Column(
       children: [
         _animSubBar(),
-        _sub('time', _card(
+        _sub('time', _animCard(
           'On screen',
           Icons.timer_outlined,
           Column(
@@ -1425,7 +1546,7 @@ class _EditPanelState extends State<_EditPanel> {
             ],
           ),
         )),
-        _sub('in', _card(
+        _sub('in', _animCard(
           'In animation',
           Icons.login,
           Column(
@@ -1479,33 +1600,22 @@ class _EditPanelState extends State<_EditPanel> {
             ],
           ),
         )),
-        _sub('hand', _card(
+        _sub('hand', _animCard(
           'Hand reveal',
           Icons.pan_tool_outlined,
           HandPicker(layer: l, onChanged: _changed),
         )),
         if (_isText)
-          _sub('text', _card(
+          _sub('text', _animCard(
             'Text animation',
             Icons.text_fields,
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final kind in kTextAnimKinds)
-                      ChoiceChip(
-                        label: Text(textAnimLabel(kind)),
-                        selected: l.textAnim == kind,
-                        onSelected: (_) {
-                          l.textAnim = kind;
-                          _changed();
-                        },
-                      ),
-                  ],
-                ),
+                _tiles(kTextAnimKinds, l.textAnim, textAnimLabel, (k) {
+                  l.textAnim = k;
+                  _changed();
+                }),
                 if (l.textAnim != 'none') ...[
                   const SizedBox(height: 8),
                   _labeled(
@@ -1545,27 +1655,16 @@ class _EditPanelState extends State<_EditPanel> {
               ],
             ),
           )),
-        _sub('overall', _card(
+        _sub('overall', _animCard(
           'Overall animation',
           Icons.autorenew,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final kind in kLoopKinds)
-                    ChoiceChip(
-                      label: Text(loopLabel(kind)),
-                      selected: l.animLoop == kind,
-                      onSelected: (_) {
-                        l.animLoop = kind;
-                        _changed();
-                      },
-                    ),
-                ],
-              ),
+              _tiles(kLoopKinds, l.animLoop, loopLabel, (k) {
+                  l.animLoop = k;
+                  _changed();
+                }),
               if (l.animLoop != 'none') ...[
                 const SizedBox(height: 8),
                 _labeled(
@@ -1588,7 +1687,7 @@ class _EditPanelState extends State<_EditPanel> {
             ],
           ),
         )),
-        _sub('out', _card(
+        _sub('out', _animCard(
           'Out animation',
           Icons.logout,
           Column(
