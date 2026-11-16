@@ -232,30 +232,6 @@ jobs:
                       print("Fingerprint: patched", f)
           PYCODE
 
-      - name: Let the app use the display cutout area (landscape camera notch)
-        run: |
-          python3 - <<'PYCODE'
-          from pathlib import Path
-          import re
-          src = Path("android/app/src/main/res/values/styles.xml")
-          if not src.exists():
-              print("No values/styles.xml, skipping cutout fix.")
-              raise SystemExit(0)
-          text = src.read_text(encoding="utf-8")
-          out = ['<?xml version="1.0" encoding="utf-8"?>', '<resources>']
-          for name in ("LaunchTheme", "NormalTheme"):
-              m = re.search(r'<style\s+name="' + name + r'"\s+parent="([^"]+)"', text)
-              parent = m.group(1) if m else "@android:style/Theme.Light.NoTitleBar"
-              out.append('    <style name="' + name + '" parent="' + parent + '">')
-              out.append('        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>')
-              out.append('    </style>')
-          out.append('</resources>')
-          dst = Path("android/app/src/main/res/values-v28")
-          dst.mkdir(parents=True, exist_ok=True)
-          (dst / "styles.xml").write_text("\n".join(out) + "\n", encoding="utf-8")
-          print("Wrote values-v28/styles.xml with cutout mode shortEdges")
-          PYCODE
-
       - name: Wire AdMob (app_admob_id.txt holds the AdMob App ID)
         run: |
           if [ ! -f app_admob_id.txt ]; then
