@@ -1,3 +1,4 @@
+import '../editor/side_sheet.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ Future<InstalledItem?> showStoreGraphicsSheet(BuildContext context) {
     ...StoreService.instance.ofType('icon'),
     ...StoreService.instance.ofType('image'),
   ];
-  return showModalBottomSheet<InstalledItem>(
+  return showEditorSheet<InstalledItem>(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => _GraphicsSheet(items: items),

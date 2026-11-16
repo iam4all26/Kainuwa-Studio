@@ -1,3 +1,4 @@
+import '../editor/side_sheet.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -22,7 +23,7 @@ class BackgroundChoice {
 }
 
 Future<BackgroundChoice?> showBackgroundSheet(BuildContext context) {
-  return showModalBottomSheet<BackgroundChoice>(
+  return showEditorSheet<BackgroundChoice>(
     context: context,
     isScrollControlled: true,
     builder: (_) => const FractionallySizedBox(heightFactor: 0.8, child: _BackgroundSheet()),
@@ -116,7 +117,7 @@ class _BackgroundSheet extends StatelessWidget {
 
 /// Icons and illustrations. Returns the chosen item.
 Future<CatalogItem?> showAssetSheet(BuildContext context) {
-  return showModalBottomSheet<CatalogItem>(
+  return showEditorSheet<CatalogItem>(
     context: context,
     isScrollControlled: true,
     builder: (_) => const FractionallySizedBox(heightFactor: 0.8, child: _AssetSheet()),
@@ -221,7 +222,7 @@ class _PickGrid extends StatelessWidget {
 
 /// Returns rect, round or circle.
 Future<String?> showShapeSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+  return showEditorSheet<String>(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
@@ -326,7 +327,7 @@ class _ShapeOption extends StatelessWidget {
 /// Returns the new length in milliseconds, or null. [minMs] is the shortest
 /// allowed length (the narration cannot be cut off).
 Future<int?> showDurationSheet(BuildContext context, int currentMs, {int minMs = 1000}) {
-  return showModalBottomSheet<int>(
+  return showEditorSheet<int>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _DurationSheet(currentMs: currentMs, minMs: minMs),
@@ -395,7 +396,7 @@ class _DurationSheetState extends State<_DurationSheet> {
 
 /// Returns text, icon, image or shape.
 Future<String?> showAddSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+  return showEditorSheet<String>(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
@@ -466,7 +467,7 @@ class _AddOption extends StatelessWidget {
 /// Entrance animation settings for one item. Changes are applied to the item
 /// straight away.
 Future<void> showAnimateSheet(BuildContext context, Layer layer, int sceneMs) {
-  return showModalBottomSheet<void>(
+  return showEditorSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _AnimateSheet(layer: layer, sceneMs: sceneMs),

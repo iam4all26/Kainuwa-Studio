@@ -1,3 +1,4 @@
+import '../editor/side_sheet.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -17,7 +18,7 @@ Future<void> showAudioSheet(
   required Scene scene,
   required Future<void> Function() onChanged,
 }) {
-  return showModalBottomSheet<void>(
+  return showEditorSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => FractionallySizedBox(

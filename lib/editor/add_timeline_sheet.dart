@@ -1,3 +1,4 @@
+import 'side_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -6,7 +7,7 @@ import '../theme.dart';
 /// illustration, shape, text, subtitles, drawing, audio, video, screen, voice,
 /// sfx, library. Returns null when closed.
 Future<String?> showAddTimelineSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+  return showEditorSheet<String>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,

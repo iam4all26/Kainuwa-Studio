@@ -1,3 +1,4 @@
+import '../editor/side_sheet.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -403,7 +404,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   }
 
   Future<void> _addSubtitles() async {
-    final how = await showModalBottomSheet<String>(
+    final how = await showEditorSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
@@ -890,7 +891,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _commit();
     }
 
-    await showModalBottomSheet<void>(
+    await showEditorSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => StatefulBuilder(
@@ -1373,7 +1374,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final scene = _currentScene();
     if (scene == null || !scene.hasVideo) return;
     _pause();
-    await showModalBottomSheet<void>(
+    await showEditorSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -1643,7 +1644,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final lesson = _lesson();
     if (lesson == null || index >= lesson.scenes.length) return;
     _pause();
-    final action = await showModalBottomSheet<String>(
+    final action = await showEditorSheet<String>(
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -1771,7 +1772,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (index < 0) return;
     final hidden = _lesson()?.hiddenTracks.contains(id) ?? false;
     final isAudio = id == 'audio';
-    final action = await showModalBottomSheet<String>(
+    final action = await showEditorSheet<String>(
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -1999,7 +2000,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       return;
     }
     _pause();
-    await showModalBottomSheet<void>(
+    await showEditorSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -2308,10 +2309,15 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (landscape) {
       // Canvas with its controls on top, a compact timeline below. The canvas keeps a fixed share.
       return clearOnTap(LayoutBuilder(builder: (context, box) {
-        final h1 = (box.maxHeight * 0.60).clamp(110.0, 280.0).toDouble();
+        var h1 = (box.maxHeight * 0.60).clamp(110.0, 280.0).toDouble();
         final padH = _s(u, 28);
         var previewW = (h1 - _s(u, 25) - 2) * 16 / 9 + 2 * padH;
-        previewW = math.min(previewW, box.maxWidth - 170);
+        final maxPW = math.max(120.0, box.maxWidth - 170);
+        if (previewW > maxPW) {
+          // Narrow middle (a side panel is open): shrink the canvas and give the room to the timeline.
+          previewW = maxPW;
+          h1 = (previewW - 2 * padH) * 9 / 16 + _s(u, 25) + 2;
+        }
         return Column(
           children: [
             SizedBox(
@@ -2654,6 +2660,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   Widget _frame(bool landscape, double u, List<Widget> kids) {
     if (!landscape) return Column(children: kids);
     final pad = MediaQuery.of(context).padding;
+    EditorSide.top = pad.top + math.max(52.0, _s(u, 113));
     // Header across the whole top; below it: icon bar | canvas + timeline | tool bar.
     return Column(
       children: [
@@ -2661,7 +2668,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         Expanded(
           child: Padding(
             padding: EdgeInsets.only(bottom: pad.bottom),
-            child: Row(children: [_landscapeRail(u, pad), kids[1], kids[2]]),
+            child: Row(children: [
+              _landscapeRail(u, pad),
+              kids[1],
+              ValueListenableBuilder<double>(
+                valueListenable: EditorSide.inset,
+                builder: (context, v, _) => v > 0 ? SizedBox(width: v) : kids[2],
+              ),
+            ]),
           ),
         ),
       ],

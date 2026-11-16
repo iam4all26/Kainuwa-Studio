@@ -1,3 +1,4 @@
+import 'side_sheet.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -66,7 +67,7 @@ Future<void> showVolumeSheet(
   required Scene scene,
   required VoidCallback onLive,
 }) {
-  return showModalBottomSheet<void>(
+  return showEditorSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _VolumeSheet(lesson: lesson, scene: scene, onLive: onLive),
@@ -171,7 +172,7 @@ Future<void> showSpeedSheet(
   Layer layer, {
   required VoidCallback onLive,
 }) {
-  return showModalBottomSheet<void>(
+  return showEditorSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _SpeedSheet(layer: layer, onLive: onLive),
@@ -244,7 +245,7 @@ Future<void> showLayersSheet(
   required ValueChanged<String> onSelect,
   required VoidCallback onChanged,
 }) {
-  return showModalBottomSheet<void>(
+  return showEditorSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _LayersSheet(
@@ -384,7 +385,7 @@ Future<String?> showSoundChooser(BuildContext context) {
     );
   }
 
-  return showModalBottomSheet<String>(
+  return showEditorSheet<String>(
     context: context,
     builder: (c) => SafeArea(
       child: Column(
@@ -412,7 +413,7 @@ Future<String?> showAudioClipSheet(
   required AudioClip clip,
   required VoidCallback onLive,
 }) {
-  return showModalBottomSheet<String>(
+  return showEditorSheet<String>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _AudioClipSheet(clip: clip, onLive: onLive),

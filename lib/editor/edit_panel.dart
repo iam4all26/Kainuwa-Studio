@@ -1,3 +1,4 @@
+import 'side_sheet.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -79,12 +80,21 @@ Future<void> showEditPanel(
   required ValueChanged<Layer?> onDemo,
   required int Function(Layer source, String part, bool wholeVideo) onApplyAll,
 }) {
-  return showModalBottomSheet<void>(
+  return showEditorSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x22000000),
-    builder: (sheetContext) => Padding(
+    builder: (sheetContext) => MediaQuery.of(sheetContext).orientation == Orientation.landscape
+        ? _EditPanel(
+            layer: layer,
+            scene: scene,
+            initialTab: initialTab,
+            onLive: onLive,
+            onDemo: onDemo,
+            onApplyAll: onApplyAll,
+          )
+        : Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
       child: FractionallySizedBox(
         // The Animate tab is shorter so the slide stays visible above it.
@@ -1749,10 +1759,11 @@ class _EditPanelState extends State<_EditPanel> {
   @override
   Widget build(BuildContext context) {
     final tabs = _tabs;
+    final side = MediaQuery.of(context).orientation == Orientation.landscape;
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF16122B),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16122B),
+        borderRadius: side ? BorderRadius.zero : const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         top: false,

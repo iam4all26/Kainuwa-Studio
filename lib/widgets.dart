@@ -1,3 +1,4 @@
+import 'editor/side_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -139,7 +140,7 @@ Future<int?> pickColor(
   String title = 'Text Color',
   int initial = 0xFF7351FF,
 }) {
-  return showModalBottomSheet<int>(
+  return showEditorSheet<int>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
