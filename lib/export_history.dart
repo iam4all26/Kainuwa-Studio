@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
@@ -30,7 +31,7 @@ class ExportEntry {
   final int atMs;
 
   String get quality {
-    switch (height) {
+    switch (math.min(width, height)) {
       case 480:
         return 'SD';
       case 720:

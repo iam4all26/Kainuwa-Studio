@@ -11,6 +11,7 @@ import '../data/font_catalog.dart';
 import '../models.dart';
 import 'crop_editor.dart';
 import '../scene_canvas.dart';
+import '../stage_shape.dart';
 import '../store/store_service.dart';
 import 'hand_picker.dart';
 import '../text_reveal.dart';
@@ -1063,14 +1064,14 @@ class _EditPanelState extends State<_EditPanel> {
               Expanded(
                 child: _NumField(
                   label: 'X',
-                  value: l.cx * 1280,
-                  min: -400,
-                  max: 1680,
+                  value: l.cx * Stage.w,
+                  min: -Stage.w * 0.3,
+                  max: Stage.w * 1.3,
                   step: 10,
                   suffix: 'px',
                   width: 60,
                   onChanged: (v) {
-                    l.cx = v / 1280;
+                    l.cx = v / Stage.w;
                     _changed();
                   },
                 ),
@@ -1078,14 +1079,14 @@ class _EditPanelState extends State<_EditPanel> {
               Expanded(
                 child: _NumField(
                   label: 'Y',
-                  value: l.cy * 720,
-                  min: -300,
-                  max: 1020,
+                  value: l.cy * Stage.h,
+                  min: -Stage.h * 0.4,
+                  max: Stage.h * 1.4,
                   step: 10,
                   suffix: 'px',
                   width: 60,
                   onChanged: (v) {
-                    l.cy = v / 720;
+                    l.cy = v / Stage.h;
                     _changed();
                   },
                 ),

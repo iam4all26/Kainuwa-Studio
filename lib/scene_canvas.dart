@@ -11,6 +11,7 @@ import 'animation_math.dart';
 import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
+import 'stage_shape.dart';
 import 'text_reveal.dart';
 
 /// Draws one scene. Everything is sized from fractions of the slide, so the
@@ -1040,15 +1041,15 @@ double layerTextAspect(Layer layer) {
 /// Text size in pixels of the 1280 x 720 video.
 double layerTextSizePx(Layer layer) {
   final size = measureLayerText(layer);
-  return layer.h * 720 * 100 / size.height;
+  return layer.h * Stage.h * 100 / size.height;
 }
 
 /// Changes the box so the text has the given size in pixels of the 1280 x 720 video.
 void setLayerTextSizePx(Layer layer, double px) {
   final size = measureLayerText(layer);
   final scale = px / 100;
-  layer.h = (size.height * scale / 720).clamp(0.02, 1.6).toDouble();
-  layer.w = (size.width * scale / 1280).clamp(0.02, 1.6).toDouble();
+  layer.h = (size.height * scale / Stage.h).clamp(0.02, 1.6).toDouble();
+  layer.w = (size.width * scale / Stage.w).clamp(0.02, 1.6).toDouble();
 }
 
 /// Re-fits the box to the text after the text or its style changed, keeping the

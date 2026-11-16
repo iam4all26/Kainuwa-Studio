@@ -17,13 +17,12 @@ import '../transition_math.dart';
 import '../watermark.dart';
 import '../scene_canvas.dart';
 import '../hands.dart';
+import '../stage_shape.dart';
 import '../text_reveal.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'export_success_view.dart';
 
-const double _kStageW = 1280;
-const double _kStageH = 720;
 const double _kPad = 12;
 
 class _Cancelled implements Exception {}
@@ -47,8 +46,8 @@ class ExportScreen extends StatefulWidget {
 class _ExportScreenState extends State<ExportScreen> {
   final GlobalKey _stageKey = GlobalKey();
   Widget? _stageChild;
-  double _stageW = _kStageW;
-  double _stageH = _kStageH;
+  double _stageW = 1280;
+  double _stageH = 720;
   int _stageSerial = 0;
 
   // Choices made on this screen for this export.
@@ -65,6 +64,17 @@ class _ExportScreenState extends State<ExportScreen> {
     1080: (1920, 'Full HD', 'Best for sharing', 12),
     1440: (2560, '2K', 'Sharpest, slow', 20),
   };
+
+  Lesson? _lessonNow() => AppScope.read(context).lessonById(widget.courseId, widget.lessonId);
+
+  // Working size of this video (short side 720) and the size of the exported file.
+  double get _sw => _lessonNow()?.stageSize.$1 ?? 1280;
+  double get _sh => _lessonNow()?.stageSize.$2 ?? 720;
+
+  (int, int) _outFor(int shortSide) {
+    final l = _lessonNow();
+    return outputSizeFor(l?.aspectW ?? 16, l?.aspectH ?? 9, shortSide);
+  }
 
   bool _busy = false;
   bool _cancelled = false;
@@ -176,8 +186,8 @@ class _ExportScreenState extends State<ExportScreen> {
 
   /// The box around a rotated item, with some room for shadows.
   (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip}) {
-    final lw = l.w * _kStageW;
-    final lh = l.h * _kStageH;
+    final lw = l.w * _sw;
+    final lh = l.h * _sh;
     final c = math.cos(l.rotation).abs();
     final s = math.sin(l.rotation).abs();
     // Room around the item for its shadow.
@@ -218,10 +228,13 @@ class _ExportScreenState extends State<ExportScreen> {
       final v = viewScene(s, hidden);
       return identical(v, s) ? s.duplicate() : v;
     }).toList();
-    final outH = _quality;
-    final outW = _qualities[_quality]!.$1;
+    final outSize = _outFor(_quality);
+    final outW = outSize.$1;
+    final outH = outSize.$2;
+    final stageW = _sw;
+    final stageH = _sh;
     final fps = _fps;
-    final ratio = outW / _kStageW;
+    final ratio = outW / stageW;
     final title = lesson.title;
     final musicPath = audioOff ? '' : lesson.musicPath;
     final clipMaps = <Map<String, Object?>>[];
@@ -315,11 +328,11 @@ class _ExportScreenState extends State<ExportScreen> {
         );
         final wm = AppScope.read(context).settings.wm;
         final phoneOn = scene.hasVideo && scene.phoneFrame;
-        final geo = PhoneGeometry(_kStageW, _kStageH, scene.phoneScale);
+        final geo = PhoneGeometry(stageW, stageH, scene.phoneScale);
         final baseImage = await _capture(
           SizedBox(
-            width: _kStageW,
-            height: _kStageH,
+            width: stageW,
+            height: stageH,
             child: phoneOn
                 ? Stack(children: [
                     // Background and phone body with a see-through screen, so the video shows in it.
@@ -334,15 +347,15 @@ class _ExportScreenState extends State<ExportScreen> {
                     ),
                     PhoneNotch(geo: geo),
                     Positioned.fill(child: SceneCanvas(scene: baseScene)),
-                    watermarkOverlay(wm, _kStageW, _kStageH),
+                    watermarkOverlay(wm, stageW, stageH),
                   ])
                 : Stack(children: [
                     Positioned.fill(child: SceneCanvas(scene: baseScene)),
-                    watermarkOverlay(wm, _kStageW, _kStageH),
+                    watermarkOverlay(wm, stageW, stageH),
                   ]),
           ),
-          _kStageW,
-          _kStageH,
+          stageW,
+          stageH,
           ratio,
         );
         final basePath = '${work.path}/scene_$i.png';
@@ -432,7 +445,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 frames.add({'path': fp, 'atMs': t0 + kHandEnterMs + shown});
                 if (shown >= drawMs) break;
               }
-              final handW = _kStageW * kHandWidthFrac;
+              final handW = stageW * kHandWidthFrac;
               final handH = handW / handSpec.aspect;
               await precacheImage(AssetImage(handSpec.asset), context);
               final handImage = await _capture(
@@ -455,7 +468,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 keys.add({
                   't': t0 + tt,
                   'x': st.tipX + (0.5 - handSpec.tipX) * kHandWidthFrac,
-                  'y': st.tipY + (0.5 - handSpec.tipY) * (handH / _kStageH),
+                  'y': st.tipY + (0.5 - handSpec.tipY) * (handH / stageH),
                 });
                 if (tt >= total) break;
               }
@@ -514,7 +527,7 @@ class _ExportScreenState extends State<ExportScreen> {
           'video': scene.hasVideo ? scene.videoPath : null,
           'videoStartMs': scene.videoStartMs,
           'videoScale': scene.hasVideo && scene.phoneFrame
-              ? PhoneGeometry(_kStageW, _kStageH, scene.phoneScale).screenH / _kStageH
+              ? PhoneGeometry(stageW, stageH, scene.phoneScale).screenH / stageH
               : 1.0,
         });
         offsetMs += scene.durationMs;
@@ -560,9 +573,9 @@ class _ExportScreenState extends State<ExportScreen> {
         );
         await _precache(thumbScene);
         final thumbImage = await _capture(
-          SizedBox(width: _kStageW, height: _kStageH, child: SceneCanvas(scene: thumbScene)),
-          _kStageW,
-          _kStageH,
+          SizedBox(width: stageW, height: stageH, child: SceneCanvas(scene: thumbScene)),
+          stageW,
+          stageH,
           0.3,
         );
         final histDir = await ExportHistory.dir();
@@ -806,8 +819,8 @@ class _ExportScreenState extends State<ExportScreen> {
 
   /// Small pictures of the slides, so the person sees what is being exported.
   Widget _thumbnails(List<Scene> scenes) {
-    const w = 96.0;
     const h = 54.0;
+    final w = (h * (_sw / _sh)).clamp(30.0, 96.0).toDouble();
     final shown = scenes.take(12).toList();
     final more = scenes.length - shown.length;
     final media = MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling);
@@ -841,8 +854,8 @@ class _ExportScreenState extends State<ExportScreen> {
                   child: FittedBox(
                     fit: BoxFit.cover,
                     child: SizedBox(
-                      width: _kStageW,
-                      height: _kStageH,
+                      width: _sw,
+                      height: _sh,
                       child: SceneCanvas(scene: scene),
                     ),
                   ),
@@ -1203,7 +1216,7 @@ class _ExportScreenState extends State<ExportScreen> {
                     const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text('${info.$1}x$q', style: const TextStyle(fontSize: 10, color: Colors.white60)),
+                      child: Text('${_outFor(q).$1}x${_outFor(q).$2}', style: const TextStyle(fontSize: 10, color: Colors.white60)),
                     ),
                     const SizedBox(height: 4),
                     Icon(on ? Icons.circle : Icons.circle_outlined,

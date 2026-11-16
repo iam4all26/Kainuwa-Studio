@@ -93,7 +93,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// A single video with no course around it. Returns the ids to open the editor with.
-  Future<(String, String)> addVideo({String title = 'Untitled video'}) async {
+  Future<(String, String)> addVideo({String title = 'Untitled video', int aspectW = 16, int aspectH = 9}) async {
     final courseId = _newId();
     final lessonId = _newId();
     courses.insert(
@@ -103,7 +103,7 @@ class AppState extends ChangeNotifier {
         title: title,
         isVideo: true,
         createdAt: DateTime.now().millisecondsSinceEpoch,
-        lessons: [Lesson(id: lessonId, title: title)],
+        lessons: [Lesson(id: lessonId, title: title, aspectW: aspectW, aspectH: aspectH)],
       ),
     );
     await _saveCourses();

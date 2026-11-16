@@ -61,7 +61,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
             onTap: () => setState(() => _controls = !_controls),
             child: Center(
               child: AspectRatio(
-                aspectRatio: 16 / 9,
+                aspectRatio: widget.lesson.aspect,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [

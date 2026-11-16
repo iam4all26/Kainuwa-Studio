@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 
 import 'data/asset_catalog.dart';
+import 'stage_shape.dart';
 
 int _idCounter = 0;
 
@@ -546,6 +547,8 @@ class Lesson {
     this.musicFade = true,
     Set<String>? hiddenTracks,
     List<AudioClip>? audioClips,
+    this.aspectW = 16,
+    this.aspectH = 9,
   })  : scenes = scenes ?? <Scene>[],
         hiddenTracks = hiddenTracks ?? <String>{},
         audioClips = audioClips ?? <AudioClip>[];
@@ -553,6 +556,13 @@ class Lesson {
   final String id;
   String title;
   final List<Scene> scenes;
+
+  /// The shape of the video, for example 16 and 9, or 9 and 16 for TikTok.
+  int aspectW;
+  int aspectH;
+
+  double get aspect => aspectW / aspectH;
+  (double, double) get stageSize => stageSizeFor(aspectW, aspectH);
 
   /// Background music for the whole lesson. Empty means none.
   String musicPath;
@@ -577,6 +587,8 @@ class Lesson {
         'musicVolume': musicVolume,
         'musicSpeed': musicSpeed,
         'musicFade': musicFade,
+        'aspectW': aspectW,
+        'aspectH': aspectH,
         'hiddenTracks': hiddenTracks.toList(),
         'audioClips': audioClips.map((c) => c.toJson()).toList(),
         'scenes': scenes.map((s) => s.toJson()).toList(),
@@ -597,6 +609,8 @@ class Lesson {
       musicVolume: _num(json['musicVolume'], 0.3),
       musicSpeed: _num(json['musicSpeed'], 1.0).clamp(0.5, 2.0).toDouble(),
       musicFade: json['musicFade'] is bool ? json['musicFade'] as bool : true,
+      aspectW: _int(json['aspectW'], 16).clamp(1, 99).toInt(),
+      aspectH: _int(json['aspectH'], 9).clamp(1, 99).toInt(),
       hiddenTracks: json['hiddenTracks'] is List
           ? (json['hiddenTracks'] as List).whereType<String>().toSet()
           : <String>{},

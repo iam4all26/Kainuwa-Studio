@@ -27,6 +27,7 @@ import '../models.dart';
 import '../store/store_graphics_sheet.dart';
 import '../svg/svg_raster.dart';
 import '../scene_canvas.dart';
+import '../stage_shape.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'audio_sheet.dart';
@@ -37,10 +38,10 @@ import 'export_screen.dart';
 /// picture shape, kept inside the given limits.
 (double, double) fitBox(double aspect, {required double maxW, required double maxH}) {
   var w = maxW;
-  var h = w * (16 / 9) / aspect;
+  var h = w * Stage.aspect / aspect;
   if (h > maxH) {
     h = maxH;
-    w = h * aspect * (9 / 16);
+    w = h * aspect / Stage.aspect;
   }
   return (w, h);
 }
@@ -82,6 +83,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     AppState.setOrientation(landscape: AppState.editorLandscape);
     final lesson = AppScope.read(context).lessonById(widget.courseId, widget.lessonId);
     if (lesson != null) {
+      Stage.use(lesson.aspectW, lesson.aspectH);
       if (lesson.scenes.isEmpty) {
         lesson.scenes.add(Scene(id: newId()));
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -100,6 +102,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     WidgetsBinding.instance.removeObserver(this);
     AppState.editorLandscape = false;
     AppState.setOrientation(landscape: false);
+    Stage.reset();
     _demoPending?.cancel();
     _demoTimer?.cancel();
     _demoMs.dispose();
@@ -1933,7 +1936,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(_s(u, 28, 12)),
         child: AspectRatio(
-          aspectRatio: 16 / 9,
+          aspectRatio: lesson.aspect,
           child: _withTransition(lesson, spot, playing, ValueListenableBuilder<int?>(
             valueListenable: _demoMs,
             builder: (context, demoMs, _) => SceneCanvas(
@@ -2320,12 +2323,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       return clearOnTap(LayoutBuilder(builder: (context, box) {
         var h1 = (box.maxHeight * 0.60).clamp(110.0, 280.0).toDouble();
         final padH = _s(u, 28);
-        var previewW = (h1 - _s(u, 25) - 2) * 16 / 9 + 2 * padH;
+        final aspect = Stage.aspect;
+        var previewW = (h1 - _s(u, 25) - 2) * aspect + 2 * padH;
         final maxPW = math.max(120.0, box.maxWidth - 170);
         if (previewW > maxPW) {
           // Narrow middle (a side panel is open): shrink the canvas and give the room to the timeline.
           previewW = maxPW;
-          h1 = (previewW - 2 * padH) * 9 / 16 + _s(u, 25) + 2;
+          h1 = math.min(box.maxHeight * 0.75, (previewW - 2 * padH) / aspect + _s(u, 25) + 2);
         }
         return Column(
           children: [
@@ -2346,7 +2350,17 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       }));
     }
     // Preview and transport stay in place; only the timeline scrolls.
-    return clearOnTap(Column(children: [preview, transport, Expanded(child: scrollingTimeline)]));
+    // A tall video (TikTok) is kept to under half of the height so the timeline still fits.
+    return clearOnTap(LayoutBuilder(builder: (context, box) {
+      final wide = Stage.aspect >= 1.2;
+      return Column(children: [
+        wide
+            ? preview
+            : ConstrainedBox(constraints: BoxConstraints(maxHeight: box.maxHeight * 0.5), child: preview),
+        transport,
+        Expanded(child: scrollingTimeline),
+      ]);
+    }));
   }
 
   Widget _toolRail(double u, List<(IconData, String, VoidCallback)> tools) {

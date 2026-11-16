@@ -9,6 +9,7 @@ import '../project_package.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'lesson_editor_screen.dart';
+import 'video_setup_dialog.dart';
 import 'lessons_screen.dart';
 
 class CoursesTab extends StatelessWidget {
@@ -86,14 +87,9 @@ class CoursesTab extends StatelessWidget {
     );
     if (choice == null || !context.mounted) return;
     if (choice == 'video') {
-      final name = await promptText(
-        context,
-        title: 'Name your video',
-        label: 'Video name',
-        confirm: 'Create',
-      );
-      if (name == null || !context.mounted) return;
-      final ids = await state.addVideo(title: name.trim().isEmpty ? 'Untitled video' : name.trim());
+      final setup = await showVideoSetup(context);
+      if (setup == null || !context.mounted) return;
+      final ids = await state.addVideo(title: setup.name, aspectW: setup.aspectW, aspectH: setup.aspectH);
       if (!context.mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
