@@ -534,14 +534,31 @@ class _ExportScreenState extends State<ExportScreen> {
       var thumbPath = '';
       try {
         final s0 = scenes.first;
+        final histDir0 = await ExportHistory.dir();
+        var tBgType = s0.bgType;
+        var tBgValue = s0.bgValue;
+        if (s0.hasVideo) {
+          // A video slide: use a real picture from the clip as the background.
+          tBgType = 'color';
+          tBgValue = '0';
+          try {
+            final bytes = await KainuwaEncoder.videoFrameBytes(s0.videoPath, s0.videoStartMs + 200);
+            if (bytes != null && bytes.isNotEmpty) {
+              final framePath = '${histDir0.path}/frame_$stamp.jpg';
+              await File(framePath).writeAsBytes(bytes, flush: true);
+              tBgType = 'file';
+              tBgValue = framePath;
+            }
+          } catch (_) {}
+        }
         final thumbScene = Scene(
           id: 'export_thumb',
           durationMs: s0.durationMs,
-          bgType: s0.hasVideo ? 'color' : s0.bgType,
-          bgValue: s0.hasVideo ? '0' : s0.bgValue,
+          bgType: tBgType,
+          bgValue: tBgValue,
           layers: List<Layer>.of(s0.layers),
         );
-        await _precache(s0);
+        await _precache(thumbScene);
         final thumbImage = await _capture(
           SizedBox(width: _kStageW, height: _kStageH, child: SceneCanvas(scene: thumbScene)),
           _kStageW,
@@ -551,6 +568,11 @@ class _ExportScreenState extends State<ExportScreen> {
         final histDir = await ExportHistory.dir();
         thumbPath = '${histDir.path}/thumb_$stamp.png';
         await _savePng(thumbImage, thumbPath);
+        if (tBgType == 'file' && s0.hasVideo) {
+          try {
+            await File(tBgValue).delete();
+          } catch (_) {}
+        }
       } catch (_) {
         thumbPath = '';
       }
@@ -1399,21 +1421,18 @@ class _ExportScreenState extends State<ExportScreen> {
                 title: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF8B6CFF), Color(0xFF6D28D9)],
-                        ),
-                        borderRadius: BorderRadius.circular(11),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/icon/app_icon.png',
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.play_arrow_rounded, color: KColors.gold, size: 28),
                       ),
-                      child: const Icon(Icons.play_arrow_rounded, color: KColors.gold, size: 30),
                     ),
-                    const SizedBox(width: 10),
-                    const Text('Kainuwa Studio', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 8),
+                    const Text('Kainuwa Studio', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                   ],
                 ),
                 actions: [

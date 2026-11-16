@@ -29,8 +29,13 @@ class ExportSuccessView extends StatelessWidget {
 
   static const Color _soft = Color(0xFFB9B0D8);
 
+  // Everything is drawn a little smaller on narrow screens, so it fits any phone.
+  static double _k = 0.8;
+
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    _k = (w / 400).clamp(0.72, 0.86).toDouble();
     final list = history.isEmpty ? [latest] : history;
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -45,9 +50,9 @@ class ExportSuccessView extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 20),
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
               Center(
                 child: TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0.5, end: 1),
@@ -57,35 +62,35 @@ class ExportSuccessView extends StatelessWidget {
                   child: const _CheckBadge(),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
+              SizedBox(height: 8 * _k),
+              Text(
                 'Project Successfully Exported',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white, height: 1.15),
+                style: TextStyle(fontSize: 26 * _k, fontWeight: FontWeight.w800, color: Colors.white, height: 1.15),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: 6 * _k),
+              Text(
                 'Your video has been exported and saved\nin your device storage.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: _soft, height: 1.35),
+                style: TextStyle(fontSize: 15 * _k, color: _soft, height: 1.3),
               ),
-              const SizedBox(height: 22),
+              SizedBox(height: 14 * _k),
               _latestCard(),
-              const SizedBox(height: 14),
+              SizedBox(height: 10 * _k),
               _actions(),
-              const SizedBox(height: 22),
+              SizedBox(height: 14 * _k),
               const Divider(height: 1, color: Color(0x26FFFFFF)),
-              const SizedBox(height: 18),
+              SizedBox(height: 12 * _k),
               Row(
                 children: [
-                  const Icon(Icons.layers_outlined, color: Colors.white, size: 26),
-                  const SizedBox(width: 12),
-                  const Expanded(
+                  Icon(Icons.layers_outlined, color: Colors.white, size: 24 * _k),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Text('Project Exports',
-                        style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Colors.white)),
+                        style: TextStyle(fontSize: 20 * _k, fontWeight: FontWeight.w800, color: Colors.white)),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding: EdgeInsets.symmetric(horizontal: 12 * _k, vertical: 5 * _k),
                     decoration: BoxDecoration(
                       color: const Color(0x4D6D28D9),
                       borderRadius: BorderRadius.circular(20),
@@ -93,15 +98,15 @@ class ExportSuccessView extends StatelessWidget {
                     ),
                     child: Text(
                       '${list.length} ${list.length == 1 ? 'Video' : 'Videos'}',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: TextStyle(fontSize: 13.5 * _k, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 10 * _k),
               for (final e in list) ...[
                 _row(context, e),
-                const SizedBox(height: 10),
+                SizedBox(height: 8 * _k),
               ],
             ],
           ),
@@ -112,57 +117,57 @@ class ExportSuccessView extends StatelessWidget {
 
   Widget _latestCard() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(10 * _k),
       decoration: BoxDecoration(
         color: const Color(0x66231A48),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0x40B9A0FF)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            flex: 11,
-            child: _Thumb(entry: latest, radius: 16, badgeSize: 13, aspect: 16 / 10),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
             flex: 12,
+            child: _Thumb(entry: latest, radius: 14, badgeSize: 12 * _k, aspect: 16 / 9),
+          ),
+          SizedBox(width: 12 * _k),
+          Expanded(
+            flex: 11,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   latest.name,
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
+                  style: TextStyle(fontSize: 16 * _k, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 7 * _k),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      padding: EdgeInsets.symmetric(horizontal: 10 * _k, vertical: 4 * _k),
                       decoration: BoxDecoration(
                         color: const Color(0x666D28D9),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text('MP4',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: KColors.accent)),
+                      child: Text('MP4',
+                          style: TextStyle(fontSize: 14 * _k, fontWeight: FontWeight.w700, color: KColors.accent)),
                     ),
-                    Text(latest.resolution, style: const TextStyle(fontSize: 14, color: _soft)),
+                    Text(latest.resolution, style: TextStyle(fontSize: 12.5 * _k, color: _soft)),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 7 * _k),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.insert_drive_file_outlined, size: 20, color: _soft),
-                    const SizedBox(width: 8),
-                    Text(latest.sizeText, style: const TextStyle(fontSize: 15, color: _soft)),
+                    Icon(Icons.insert_drive_file_outlined, size: 18 * _k, color: _soft),
+                    const SizedBox(width: 6),
+                    Text(latest.sizeText, style: TextStyle(fontSize: 14 * _k, color: _soft)),
                   ],
                 ),
               ],
@@ -178,12 +183,12 @@ class ExportSuccessView extends StatelessWidget {
       return Expanded(
         flex: flex,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 3),
           child: Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             child: Ink(
-              height: 76,
+              height: 62 * _k / 0.8,
               decoration: BoxDecoration(
                 gradient: primary
                     ? const LinearGradient(
@@ -202,12 +207,12 @@ class ExportSuccessView extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, size: 30, color: Colors.white),
-                    const SizedBox(height: 4),
+                    Icon(icon, size: 26 * _k, color: Colors.white),
+                    const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(label,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                          style: TextStyle(fontSize: 13.5 * _k, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ],
                 ),
@@ -241,11 +246,11 @@ class ExportSuccessView extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           onTap: () => onPlay(e),
           child: Padding(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(7 * _k),
             child: Row(
               children: [
-                SizedBox(width: 112, child: _Thumb(entry: e, radius: 12, badgeSize: 11, aspect: 16 / 9.4)),
-                const SizedBox(width: 12),
+                SizedBox(width: 104 * _k / 0.8, child: _Thumb(entry: e, radius: 10, badgeSize: 10 * _k / 0.8, aspect: 16 / 9)),
+                SizedBox(width: 10 * _k),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,10 +258,10 @@ class ExportSuccessView extends StatelessWidget {
                       Text(e.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
-                      const SizedBox(height: 8),
+                          style: TextStyle(fontSize: 14.5 * _k, fontWeight: FontWeight.w700, color: Colors.white)),
+                      SizedBox(height: 5 * _k),
                       Wrap(
-                        spacing: 14,
+                        spacing: 10,
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
@@ -270,6 +275,7 @@ class ExportSuccessView extends StatelessWidget {
                 ),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: Colors.white),
+                  padding: EdgeInsets.zero,
                   color: KColors.editorCard,
                   onSelected: (v) {
                     if (v == 'play') onPlay(e);
@@ -296,10 +302,10 @@ class ExportSuccessView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 17, color: _soft),
-            const SizedBox(width: 5),
+            Icon(icon, size: 15 * _k, color: _soft),
+            const SizedBox(width: 4),
           ],
-          Text(text, style: const TextStyle(fontSize: 13, color: _soft)),
+          Text(text, style: TextStyle(fontSize: 12 * _k, color: _soft)),
         ],
       );
 }
@@ -330,10 +336,10 @@ class _Thumb extends StatelessWidget {
           children: [
             picture,
             Positioned(
-              right: 6,
-              bottom: 6,
+              right: 5,
+              bottom: 5,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xB3000000),
                   borderRadius: BorderRadius.circular(8),
@@ -373,15 +379,15 @@ class _CheckBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 280,
-      height: 124,
+      width: 260,
+      height: 96,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Positioned.fill(child: CustomPaint(painter: _ConfettiPainter())),
           Container(
-            width: 110,
-            height: 110,
+            width: 84,
+            height: 84,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -389,9 +395,9 @@ class _CheckBadge extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [Color(0xFF4ADE80), Color(0xFF16A34A)],
               ),
-              boxShadow: [BoxShadow(color: Color(0x6622C55E), blurRadius: 28, spreadRadius: 2)],
+              boxShadow: [BoxShadow(color: Color(0x6622C55E), blurRadius: 22, spreadRadius: 1)],
             ),
-            child: const Icon(Icons.check_rounded, size: 76, color: Colors.white),
+            child: const Icon(Icons.check_rounded, size: 58, color: Colors.white),
           ),
         ],
       ),
@@ -420,12 +426,12 @@ class _ConfettiPainter extends CustomPainter {
     const purple = Color(0xFF7351FF);
     const teal = Color(0xFF2DD4BF);
     const red = Color(0xFFFB5A5A);
-    bar(-86, -42, -0.7, gold, 20, 7);
-    bar(-114, -6, 0, red, 7, 7);
-    bar(-92, 36, -0.8, teal, 13, 6);
-    bar(88, -44, 0.7, gold, 20, 7);
-    bar(106, -10, -0.15, purple, 24, 6);
-    bar(92, 36, 0.8, teal, 13, 6);
+    bar(-70, -32, -0.7, gold, 16, 6);
+    bar(-92, -4, 0, red, 6, 6);
+    bar(-74, 28, -0.8, teal, 11, 5);
+    bar(70, -34, 0.7, gold, 16, 6);
+    bar(86, -8, -0.15, purple, 20, 5);
+    bar(74, 28, 0.8, teal, 11, 5);
   }
 
   @override
