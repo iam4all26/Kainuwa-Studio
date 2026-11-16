@@ -861,7 +861,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
               child: _clipView(clip, w, clipH, u),
             ));
           }
-          if (id == 'video') {
+          if (id == 'video' && clips[id]!.isEmpty) {
             children.add(Positioned(
               left: 12 * u,
               top: 0,

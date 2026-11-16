@@ -1216,7 +1216,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       MaterialPageRoute(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('Store')),
-          body: const StoreTab(active: true),
+          body: const StoreTab(active: true, showTitle: false),
         ),
       ),
     );
@@ -2305,7 +2305,23 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       return clearOnTap(Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 5, child: SingleChildScrollView(child: Column(children: [preview, transport]))),
+          Expanded(
+            flex: 5,
+            child: LayoutBuilder(builder: (context, box) {
+              // Keep the whole preview and its controls on screen in landscape.
+              final room = box.maxHeight - _s(u, 150);
+              final maxW = math.max(160.0, room * 16 / 9 + _s(u, 56));
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxW),
+                    child: Column(children: [preview, transport]),
+                  ),
+                ),
+              );
+            }),
+          ),
           Expanded(flex: 6, child: scrollingTimeline),
         ],
       ));

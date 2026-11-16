@@ -15,7 +15,10 @@ const List<(String, String)> _kTypes = [
 ];
 
 class StoreTab extends StatefulWidget {
-  const StoreTab({super.key, required this.active});
+  const StoreTab({super.key, required this.active, this.showTitle = true});
+
+  /// False when the screen already has its own title bar.
+  final bool showTitle;
 
   /// True while this tab is the one on screen. The store loads the first time.
   final bool active;
@@ -465,8 +468,8 @@ class _StoreTabState extends State<StoreTab> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text('Store', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                    Expanded(
+                      child: widget.showTitle ? const Text('Store', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.3)) : const SizedBox.shrink(),
                     ),
                     IconButton(
                       tooltip: _selecting ? 'Cancel selecting' : 'Select several',
