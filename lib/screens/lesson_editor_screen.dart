@@ -71,7 +71,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   String? _selectedAudioId;
   bool _sceneSelected = false;
   String? _soundSel; // 'music' or 'narration:<scene index>'
-  int _tab = 0;
+  int _tab = -1;
   final List<String> _order = List<String>.of(kDefaultTrackOrder);
 
   @override
@@ -1887,14 +1887,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 ),
               ),
             ),
-            _headerIcon(
-              u,
-              MediaQuery.of(context).orientation == Orientation.landscape
-                  ? Icons.stay_current_portrait
-                  : Icons.stay_current_landscape,
-              _toggleOrientation,
-              tooltip: 'Rotate editor',
-            ),
             _headerIcon(u, Icons.undo, (history?.canUndo ?? false) ? _undo : null, tooltip: 'Undo'),
             _headerIcon(u, Icons.redo, (history?.canRedo ?? false) ? _redo : null, tooltip: 'Redo'),
             _headerIcon(u, Icons.storefront_outlined, _openStore, tooltip: 'Store'),
@@ -2542,30 +2534,38 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _pause();
     setState(() => _tab = index);
     switch (index) {
-      case 1:
+      case 0:
         await _setBackground();
         break;
-      case 2:
+      case 1:
         await _openAdd();
         break;
-      case 3:
+      case 2:
         await _openSound();
         break;
-      case 4:
+      case 3:
         await _setDuration();
         break;
+      case 4:
+        _toggleOrientation();
+        break;
     }
-    if (mounted) setState(() => _tab = 0);
+    if (mounted) setState(() => _tab = -1);
   }
 
   Widget _bottomNav(double u) {
     final bottom = MediaQuery.of(context).padding.bottom;
     final items = <(IconData, String)>[
-      (Icons.movie_outlined, 'Timeline'),
       (Icons.wallpaper, 'Background'),
       (Icons.add_box_outlined, 'Add'),
       (Icons.mic_none, 'Sound'),
       (Icons.timer_outlined, 'Time'),
+      (
+        MediaQuery.of(context).orientation == Orientation.landscape
+            ? Icons.stay_current_portrait
+            : Icons.stay_current_landscape,
+        'Rotate',
+      ),
     ];
     return Container(
       padding: EdgeInsets.fromLTRB(_s(u, 12, 4), _s(u, 14, 4), _s(u, 12, 4), _s(u, 12, 4) + bottom),
@@ -2626,11 +2626,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   /// Landscape: the five bottom tabs become a vertical icon-only rail on the left.
   Widget _landscapeRail(double u, EdgeInsets pad) {
     final items = <(IconData, String)>[
-      (Icons.movie_outlined, 'Timeline'),
       (Icons.wallpaper, 'Background'),
       (Icons.add_box_outlined, 'Add'),
       (Icons.mic_none, 'Sound'),
       (Icons.timer_outlined, 'Time'),
+      (
+        MediaQuery.of(context).orientation == Orientation.landscape
+            ? Icons.stay_current_portrait
+            : Icons.stay_current_landscape,
+        'Rotate',
+      ),
     ];
     return Container(
       width: 64 + pad.left,

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
+import '../export_history.dart';
 import '../app_state.dart';
 import '../editor/track_visibility.dart';
 import '../models.dart';
@@ -19,6 +20,7 @@ import '../hands.dart';
 import '../text_reveal.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'export_success_view.dart';
 
 const double _kStageW = 1280;
 const double _kStageH = 720;
@@ -77,6 +79,14 @@ class _ExportScreenState extends State<ExportScreen> {
   bool _canPlay = false;
   bool _runPage = false;
   String _unsavedName = '';
+  // The finished export shown on the success page.
+  ExportEntry? _result;
+  List<ExportEntry> _history = [];
+  String _pThumb = '';
+  int _pW = 0;
+  int _pH = 0;
+  int _pDur = 0;
+  int _pSize = 0;
 
   @override
   void dispose() {
@@ -238,6 +248,7 @@ class _ExportScreenState extends State<ExportScreen> {
       _cancelled = false;
       _failed = false;
       _unsavedVideo = null;
+      _result = null;
       _canPlay = false;
       _phase = 0;
       _progress = 0;
@@ -519,6 +530,31 @@ class _ExportScreenState extends State<ExportScreen> {
         }
       }
 
+      // A small picture of the first slide for the success page and the export list.
+      var thumbPath = '';
+      try {
+        final s0 = scenes.first;
+        final thumbScene = Scene(
+          id: 'export_thumb',
+          durationMs: s0.durationMs,
+          bgType: s0.hasVideo ? 'color' : s0.bgType,
+          bgValue: s0.hasVideo ? '0' : s0.bgValue,
+          layers: List<Layer>.of(s0.layers),
+        );
+        await _precache(s0);
+        final thumbImage = await _capture(
+          SizedBox(width: _kStageW, height: _kStageH, child: SceneCanvas(scene: thumbScene)),
+          _kStageW,
+          _kStageH,
+          0.3,
+        );
+        final histDir = await ExportHistory.dir();
+        thumbPath = '${histDir.path}/thumb_$stamp.png';
+        await _savePng(thumbImage, thumbPath);
+      } catch (_) {
+        thumbPath = '';
+      }
+
       if (mounted) setState(() => _stageChild = null);
       _guard();
 
@@ -546,6 +582,10 @@ class _ExportScreenState extends State<ExportScreen> {
         await work.delete(recursive: true);
       } catch (_) {}
       _setProgress(2, 1);
+      _pThumb = thumbPath;
+      _pW = outW;
+      _pH = outH;
+      _pDur = lesson.durationMs;
       await _save(output, title, missingNarration);
     } on _Cancelled {
       _set('Export cancelled.');
@@ -584,9 +624,13 @@ class _ExportScreenState extends State<ExportScreen> {
         ? ' $missingNarration slide(s) had a narration file that could not be found and are silent.'
         : '';
     try {
+      try {
+        _pSize = await File(output).length();
+      } catch (_) {}
       final saved = await KainuwaEncoder.saveToMovies(path: output, name: name);
       if (mounted) setState(() { _unsavedVideo = null; _canPlay = true; });
       _set('Done. The video was saved to $saved.$note');
+      await _complete(saved);
       try {
         await File(output).delete();
       } catch (_) {}
@@ -600,6 +644,105 @@ class _ExportScreenState extends State<ExportScreen> {
       _set('The video was made but not saved yet (${e.message}). Tap Save video to try again.$note',
           failed: true);
     }
+  }
+
+  /// Remembers the finished video and opens the success page.
+  Future<void> _complete(String saved) async {
+    try {
+      var uri = '';
+      for (var i = 0; i < 6; i++) {
+        try {
+          uri = await KainuwaEncoder.lastVideoUri() ?? '';
+        } catch (_) {}
+        if (uri.isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+      var name = saved.split('/').last;
+      if (name.toLowerCase().endsWith('.mp4')) name = name.substring(0, name.length - 4);
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final entry = ExportEntry(
+        id: 'exp_$stamp',
+        lessonId: widget.lessonId,
+        name: name,
+        uri: uri,
+        width: _pW,
+        height: _pH,
+        sizeBytes: _pSize,
+        durationMs: _pDur,
+        thumbPath: _pThumb,
+        atMs: stamp,
+      );
+      await ExportHistory.add(entry);
+      final all = await ExportHistory.load(widget.lessonId);
+      if (!mounted) return;
+      setState(() {
+        _result = entry;
+        _history = all;
+      });
+    } catch (_) {
+      // The video is saved anyway; the old page still shows the result.
+    }
+  }
+
+  Future<void> _viewEntry(ExportEntry e, String mode) async {
+    try {
+      await KainuwaEncoder.viewVideo(uri: e.uri.isEmpty ? null : e.uri, mode: mode);
+    } on PlatformException catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(err.message ?? 'The video could not be opened. It may have been moved or deleted.'),
+      ));
+    }
+  }
+
+  Future<void> _removeEntry(ExportEntry e) async {
+    await ExportHistory.remove(e.id);
+    final all = await ExportHistory.load(widget.lessonId);
+    if (!mounted) return;
+    setState(() => _history = all);
+  }
+
+  void _exportAgain() {
+    setState(() {
+      _result = null;
+      _canPlay = false;
+      _status = '';
+      _failed = false;
+      _runPage = false;
+    });
+  }
+
+  void _moreSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: KColors.editorCard,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.movie_creation_outlined, color: KColors.gold),
+              title: const Text('Export again'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _exportAgain();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: KColors.accent),
+              title: const Text('Back to the editor'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).maybePop();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _playVideo() async {
@@ -618,6 +761,7 @@ class _ExportScreenState extends State<ExportScreen> {
       final saved = await KainuwaEncoder.saveToMovies(path: path, name: _unsavedName);
       if (mounted) setState(() { _unsavedVideo = null; _canPlay = true; });
       _set('Done. The video was saved to $saved.');
+      await _complete(saved);
       try {
         await File(path).delete();
       } catch (_) {}
@@ -782,7 +926,7 @@ class _ExportScreenState extends State<ExportScreen> {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 50),
           foregroundColor: Colors.white,
-          side: const BorderSide(color: Color(0x66B9A8F0), width: 1.4),
+          side: const BorderSide(color: KColors.gold, width: 1.4),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: _cancel,
@@ -806,7 +950,7 @@ class _ExportScreenState extends State<ExportScreen> {
             child: Center(
               child: Text(
                 '$pct%',
-                style: TextStyle(fontSize: ringSize * 0.25, fontWeight: FontWeight.w800, color: Colors.white),
+                style: TextStyle(fontSize: ringSize * 0.25, fontWeight: FontWeight.w800, color: KColors.gold),
               ),
             ),
           ),
@@ -1237,13 +1381,46 @@ class _ExportScreenState extends State<ExportScreen> {
       ],
     );
 
+    final showSuccess = _runPage && _result != null && !_busy;
     return PopScope(
-      canPop: !_busy && !_runPage,
+      canPop: !_busy && (!_runPage || _result != null),
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && !_busy && _runPage) setState(() => _runPage = false);
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(_runPage ? (_busy ? '' : 'Exporting') : 'Export Video')),
+        appBar: showSuccess
+            ? AppBar(
+                backgroundColor: KColors.background,
+                centerTitle: true,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF8B6CFF), Color(0xFF6D28D9)],
+                        ),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, color: KColors.gold, size: 30),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('Kainuwa Studio', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                  ],
+                ),
+                actions: [
+                  IconButton(icon: const Icon(Icons.more_vert), onPressed: _moreSheet),
+                ],
+              )
+            : AppBar(title: Text(_runPage ? (_busy ? '' : 'Exporting') : 'Export Video')),
         body: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1258,7 +1435,19 @@ class _ExportScreenState extends State<ExportScreen> {
             Positioned.fill(
               child: ColoredBox(
                 color: Theme.of(context).scaffoldBackgroundColor,
-                child: SafeArea(child: _runPage ? runContent : content),
+                child: SafeArea(
+                  child: showSuccess
+                      ? ExportSuccessView(
+                          latest: _result!,
+                          history: _history,
+                          onPlay: (e) => _viewEntry(e, 'play'),
+                          onShare: (e) => _viewEntry(e, 'share'),
+                          onOpenWith: (e) => _viewEntry(e, 'open'),
+                          onMore: _moreSheet,
+                          onRemove: _removeEntry,
+                        )
+                      : (_runPage ? runContent : content),
+                ),
               ),
             ),
           ],
@@ -1281,18 +1470,19 @@ class _RingPainter extends CustomPainter {
     final track = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
-      ..color = const Color(0x33FFFFFF);
+      ..color = const Color(0x337351FF);
     canvas.drawArc(rect, 0, 6.2831853, false, track);
     if (value <= 0) return;
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = stroke
-      ..shader = const SweepGradient(
+      ..shader = SweepGradient(
         startAngle: 0,
-        endAngle: 6.2831853,
-        colors: [Color(0xFF7351FF), Color(0xFFB45CF5), Color(0xFFE879F9)],
-        transform: GradientRotation(-1.5707963),
+        endAngle: 6.2831853 * value.clamp(0.02, 1.0),
+        colors: const [Color(0xFF7351FF), Color(0xFFA78BFA), Color(0xFFF6C101)],
+        stops: const [0.0, 0.55, 1.0],
+        transform: const GradientRotation(-1.5707963),
       ).createShader(rect);
     canvas.drawArc(rect, -1.5707963, 6.2831853 * value.clamp(0.0, 1.0), false, arc);
   }

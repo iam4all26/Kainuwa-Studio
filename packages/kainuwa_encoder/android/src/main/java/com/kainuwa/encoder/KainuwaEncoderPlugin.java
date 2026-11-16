@@ -322,6 +322,12 @@ public class KainuwaEncoderPlugin
             case "playLastVideo":
                 playLastVideo(result);
                 break;
+            case "lastVideoUri":
+                result.success(lastSavedUri == null ? null : lastSavedUri.toString());
+                break;
+            case "viewVideo":
+                viewVideo((String) call.argument("uri"), (String) call.argument("mode"), result);
+                break;
             case "saveToMovies":
                 saveToMovies((String) call.argument("path"), (String) call.argument("name"), result);
                 break;
@@ -1221,11 +1227,49 @@ public class KainuwaEncoderPlugin
         }
     }
 
+    /** Plays, shares or opens a saved video (mode: play, open or share). */
+    private void viewVideo(String uriText, String mode, MethodChannel.Result result) {
+        Uri uri = (uriText == null || uriText.isEmpty()) ? lastSavedUri : Uri.parse(uriText);
+        if (uri == null) {
+            result.error("no_video", "There is no saved video to open yet.", null);
+            return;
+        }
+        try {
+            Intent intent;
+            if ("share".equals(mode)) {
+                intent = new Intent(Intent.ACTION_SEND);
+                intent.setType("video/mp4");
+                intent.putExtra(Intent.EXTRA_STREAM, uri);
+                intent.setClipData(android.content.ClipData.newRawUri("", uri));
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                intent = Intent.createChooser(intent, "Share video");
+            } else {
+                intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(uri, "video/*");
+                intent.setClipData(android.content.ClipData.newRawUri("", uri));
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                if ("open".equals(mode)) {
+                    intent = Intent.createChooser(intent, "Open with");
+                }
+            }
+            if (activity != null) {
+                activity.startActivity(intent);
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                appContext.startActivity(intent);
+            }
+            result.success(true);
+        } catch (Exception e) {
+            result.error("view_failed", "The video could not be opened. It may have been moved or deleted.", null);
+        }
+    }
+
     private void saveToMovies(String path, String name, MethodChannel.Result result) {
         if (path == null || name == null) {
             result.error("bad_arguments", "Path and name are required.", null);
             return;
         }
+        lastSavedUri = null;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             saveLegacy(path, name, result);
             return;

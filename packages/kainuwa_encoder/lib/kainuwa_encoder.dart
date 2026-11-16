@@ -322,6 +322,19 @@ class KainuwaEncoder {
     await _channel.invokeMethod<bool>('playLastVideo');
   }
 
+  /// Address of the video saved last, or null.
+  static Future<String?> lastVideoUri() async {
+    _init();
+    return _channel.invokeMethod<String>('lastVideoUri');
+  }
+
+  /// mode: 'play' (phone's player), 'open' (choose an app) or 'share'.
+  /// Without a uri the last saved video is used.
+  static Future<void> viewVideo({String? uri, String mode = 'play'}) async {
+    _init();
+    await _channel.invokeMethod<bool>('viewVideo', {'uri': uri, 'mode': mode});
+  }
+
   static Future<String> saveToMovies({
     required String path,
     required String name,
