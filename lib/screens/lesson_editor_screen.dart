@@ -2302,29 +2302,24 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
           child: child,
         );
     if (landscape) {
-      return clearOnTap(Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 5,
-            child: LayoutBuilder(builder: (context, box) {
-              // Keep the whole preview and its controls on screen in landscape.
-              final room = box.maxHeight - _s(u, 150);
-              final maxW = math.max(160.0, room * 16 / 9 + _s(u, 56));
-              return Align(
-                alignment: Alignment.topCenter,
-                child: SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxW),
-                    child: Column(children: [preview, transport]),
-                  ),
-                ),
-              );
-            }),
-          ),
-          Expanded(flex: 6, child: scrollingTimeline),
-        ],
-      ));
+      // Like CapCut: canvas and transport on top, timeline underneath.
+      return clearOnTap(LayoutBuilder(builder: (context, box) {
+        final share = box.maxHeight * 0.52;
+        final room = math.max(60.0, share - math.max(44.0, _s(u, 110)));
+        final maxW = math.max(160.0, room * 16 / 9 + _s(u, 56));
+        return Column(
+          children: [
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxW),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [preview, transport]),
+              ),
+            ),
+            Expanded(child: scrollingTimeline),
+          ],
+        );
+      }));
     }
     // Preview and transport stay in place; only the timeline scrolls.
     return clearOnTap(Column(children: [preview, transport, Expanded(child: scrollingTimeline)]));
@@ -2497,8 +2492,76 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     );
   }
 
+  /// Landscape: the five bottom tabs become a vertical icon-only rail on the left.
+  Widget _landscapeRail(double u, EdgeInsets pad) {
+    final items = <(IconData, String)>[
+      (Icons.movie_outlined, 'Timeline'),
+      (Icons.wallpaper, 'Background'),
+      (Icons.add_box_outlined, 'Add'),
+      (Icons.mic_none, 'Sound'),
+      (Icons.timer_outlined, 'Time'),
+    ];
+    return Container(
+      width: 64 + pad.left,
+      padding: EdgeInsets.only(left: pad.left, top: pad.top + 6, bottom: pad.bottom + 6),
+      decoration: const BoxDecoration(
+        color: KColors.editorCard,
+        border: Border(right: BorderSide(color: Color(0x1FFFFFFF))),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Tooltip(
+                  message: items[i].$2,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _navTap(i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 48,
+                      height: 48,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _tab == i ? KColors.selected : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        items[i].$1,
+                        size: 24,
+                        color: _tab == i ? Colors.white : KColors.editorNavIcon,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _frame(bool landscape, double u, List<Widget> kids) {
+    if (!landscape) return Column(children: kids);
+    final pad = MediaQuery.of(context).padding;
+    return Row(
+      children: [
+        _landscapeRail(u, pad),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: pad.right, bottom: pad.bottom),
+            child: Column(children: kids),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final landscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final state = AppScope.of(context);
     final lesson = state.lessonById(widget.courseId, widget.lessonId);
     final player = _player;
@@ -2529,8 +2592,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).orientation == Orientation.landscape ? double.infinity : 640,
           ),
-          child: Column(
-            children: [
+          child: _frame(landscape, u, [
               _header(lesson, u),
               Expanded(
                 child: _bodyLayout(
@@ -2568,9 +2630,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 ),
               ),
               _toolCard(u),
-              _bottomNav(u),
-            ],
-          ),
+              if (!landscape) _bottomNav(u),
+            ]),
         ),
       ),
     );
