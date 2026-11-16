@@ -91,8 +91,11 @@ class TimelinePanel extends StatefulWidget {
     required this.onAddTrack,
     required this.onAddScene,
     required this.onTransition,
+    this.maxUnit = double.infinity,
   });
 
+  /// Upper limit for the size unit, so a wide landscape screen does not make the tracks huge.
+  final double maxUnit;
   final Lesson lesson;
   final LessonPlayer player;
   final List<String> order;
@@ -787,7 +790,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final u = width / 941.0;
+        final u = math.min(width / 941.0, widget.maxUnit);
         final labelLeft = 14 * u;
         final labelW = math.max(84.0, 214 * u);
         final stripLeft = labelLeft + labelW + 5 * u;
