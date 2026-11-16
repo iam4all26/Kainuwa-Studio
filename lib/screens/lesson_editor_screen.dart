@@ -2510,7 +2510,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       backgroundColor: KColors.editorPanel,
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).orientation == Orientation.landscape ? double.infinity : 640,
+          ),
           child: Column(
             children: [
               _header(lesson, u),
