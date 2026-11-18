@@ -66,6 +66,13 @@ class Layer {
     this.shadowBlur = 0.08,
     this.shadowX = 0.0,
     this.shadowY = 0.08,
+    this.outlineOn = false,
+    this.outlineColor = 0xFF000000,
+    this.outlineWidth = 0.03,
+    this.glowOn = false,
+    this.glowColor = 0xFFFFD54F,
+    this.glowSize = 0.12,
+    this.glowStrength = 0.5,
     this.cropL = 0,
     this.cropT = 0,
     this.cropR = 0,
@@ -154,6 +161,15 @@ class Layer {
   double shadowX;
   double shadowY;
 
+  /// Outline around the item and a soft glow behind it. Sizes are fractions of the item's smaller side.
+  bool outlineOn;
+  int outlineColor;
+  double outlineWidth;
+  bool glowOn;
+  int glowColor;
+  double glowSize;
+  double glowStrength;
+
   /// Gradient fill for text (two colours and an angle in degrees: 0 left to right, 90 top to bottom).
   bool gradOn;
   int gradC1;
@@ -222,6 +238,13 @@ class Layer {
         'shadowBlur': shadowBlur,
         'shadowX': shadowX,
         'shadowY': shadowY,
+        'outlineOn': outlineOn,
+        'outlineColor': outlineColor,
+        'outlineWidth': outlineWidth,
+        'glowOn': glowOn,
+        'glowColor': glowColor,
+        'glowSize': glowSize,
+        'glowStrength': glowStrength,
         'cropL': cropL,
         'cropT': cropT,
         'cropR': cropR,
@@ -283,6 +306,13 @@ class Layer {
         shadowBlur: _num(json['shadowBlur'], 0.08),
         shadowX: _num(json['shadowX'], 0.0),
         shadowY: _num(json['shadowY'], 0.08),
+        outlineOn: json['outlineOn'] is bool ? json['outlineOn'] as bool : false,
+        outlineColor: _int(json['outlineColor'], 0xFF000000),
+        outlineWidth: _num(json['outlineWidth'], 0.03),
+        glowOn: json['glowOn'] is bool ? json['glowOn'] as bool : false,
+        glowColor: _int(json['glowColor'], 0xFFFFD54F),
+        glowSize: _num(json['glowSize'], 0.12),
+        glowStrength: _num(json['glowStrength'], 0.5),
         cropL: _num(json['cropL'], 0),
         cropT: _num(json['cropT'], 0),
         cropR: _num(json['cropR'], 0),

@@ -1172,32 +1172,56 @@ class LayerContent extends StatelessWidget {
     }
   }
 
-  /// A soft copy of the item behind it, in the shadow colour, moved and blurred as set.
-  Widget _withShadow(Widget body) {
+  /// Shadow, glow and outline: coloured copies of the item drawn behind it.
+  Widget _withEffects(Widget body) {
     return LayoutBuilder(builder: (context, c) {
       final w = c.maxWidth.isFinite ? c.maxWidth : 100.0;
       final h = c.maxHeight.isFinite ? c.maxHeight : 100.0;
       final unit = math.min(w, h);
-      final sigma = layer.shadowBlur * unit;
-      Widget copy = ColorFiltered(
-        colorFilter: ColorFilter.mode(Color(layer.shadowColor), BlendMode.srcIn),
-        child: body,
-      );
-      if (sigma >= 0.3) {
-        copy = ImageFiltered(
+      Widget silhouette(int color) => ColorFiltered(
+            colorFilter: ColorFilter.mode(Color(color), BlendMode.srcIn),
+            child: body,
+          );
+      Widget blurred(Widget copy, double sigma) {
+        if (sigma < 0.3) return copy;
+        return ImageFiltered(
           imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal),
           child: copy,
         );
       }
+
+      final behind = <Widget>[];
+      if (layer.shadowOn) {
+        behind.add(Positioned.fill(
+          child: Transform.translate(
+            offset: Offset(layer.shadowX * unit, layer.shadowY * unit),
+            child: blurred(silhouette(layer.shadowColor), layer.shadowBlur * unit),
+          ),
+        ));
+      }
+      if (layer.glowOn) {
+        final copies = 1 + (layer.glowStrength.clamp(0.0, 1.0) * 3).round();
+        for (var k = 0; k < copies; k++) {
+          behind.add(Positioned.fill(child: blurred(silhouette(layer.glowColor), layer.glowSize * unit)));
+        }
+      }
+      if (layer.outlineOn && layer.outlineWidth > 0) {
+        final r = layer.outlineWidth * unit;
+        const steps = 16;
+        for (var k = 0; k < steps; k++) {
+          final a = 2 * math.pi * k / steps;
+          behind.add(Positioned.fill(
+            child: Transform.translate(
+              offset: Offset(math.cos(a) * r, math.sin(a) * r),
+              child: silhouette(layer.outlineColor),
+            ),
+          ));
+        }
+      }
       return Stack(
         clipBehavior: Clip.none,
         fit: StackFit.passthrough,
-        children: [
-          Positioned.fill(
-            child: Transform.translate(offset: Offset(layer.shadowX * unit, layer.shadowY * unit), child: copy),
-          ),
-          body,
-        ],
+        children: [...behind, body],
       );
     });
   }
@@ -1209,7 +1233,7 @@ class LayerContent extends StatelessWidget {
     if (clip != null && clip < 1) {
       body = ClipRect(clipper: FractionClipper(clip), child: body);
     }
-    if (layer.shadowOn) body = _withShadow(body);
+    if (layer.shadowOn || layer.glowOn || layer.outlineOn) body = _withEffects(body);
     if (layer.opacity >= 0.999) return body;
     return Opacity(opacity: layer.opacity.clamp(0.0, 1.0).toDouble(), child: body);
   }

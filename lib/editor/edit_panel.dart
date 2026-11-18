@@ -421,6 +421,8 @@ class _EditPanelState extends State<_EditPanel> {
     'Colours inside the text': 'Select some letters in the text box, then tap a colour. Different parts of one text can have different colours.',
     'On screen': 'When the item appears and when it leaves. You can also drag its ends on the timeline.',
     'Shadow': 'Blur and distance are relative to the size of the item.',
+    'Outline': 'A line around the shape of the item. Width is relative to the size of the item.',
+    'Glow': 'A soft light around the item. Size is relative to the size of the item.',
   };
 
   Widget _card(String title, IconData icon, Widget child) {
@@ -975,6 +977,8 @@ class _EditPanelState extends State<_EditPanel> {
               ],
             ),
           ),
+        _outlineCard(),
+        _glowCard(),
         _shadowCard(),
         _card(
           'Opacity',
@@ -1328,6 +1332,96 @@ class _EditPanelState extends State<_EditPanel> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fxSlider(String label, double value, double min, double max, ValueChanged<double> on) {
+    return Row(
+      children: [
+        SizedBox(width: 84, child: Text(label, style: const TextStyle(fontSize: 12, color: KColors.ink))),
+        Expanded(
+          child: Slider(
+            value: value.clamp(min, max).toDouble(),
+            min: min,
+            max: max,
+            onChanged: (v) {
+              on(v);
+              _changed();
+            },
+          ),
+        ),
+        SizedBox(
+          width: 38,
+          child: Text('${(value * 100).round()}', style: const TextStyle(fontSize: 12, color: KColors.ink)),
+        ),
+      ],
+    );
+  }
+
+  Widget _outlineCard() {
+    return _card(
+      'Outline',
+      Icons.border_style,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _labeled(
+            'Show an outline',
+            Switch(
+              value: l.outlineOn,
+              onChanged: (v) {
+                l.outlineOn = v;
+                _changed();
+              },
+            ),
+          ),
+          if (l.outlineOn) ...[
+            const SizedBox(height: 4),
+            _labeled(
+              'Outline colour',
+              _colorEditor(l.outlineColor, (v) {
+                l.outlineColor = v;
+                _changed();
+              }),
+            ),
+            _fxSlider('Width', l.outlineWidth, 0.005, 0.12, (v) => l.outlineWidth = v),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _glowCard() {
+    return _card(
+      'Glow',
+      Icons.flare,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _labeled(
+            'Show a glow',
+            Switch(
+              value: l.glowOn,
+              onChanged: (v) {
+                l.glowOn = v;
+                _changed();
+              },
+            ),
+          ),
+          if (l.glowOn) ...[
+            const SizedBox(height: 4),
+            _labeled(
+              'Glow colour',
+              _colorEditor(l.glowColor, (v) {
+                l.glowColor = v;
+                _changed();
+              }),
+            ),
+            _fxSlider('Size', l.glowSize, 0.02, 0.4, (v) => l.glowSize = v),
+            _fxSlider('Strength', l.glowStrength, 0.0, 1.0, (v) => l.glowStrength = v),
+          ],
         ],
       ),
     );

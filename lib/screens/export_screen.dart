@@ -192,9 +192,12 @@ class _ExportScreenState extends State<ExportScreen> {
     final s = math.sin(l.rotation).abs();
     // Room around the item for its shadow.
     var pad = _kPad;
-    if (l.shadowOn) {
+    if (l.shadowOn || l.glowOn || l.outlineOn) {
       final unit = math.min(lw, lh);
-      final reach = (math.max(l.shadowX.abs(), l.shadowY.abs()) + l.shadowBlur * 3) * unit;
+      var reach = 0.0;
+      if (l.shadowOn) reach = (math.max(l.shadowX.abs(), l.shadowY.abs()) + l.shadowBlur * 3) * unit;
+      if (l.glowOn) reach = math.max(reach, l.glowSize * 3 * unit);
+      if (l.outlineOn) reach = math.max(reach, l.outlineWidth * unit);
       pad = math.max(_kPad, reach + 4);
     }
     final bw = math.max(2.0, lw * c + lh * s + pad * 2);
