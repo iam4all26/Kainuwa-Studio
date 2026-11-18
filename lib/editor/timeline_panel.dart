@@ -556,7 +556,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   // ---- one clip ----
 
   Widget _clipView(_Clip clip, double w, double h, double u) {
-    final radius = BorderRadius.circular(math.max(6.0, 14 * u));
+    final radius = BorderRadius.circular(math.max(4.0, 8 * u));
     final fontSize = math.max(10.5, 26 * u);
     Widget body;
     bool selected = false;
@@ -739,48 +739,34 @@ class _TimelinePanelState extends State<TimelinePanel> {
 
   Widget _labelChip(String id, double height, double u, double labelW) {
     final hidden = widget.hidden.contains(id);
-    final iconSize = math.max(16.0, 36 * u);
-    return Container(
-      width: labelW,
-      height: height,
-      decoration: BoxDecoration(
-        color: KColors.editorLabel,
-        borderRadius: BorderRadius.circular(math.max(8.0, 18 * u)),
-        boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 1))],
-      ),
-      padding: EdgeInsets.symmetric(horizontal: math.max(4.0, 10 * u)),
-      child: Row(
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => widget.onToggleHidden(id),
-            child: Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Icon(
-                hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                size: iconSize,
-                color: KColors.ink,
-              ),
-            ),
-          ),
-          Icon(trackIcon(id), size: iconSize, color: KColors.ink),
-          const SizedBox(width: 4),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                trackName(id),
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: math.max(11.0, 27 * u),
-                  fontWeight: FontWeight.w400,
-                  color: KColors.ink,
+    final iconSize = math.max(15.0, 30 * u);
+    return Tooltip(
+      message: trackName(id),
+      child: Container(
+        width: labelW,
+        height: height,
+        decoration: BoxDecoration(
+          color: KColors.editorLabel,
+          borderRadius: BorderRadius.circular(math.max(5.0, 8 * u)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => widget.onToggleHidden(id),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: iconSize,
+                  color: hidden ? const Color(0xFF8A7BD6) : KColors.ink,
                 ),
               ),
             ),
-          ),
-        ],
+            Icon(trackIcon(id), size: iconSize, color: KColors.ink),
+          ],
+        ),
       ),
     );
   }
@@ -792,21 +778,21 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final width = constraints.maxWidth;
         final u = math.min(width / 941.0, widget.maxUnit);
         final labelLeft = 14 * u;
-        final labelW = math.max(84.0, 214 * u);
+        final labelW = math.max(84.0, 110 * u);
         final stripLeft = labelLeft + labelW + 5 * u;
         final viewportW = width - stripLeft - 13 * u;
         _pps = (viewportW / 31.2) * _zoom;
         final pps = _pps;
 
         final rulerH = 128 * u;
-        final baseRow = math.max(34.0, 70 * u);
+        final baseRow = math.max(30.0, 58 * u);
         final pad = math.max(2.0, 2 * u);
         final clipH = baseRow - 2 * pad;
         final stride = clipH + pad;
-        final rowGap = math.max(4.0, 10 * u);
-        final addH = math.max(30.0, 52 * u);
+        final rowGap = math.max(3.0, 6 * u);
+        final addH = math.max(28.0, 40 * u);
         // Transition button: small, and the room kept free on each side of it.
-        final tBtn = math.max(14.0, math.min(clipH * 0.55, 22.0));
+        final tBtn = math.max(13.0, math.min(clipH * 0.5, 18.0));
         final tGap = tBtn / 2 + 4;
 
         final clips = _buildClips();
@@ -837,7 +823,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: KColors.editorStrip,
-                    borderRadius: BorderRadius.circular(math.max(8.0, 16 * u)),
+                    borderRadius: BorderRadius.circular(math.max(5.0, 8 * u)),
                   ),
                 ),
               ),
@@ -892,9 +878,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   onTap: () => widget.onTransition(i),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: on ? const Color(0xFF7351FF) : KColors.editorLabel,
+                      color: on ? const Color(0xFF7351FF) : const Color(0xFF2E2658),
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF7351FF), width: 1.5),
+                      border: Border.all(color: on ? Colors.white : const Color(0xFF8A7BD6), width: 1),
                     ),
                     child: Icon(Icons.compare_arrows, size: btn * 0.62, color: Colors.white),
                   ),
