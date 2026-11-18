@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ai/ai_catalog.dart';
 import '../ai/ai_client.dart';
 import '../ai/ai_config.dart';
 import '../ai/lesson_plan.dart';
@@ -28,6 +29,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
   bool _busy = false;
   String _error = '';
   LessonPlan? _plan;
+  AiCatalog? _catalog;
   List<TextEditingController> _headings = [];
   List<TextEditingController> _points = [];
 
@@ -75,11 +77,13 @@ class _AiImportScreenState extends State<AiImportScreen> {
       _error = '';
     });
     try {
+      final catalog = _catalog ??= await AiCatalog.load();
       final plan = await generatePlan(
         c,
         lesson: text.length > _kMaxChars ? text.substring(0, _kMaxChars) : text,
         language: kPlanLanguages[_language],
         slides: kPlanLengths[_length].$2,
+        catalog: catalog,
       );
       if (!mounted) return;
       _setPlan(plan);
@@ -135,7 +139,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
     final ids = await state.addVideo(title: title, aspectW: shape.$2, aspectH: shape.$3);
     final lesson = state.lessonById(ids.$1, ids.$2);
     if (lesson != null) {
-      buildScenes(lesson, plan);
+      await buildScenes(lesson, plan, _catalog ?? await AiCatalog.load());
       await state.saveNow();
     }
     if (!mounted) return;
@@ -253,6 +257,24 @@ class _AiImportScreenState extends State<AiImportScreen> {
             ],
           ),
           const SizedBox(height: 10),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final l in kLayouts)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(l.replaceAll('_', ' ')),
+                      selected: slide.layout == l,
+                      onSelected: (_) => setState(() => slide.layout = l),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             controller: _points[i],
             minLines: 1,
@@ -296,6 +318,12 @@ class _AiImportScreenState extends State<AiImportScreen> {
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'Video name'),
               ),
+              if (_catalog != null && themeSummary(plan, _catalog!).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text('Design chosen by AI: ${themeSummary(plan, _catalog!)}',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFFB5ABD6))),
+                ),
               const SizedBox(height: 14),
               for (var i = 0; i < plan.slides.length; i++) _slideCard(i),
             ],
