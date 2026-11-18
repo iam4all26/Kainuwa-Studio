@@ -225,7 +225,7 @@ class _StoreTabState extends State<StoreTab> {
                       : _thumb(item),
                 ),
                 const SizedBox(height: 12),
-                Text(item.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                Text(item.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
                   [
@@ -316,7 +316,7 @@ class _StoreTabState extends State<StoreTab> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: fg, height: 1.15)),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg, height: 1.15)),
             Text(
               [if (size.isNotEmpty) size, if (installed) 'Installed'].join('  -  '),
               maxLines: 1,
@@ -351,7 +351,7 @@ class _StoreTabState extends State<StoreTab> {
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
                             shape: const StadiumBorder(),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                             backgroundColor: picked ? Colors.white : null,
                             foregroundColor: picked ? KColors.selected : null,
                           ),
@@ -378,7 +378,7 @@ class _StoreTabState extends State<StoreTab> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(label,
-              style: TextStyle(color: Colors.white, fontWeight: on ? FontWeight.w700 : FontWeight.w500, fontSize: 14)),
+              style: TextStyle(color: Colors.white, fontWeight: on ? FontWeight.w600 : FontWeight.w400, fontSize: 14)),
         ),
       ),
     );
@@ -469,7 +469,7 @@ class _StoreTabState extends State<StoreTab> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: widget.showTitle ? const Text('Store', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.3)) : const SizedBox.shrink(),
+                      child: widget.showTitle ? const Text('Store', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600, letterSpacing: -0.3)) : const SizedBox.shrink(),
                     ),
                     IconButton(
                       tooltip: _selecting ? 'Cancel selecting' : 'Select several',
@@ -534,7 +534,7 @@ class _StoreTabState extends State<StoreTab> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text('${_sel.length} selected', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      child: Text('${_sel.length} selected', style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     TextButton(
                       onPressed: selectable.isEmpty

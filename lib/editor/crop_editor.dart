@@ -107,7 +107,7 @@ class _CropEditorState extends State<_CropEditor> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop((_l, 1 - _r, _t, 1 - _b)),
-            child: const Text('Done', style: TextStyle(color: KColors.gold, fontWeight: FontWeight.w700)),
+            child: const Text('Done', style: TextStyle(color: KColors.gold, fontWeight: FontWeight.w600)),
           ),
         ],
       ),

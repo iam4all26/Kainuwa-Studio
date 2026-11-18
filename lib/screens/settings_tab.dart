@@ -63,7 +63,7 @@ class _SettingsTabState extends State<SettingsTab> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
               ),
               if (help != null) HelpIcon(help, title: title),
             ],
@@ -111,7 +111,7 @@ class _SettingsTabState extends State<SettingsTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Flexible(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700), textAlign: TextAlign.center)),
+              Flexible(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
             ],
           ),
         ),
@@ -135,7 +135,7 @@ class _SettingsTabState extends State<SettingsTab> {
         controller: _scroll,
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          const Text('Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -161,7 +161,7 @@ class _SettingsTabState extends State<SettingsTab> {
                           children: [
                             Icon(tabs[i].$1, size: 20),
                             const SizedBox(width: 8),
-                            Text(tabs[i].$2, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            Text(tabs[i].$2, style: const TextStyle(fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -188,7 +188,7 @@ class _SettingsTabState extends State<SettingsTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Portrait', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                            Text('Portrait', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                             Text('Tall, phone style', style: TextStyle(color: Color(0xFFB5ABD6))),
                           ],
                         ),
@@ -209,7 +209,7 @@ class _SettingsTabState extends State<SettingsTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Landscape', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                            Text('Landscape', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                             Text('Wide, video style', style: TextStyle(color: Color(0xFFB5ABD6))),
                           ],
                         ),
@@ -229,7 +229,7 @@ class _SettingsTabState extends State<SettingsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Video Size (Resolution)', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('Video Size (Resolution)', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -241,7 +241,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Text('Frame Rate', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('Frame Rate', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Row(
                   children: [

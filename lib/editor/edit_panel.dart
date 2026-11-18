@@ -57,7 +57,7 @@ List<DropdownMenuItem<String>> fontMenuItems() {
         enabled: false,
         child: Text(
           g.toUpperCase(),
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: KColors.accent, letterSpacing: 1),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: KColors.accent, letterSpacing: 1),
         ),
       ),
       for (final f in entries.where((e) => e.$3 == g))
@@ -442,7 +442,7 @@ class _EditPanelState extends State<_EditPanel> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: KColors.ink),
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: KColors.ink),
                 ),
               ),
               if (_cardHelp.containsKey(title)) HelpIcon(_cardHelp[title]!, title: title),
@@ -565,7 +565,7 @@ class _EditPanelState extends State<_EditPanel> {
                           child: Text(
                             label(kind),
                             maxLines: 1,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white),
                           ),
                         ),
                       ),
@@ -817,7 +817,7 @@ class _EditPanelState extends State<_EditPanel> {
           Icons.format_bold,
           Row(
             children: [
-              _toggle(const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)).withColor(l.bold), l.bold, () => _restyle(() => l.bold = !l.bold)),
+              _toggle(const Text('B', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17)).withColor(l.bold), l.bold, () => _restyle(() => l.bold = !l.bold)),
               _toggle(const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 17)).withColor(l.italic), l.italic, () => _restyle(() => l.italic = !l.italic)),
               _toggle(const Text('U', style: TextStyle(decoration: TextDecoration.underline, fontSize: 17)).withColor(l.underline), l.underline, () => _restyle(() => l.underline = !l.underline)),
               _toggle(const Text('S', style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 17)).withColor(l.strike), l.strike, () => _restyle(() => l.strike = !l.strike)),
@@ -1306,7 +1306,7 @@ class _EditPanelState extends State<_EditPanel> {
                   onPressed: () => run(false),
                   child: const FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('This slide', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    child: Text('This slide', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   ),
                 ),
               ),
@@ -1322,7 +1322,7 @@ class _EditPanelState extends State<_EditPanel> {
                   onPressed: () => run(true),
                   child: const FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('Whole video', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    child: Text('Whole video', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   ),
                 ),
               ),
@@ -1499,7 +1499,7 @@ class _EditPanelState extends State<_EditPanel> {
                                 child: Text(
                                   i.$2,
                                   maxLines: 1,
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white),
                                 ),
                               ),
                             ],
@@ -1812,7 +1812,7 @@ class _EditPanelState extends State<_EditPanel> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: KColors.ink)),
+                        Text(_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KColors.ink)),
                         Text(
                           _isText
                               ? 'Customize the selected text on the slide'
@@ -1996,7 +1996,7 @@ class _NumFieldState extends State<_NumField> {
         if (widget.label != null)
           Padding(
             padding: const EdgeInsets.only(right: 4),
-            child: Text(widget.label!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            child: Text(widget.label!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
         if (step != null) _button(Icons.remove, -step),
         SizedBox(

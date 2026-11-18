@@ -583,7 +583,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: math.max(10.0, 22 * u),
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   shadows: const [Shadow(color: Color(0xCC000000), blurRadius: 4)],
                 ),
               ),
@@ -619,7 +619,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   clip.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: fg, fontSize: fontSize, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: fg, fontSize: fontSize, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -659,7 +659,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: math.max(9.5, 20 * u),
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     shadows: const [Shadow(color: Color(0xAA000000), blurRadius: 3)],
                   ),
                 ),
@@ -774,7 +774,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                 maxLines: 1,
                 style: TextStyle(
                   fontSize: math.max(11.0, 27 * u),
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                   color: KColors.ink,
                 ),
               ),
@@ -1008,7 +1008,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: math.max(10.0, 24 * u),
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1043,7 +1043,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       'Add Track',
                       style: TextStyle(
                         fontSize: math.max(10.5, 25 * u),
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w400,
                         color: KColors.ink,
                       ),
                     ),
@@ -1177,7 +1177,7 @@ class _RulerPainter extends CustomPainter {
             style: TextStyle(
               color: const Color(0xFFB5ABD6),
               fontSize: math.max(10.0, 24 * u),
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
             ),
           ),
           textDirection: TextDirection.ltr,

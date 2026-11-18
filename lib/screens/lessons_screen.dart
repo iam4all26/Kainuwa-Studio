@@ -95,7 +95,7 @@ class LessonsScreen extends StatelessWidget {
                         course.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -135,7 +135,7 @@ class LessonsScreen extends StatelessWidget {
               children: [
                 Text(
                   'Lessons (${course.lessons.length})',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(width: 2),
                 const HelpIcon('Drag the handle on a lesson to change the order.', title: 'Lessons'),
@@ -175,7 +175,7 @@ class LessonsScreen extends StatelessWidget {
                             lesson.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(
                             '${sceneCountText(lesson.scenes.length)} - ${formatClock(lesson.durationMs)}',

@@ -139,7 +139,7 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
               fit: BoxFit.scaleDown,
               child: Text(title,
                   maxLines: 1,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: on ? Colors.white : KColors.ink)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: on ? Colors.white : KColors.ink)),
             ),
             const SizedBox(height: 1),
             Text(ratio, style: TextStyle(fontSize: 11, color: on ? KColors.gold : Colors.white54)),
@@ -168,7 +168,7 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.askName ? 'New video' : 'Video shape',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               if (widget.askName) ...[
                 TextField(
@@ -183,7 +183,7 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
                 ),
                 const SizedBox(height: 14),
               ],
-              const Text('Choose the shape', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
+              const Text('Choose the shape', style: TextStyle(fontWeight: FontWeight.w600, color: KColors.accent)),
               const SizedBox(height: 10),
               // Shows exactly how the video will look.
               Container(
@@ -202,11 +202,11 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
                       on: true,
                       child: Center(
                         child: Text('${r.$1}:${r.$2}',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white)),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                     Text(hint, style: const TextStyle(fontSize: 12.5, color: Colors.white60)),
                     const SizedBox(height: 2),
                     Text('${outSize.$1} x ${outSize.$2} at 1080p',
@@ -232,12 +232,12 @@ class _VideoSetupDialogState extends State<_VideoSetupDialog> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Text('Ratio', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const Text('Ratio', style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(width: 12),
                     SizedBox(width: 64, child: _numberField(_cw)),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(':', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                      child: Text(':', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
                     ),
                     SizedBox(width: 64, child: _numberField(_ch)),
                   ],

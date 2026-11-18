@@ -342,7 +342,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(album.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(album.name, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Icon(Icons.arrow_drop_down),
           ],
         ),

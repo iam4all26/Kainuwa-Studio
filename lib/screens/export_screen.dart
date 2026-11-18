@@ -943,7 +943,7 @@ class _ExportScreenState extends State<ExportScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: steps[i].$2 == 1 ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: steps[i].$2 == 1 ? FontWeight.w600 : FontWeight.w400,
                         color: steps[i].$2 == 0 ? Colors.white54 : Colors.white,
                       ),
                     ),
@@ -966,7 +966,7 @@ class _ExportScreenState extends State<ExportScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: _cancel,
-        child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       ),
     );
 
@@ -986,16 +986,16 @@ class _ExportScreenState extends State<ExportScreen> {
             child: Center(
               child: Text(
                 '$pct%',
-                style: TextStyle(fontSize: ringSize * 0.25, fontWeight: FontWeight.w800, color: KColors.gold),
+                style: TextStyle(fontSize: ringSize * 0.25, fontWeight: FontWeight.w600, color: KColors.gold),
               ),
             ),
           ),
         ),
       );
-      const title = Text('Exporting...', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white));
+      const title = Text('Exporting...', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white));
       final sub = Column(
         children: [
-          const Text('Rendering your video...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white)),
+          const Text('Rendering your video...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: Colors.white)),
           const SizedBox(height: 4),
           Text('Elapsed ${_elapsed()}', style: const TextStyle(fontSize: 12.5, color: Colors.white54)),
         ],
@@ -1059,7 +1059,7 @@ class _ExportScreenState extends State<ExportScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('$pct%', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1)),
+              Text('$pct%', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w600, height: 1)),
               const Spacer(),
               Text('Elapsed ${_elapsed()}', style: const TextStyle(fontSize: 13, color: Colors.white60)),
             ],
@@ -1109,7 +1109,7 @@ class _ExportScreenState extends State<ExportScreen> {
                   steps[i],
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: i == _phase ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: i == _phase ? FontWeight.w600 : FontWeight.w400,
                     color: i <= _phase ? Colors.white : Colors.white54,
                   ),
                 ),
@@ -1175,7 +1175,7 @@ class _ExportScreenState extends State<ExportScreen> {
         );
     Widget label(String t) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
+          child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600, color: KColors.accent)),
         );
 
     final tiles = <Widget>[];
@@ -1207,12 +1207,12 @@ class _ExportScreenState extends State<ExportScreen> {
                   children: [
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text('${q}p', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                      child: Text('${q}p', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(info.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      child: Text(info.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                     ),
                     const SizedBox(height: 2),
                     FittedBox(
@@ -1247,7 +1247,7 @@ class _ExportScreenState extends State<ExportScreen> {
                     children: [
                       Text(lesson?.title ?? 'Video',
                           maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 2),
                       if (lesson != null)
                         Text('${sceneCountText(lesson.scenes.length)}  -  ${formatClock(lesson.durationMs)}  -  about ${estMb.toStringAsFixed(estMb < 10 ? 1 : 0)} MB'),
@@ -1312,10 +1312,10 @@ class _ExportScreenState extends State<ExportScreen> {
             Row(
               children: [
                 const Expanded(
-                  child: Text('Video bitrate', style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent)),
+                  child: Text('Video bitrate', style: TextStyle(fontWeight: FontWeight.w600, color: KColors.accent)),
                 ),
                 const HelpIcon('Higher bitrate looks sharper and makes a bigger file.', title: 'Video bitrate'),
-                Text('${_mbps.round()} Mbps', style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text('${_mbps.round()} Mbps', style: const TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
             Slider(
@@ -1356,7 +1356,7 @@ class _ExportScreenState extends State<ExportScreen> {
                   Text(lesson?.title ?? 'Video',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text('${_quality}p  -  ${_fps} FPS  -  ${_mbps.round()} Mbps  -  about ${estMb.toStringAsFixed(estMb < 10 ? 1 : 0)} MB'),
                 ],
@@ -1380,7 +1380,7 @@ class _ExportScreenState extends State<ExportScreen> {
               _status,
               style: TextStyle(
                 color: _failed ? Theme.of(context).colorScheme.error : KColors.ink,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -1446,7 +1446,7 @@ class _ExportScreenState extends State<ExportScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('Kainuwa Studio', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    const Text('Kainuwa Studio', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 actions: [

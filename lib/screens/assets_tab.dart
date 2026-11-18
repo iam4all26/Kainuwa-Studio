@@ -19,7 +19,7 @@ class AssetsTab extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Assets',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -101,7 +101,7 @@ class _AssetGrid extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 4),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),

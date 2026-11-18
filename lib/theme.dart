@@ -37,6 +37,37 @@ class KColors {
   static const Color clipPicture = Color(0xFF7C4DDB);
 }
 
+/// The app font. Change this one word to 'Manrope' to try the other family.
+const String kUiFont = 'Inter';
+
+TextTheme _lighterText() {
+  FontWeight? lighter(FontWeight? w) {
+    if (w == FontWeight.w500) return FontWeight.w400;
+    if (w == FontWeight.w600 || w == FontWeight.w700) return FontWeight.w500;
+    return FontWeight.w300;
+  }
+
+  TextStyle? f(TextStyle? s) => s?.copyWith(fontWeight: lighter(s.fontWeight));
+  final base = Typography.material2021(platform: TargetPlatform.android).white.apply(fontFamily: kUiFont);
+  return base.copyWith(
+    displayLarge: f(base.displayLarge),
+    displayMedium: f(base.displayMedium),
+    displaySmall: f(base.displaySmall),
+    headlineLarge: f(base.headlineLarge),
+    headlineMedium: f(base.headlineMedium),
+    headlineSmall: f(base.headlineSmall),
+    titleLarge: f(base.titleLarge),
+    titleMedium: f(base.titleMedium),
+    titleSmall: f(base.titleSmall),
+    bodyLarge: f(base.bodyLarge),
+    bodyMedium: f(base.bodyMedium),
+    bodySmall: f(base.bodySmall),
+    labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+    labelMedium: base.labelMedium?.copyWith(fontWeight: FontWeight.w500),
+    labelSmall: base.labelSmall?.copyWith(fontWeight: FontWeight.w400),
+  );
+}
+
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: KColors.purple,
@@ -55,7 +86,8 @@ ThemeData buildTheme() {
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    fontFamily: 'Inter',
+    fontFamily: kUiFont,
+    textTheme: _lighterText(),
     colorScheme: scheme,
     scaffoldBackgroundColor: KColors.background,
     canvasColor: KColors.surface,
@@ -73,7 +105,7 @@ ThemeData buildTheme() {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+      titleTextStyle: TextStyle(fontFamily: kUiFont, fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
       systemOverlayStyle: SystemUiOverlayStyle.light,
     ),
 
@@ -89,13 +121,13 @@ ThemeData buildTheme() {
       backgroundColor: const Color(0xFF1E1938),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-      titleTextStyle: const TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+      titleTextStyle: const TextStyle(fontFamily: kUiFont, fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
     ),
 
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: const Color(0xFF2E2653),
-      contentTextStyle: const TextStyle(fontFamily: 'Inter', color: Colors.white, fontWeight: FontWeight.w500),
+      contentTextStyle: const TextStyle(fontFamily: kUiFont, color: Colors.white, fontWeight: FontWeight.w400),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
 
@@ -142,7 +174,7 @@ ThemeData buildTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: Colors.white,
         ),
       ),
@@ -157,8 +189,8 @@ ThemeData buildTheme() {
         color: KColors.selected,
         borderRadius: BorderRadius.circular(20),
       ),
-      labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
     ),
 
@@ -174,7 +206,7 @@ ThemeData buildTheme() {
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0, pressedElevation: 0),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
       valueIndicatorColor: KColors.selected,
-      valueIndicatorTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+      valueIndicatorTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
     ),
 
     chipTheme: ChipThemeData(
@@ -185,7 +217,7 @@ ThemeData buildTheme() {
       side: BorderSide.none,
       labelStyle: WidgetStateTextStyle.resolveWith(
         (s) => TextStyle(
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: s.contains(WidgetState.selected)
               ? Colors.white
               : KColors.ink,

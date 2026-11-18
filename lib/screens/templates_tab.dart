@@ -11,7 +11,7 @@ class TemplatesTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Templates', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+            const Text('Templates', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
             Expanded(
               child: Center(
                 child: Column(

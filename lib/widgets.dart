@@ -246,7 +246,7 @@ class _ColorPanelState extends State<_ColorPanel> {
         ),
         child: Row(
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(width: 6),
             Expanded(child: Text('$value', style: const TextStyle(fontSize: 16))),
             Column(
@@ -386,7 +386,7 @@ class _ColorPanelState extends State<_ColorPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Preset Colors', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text('Preset Colors', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         Wrap(
           spacing: 12,
@@ -409,7 +409,7 @@ class _ColorPanelState extends State<_ColorPanel> {
           ],
         ),
         const Divider(height: 28),
-        const Text('Color Picker', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text('Color Picker', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         _picker(),
         const SizedBox(height: 14),
@@ -425,7 +425,7 @@ class _ColorPanelState extends State<_ColorPanel> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('HEX', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text('HEX', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
@@ -454,7 +454,7 @@ class _ColorPanelState extends State<_ColorPanel> {
         const SizedBox(height: 12),
         Row(children: [_stepper('R', 16), _stepper('G', 8), _stepper('B', 0)]),
         const SizedBox(height: 14),
-        const Text('Opacity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text('Opacity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         Row(
           children: [
             Expanded(
@@ -515,7 +515,7 @@ class _ColorPanelState extends State<_ColorPanel> {
             children: [
               Icon(icon, size: 18),
               const SizedBox(width: 6),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -542,12 +542,12 @@ class _ColorPanelState extends State<_ColorPanel> {
                 children: [
                   IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
                   Expanded(
-                    child: Text(widget.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                    child: Text(widget.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
                   ),
                   TextButton(
                     style: TextButton.styleFrom(backgroundColor: const Color(0xFF7351FF), foregroundColor: Colors.white),
                     onPressed: () => Navigator.of(context).pop(_argb),
-                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),

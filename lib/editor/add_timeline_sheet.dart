@@ -34,7 +34,7 @@ class _AddTimelineSheet extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: KColors.purple),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: KColors.ink)),
+          Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: KColors.ink)),
           const SizedBox(width: 10),
           const Expanded(child: Divider(height: 1, color: Color(0x1FFFFFFF))),
         ],
@@ -73,7 +73,7 @@ class _AddTimelineSheet extends StatelessWidget {
                           it.$3,
                           maxLines: 2,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: KColors.ink, height: 1.1),
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: KColors.ink, height: 1.1),
                         ),
                       ],
                     ),
@@ -135,7 +135,7 @@ class _AddTimelineSheet extends StatelessWidget {
                         'Add to Timeline',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: KColors.ink),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KColors.ink),
                       ),
                     ),
                     IconButton(

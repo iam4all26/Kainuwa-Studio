@@ -81,7 +81,14 @@ flutter:
         - asset: assets/fonts/greatvibes_r.ttf
     - family: Inter
       fonts:
+        - asset: assets/fonts/inter_l.ttf
+          weight: 300
         - asset: assets/fonts/inter_r.ttf
+          weight: 400
+        - asset: assets/fonts/inter_m.ttf
+          weight: 500
+        - asset: assets/fonts/inter_sb.ttf
+          weight: 600
         - asset: assets/fonts/inter_b.ttf
           weight: 700
     - family: Lato
@@ -161,7 +168,14 @@ flutter:
           weight: 700
     - family: Manrope
       fonts:
+        - asset: assets/fonts/manrope_l.ttf
+          weight: 300
         - asset: assets/fonts/manrope_r.ttf
+          weight: 400
+        - asset: assets/fonts/manrope_m.ttf
+          weight: 500
+        - asset: assets/fonts/manrope_sb.ttf
+          weight: 600
         - asset: assets/fonts/manrope_b.ttf
           weight: 700
     - family: Mulish

@@ -909,7 +909,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Position and size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const Text('Position and size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 const Text('Centre of the item, in percent of the slide. 0 is left or top, 100 is right or bottom.',
                     style: TextStyle(color: Color(0xFFB5ABD6))),
@@ -1395,7 +1395,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Video clip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const Text('Video clip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -1802,7 +1802,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Text(
                 '${trackName(id)} track',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: KColors.ink),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KColors.ink),
               ),
             ),
             if (index > 0)
@@ -1902,7 +1902,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: _s(u, 46, 16),
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -1929,7 +1929,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: _s(u, 32, 13),
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -2059,7 +2059,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Transition into slide ${index + 2}',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -2075,7 +2075,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   ),
                   if (transitionUsesDirection(scene.transKind)) ...[
                     const SizedBox(height: 14),
-                    const Text('Direction', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const Text('Direction', style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
@@ -2094,7 +2094,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   if (scene.transKind != 'none') ...[
                     const SizedBox(height: 14),
                     Text('Length: ${(scene.transMs / 1000).toStringAsFixed(1)} seconds',
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     Slider(
                       value: scene.transMs.clamp(300, 2000).toDouble(),
                       min: 300,
@@ -2103,7 +2103,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                       onChanged: (v) => change(() => scene.transMs = v.round()),
                     ),
                     const SizedBox(height: 6),
-                    const Text('Background behind the slides', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const Text('Background behind the slides', style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
@@ -2140,7 +2140,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                               color: const Color(0xFF7351FF),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Text('Other colour', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                            child: const Text('Other colour', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ],
@@ -2268,7 +2268,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   '${_clock(player.positionMs)} / ${_clock(player.totalMs)}',
                   style: TextStyle(
                     fontSize: _s(u, 31, 12),
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: KColors.ink,
                   ),
                 ),
@@ -2308,7 +2308,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   style: TextStyle(
                     fontSize: _s(u, 25, 10),
                     color: KColors.ink,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
@@ -2417,7 +2417,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                                 t.$2,
                                 maxLines: 1,
                                 softWrap: false,
-                                style: const TextStyle(fontSize: 10, color: KColors.ink, fontWeight: FontWeight.w500),
+                                style: const TextStyle(fontSize: 10, color: KColors.ink, fontWeight: FontWeight.w400),
                               ),
                             ),
                           ],
@@ -2437,7 +2437,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       children: [
         Text(
           '${_clock(player.positionMs)} / ${_clock(player.totalMs)}',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: KColors.ink),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: KColors.ink),
         ),
         const SizedBox(height: 8),
         Row(
@@ -2657,7 +2657,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                           softWrap: false,
                           style: TextStyle(
                             fontSize: _s(u, 26, 10.5),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: _tab == i ? Colors.white : KColors.editorNavIcon,
                           ),
                         ),

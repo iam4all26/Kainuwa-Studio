@@ -48,7 +48,7 @@ class _GraphicsSheetState extends State<_GraphicsSheet> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(label,
-              style: TextStyle(color: on ? Colors.white : KColors.ink, fontWeight: FontWeight.w700)),
+              style: TextStyle(color: on ? Colors.white : KColors.ink, fontWeight: FontWeight.w600)),
         ),
       ),
     );
@@ -77,7 +77,7 @@ class _GraphicsSheetState extends State<_GraphicsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('From the store', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('From the store', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
             if (widget.items.isEmpty)
               const Padding(

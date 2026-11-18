@@ -50,7 +50,7 @@ class _BackgroundSheet extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Background', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const Text('Background', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(
@@ -64,13 +64,13 @@ class _BackgroundSheet extends StatelessWidget {
             label: const Text('Choose a photo'),
           ),
           const SizedBox(height: 16),
-          const Text('Colours', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFB5ABD6))),
+          const Text('Colours', style: TextStyle(fontWeight: FontWeight.w500, color: Color(0xFFB5ABD6))),
           const SizedBox(height: 8),
           ColorSwatches(
             onPick: (value) => Navigator.of(context).pop(BackgroundChoice('color', '$value')),
           ),
           const SizedBox(height: 16),
-          const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFB5ABD6))),
+          const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w500, color: Color(0xFFB5ABD6))),
           const SizedBox(height: 8),
           GridView.builder(
             shrinkWrap: true,
@@ -138,7 +138,7 @@ class _AssetSheet extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Add an icon', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                child: Text('Add an icon', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               ),
             ),
             const TabBar(isScrollable: true, tabs: [
@@ -232,7 +232,7 @@ Future<String?> showShapeSheet(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Add a shape', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Add a shape', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -267,7 +267,7 @@ Future<String?> showShapeSheet(BuildContext context) {
             ),
             const SizedBox(height: 16),
             if (storeShapes().isNotEmpty) ...[
-              const Text('More shapes', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text('More shapes', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 10,
@@ -358,7 +358,7 @@ class _DurationSheetState extends State<_DurationSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Scene length', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Scene length', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Text('${_seconds.toStringAsFixed(1)} seconds'),
             if (widget.minMs > 1000)
@@ -406,7 +406,7 @@ Future<String?> showAddSheet(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Add to slide', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Add to slide', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -454,7 +454,7 @@ class _AddOption extends StatelessWidget {
               children: [
                 Icon(icon, size: 28, color: Colors.white),
                 const SizedBox(height: 8),
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
               ],
             ),
           ),
@@ -500,7 +500,7 @@ class _AnimateSheetState extends State<_AnimateSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Entrance animation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Entrance animation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             const Text(
               'How this item appears on the slide. Press the play button on the slide to see it.',
@@ -541,12 +541,12 @@ class _AnimateSheetState extends State<_AnimateSheet> {
               ],
             ],
             const SizedBox(height: 16),
-            const Text('Hand reveal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const Text('Hand reveal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             HandPicker(layer: layer, onChanged: () => setState(() {})),
             if (layer.type == 'text') ...[
               const SizedBox(height: 16),
-              const Text('Text animation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const Text('Text animation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               const Text(
                 'Shows the text piece by piece. It can be used together with the entrance above.',

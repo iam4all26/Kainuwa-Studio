@@ -52,7 +52,7 @@ Widget _sheetTitle(String text) {
     padding: const EdgeInsets.only(bottom: 8),
     child: Text(
       text,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: KColors.ink),
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KColors.ink),
     ),
   );
 }
@@ -372,7 +372,7 @@ Future<String?> showSoundChooser(BuildContext context) {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
                     const SizedBox(height: 2),
                     Text(subtitle, style: const TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6))),
                   ],

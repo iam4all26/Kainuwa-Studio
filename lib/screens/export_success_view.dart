@@ -66,7 +66,7 @@ class ExportSuccessView extends StatelessWidget {
               Text(
                 'Project Successfully Exported',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 26 * _k, fontWeight: FontWeight.w800, color: Colors.white, height: 1.15),
+                style: TextStyle(fontSize: 26 * _k, fontWeight: FontWeight.w600, color: Colors.white, height: 1.15),
               ),
               SizedBox(height: 6 * _k),
               Text(
@@ -87,7 +87,7 @@ class ExportSuccessView extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text('Project Exports',
-                        style: TextStyle(fontSize: 20 * _k, fontWeight: FontWeight.w800, color: Colors.white)),
+                        style: TextStyle(fontSize: 20 * _k, fontWeight: FontWeight.w600, color: Colors.white)),
                   ),
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12 * _k, vertical: 5 * _k),
@@ -98,7 +98,7 @@ class ExportSuccessView extends StatelessWidget {
                     ),
                     child: Text(
                       '${list.length} ${list.length == 1 ? 'Video' : 'Videos'}',
-                      style: TextStyle(fontSize: 13.5 * _k, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: TextStyle(fontSize: 13.5 * _k, fontWeight: FontWeight.w500, color: Colors.white),
                     ),
                   ),
                 ],
@@ -144,7 +144,7 @@ class ExportSuccessView extends StatelessWidget {
                   latest.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 16 * _k, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
+                  style: TextStyle(fontSize: 16 * _k, fontWeight: FontWeight.w600, color: Colors.white, height: 1.2),
                 ),
                 SizedBox(height: 7 * _k),
                 Wrap(
@@ -159,7 +159,7 @@ class ExportSuccessView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text('MP4',
-                          style: TextStyle(fontSize: 14 * _k, fontWeight: FontWeight.w700, color: KColors.accent)),
+                          style: TextStyle(fontSize: 14 * _k, fontWeight: FontWeight.w600, color: KColors.accent)),
                     ),
                     Text(latest.resolution, style: TextStyle(fontSize: 12.5 * _k, color: _soft)),
                   ],
@@ -215,7 +215,7 @@ class ExportSuccessView extends StatelessWidget {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(label,
-                          style: TextStyle(fontSize: 13.5 * _k, fontWeight: FontWeight.w600, color: Colors.white)),
+                          style: TextStyle(fontSize: 13.5 * _k, fontWeight: FontWeight.w500, color: Colors.white)),
                     ),
                   ],
                 ),
@@ -265,7 +265,7 @@ class ExportSuccessView extends StatelessWidget {
                       Text(e.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14.5 * _k, fontWeight: FontWeight.w700, color: Colors.white)),
+                          style: TextStyle(fontSize: 14.5 * _k, fontWeight: FontWeight.w600, color: Colors.white)),
                       SizedBox(height: 5 * _k),
                       Wrap(
                         spacing: 10,
@@ -369,7 +369,7 @@ class _Thumb extends StatelessWidget {
                     Icon(Icons.play_arrow_rounded, size: badgeSize + 2, color: Colors.white),
                     const SizedBox(width: 2),
                     Text(entry.clock,
-                        style: TextStyle(fontSize: badgeSize, fontWeight: FontWeight.w700, color: Colors.white)),
+                        style: TextStyle(fontSize: badgeSize, fontWeight: FontWeight.w600, color: Colors.white)),
                   ],
                 ),
               ),

@@ -50,7 +50,7 @@ class CoursesTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text(subtitle, style: const TextStyle(color: Color(0xFFB5ABD6))),
                   ],
@@ -74,7 +74,7 @@ class CoursesTab extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Create video', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const Text('Create video', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
               const SizedBox(height: 14),
               _choiceTile(sheetContext, Icons.movie_creation_outlined, 'Video',
                   'Open the canvas and start right away', 'video'),
@@ -279,7 +279,7 @@ class CoursesTab extends StatelessWidget {
                 child: Icon(icon, color: Colors.white, size: 20),
               ),
               const SizedBox(height: 10),
-              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6))),
             ],
@@ -322,7 +322,7 @@ class CoursesTab extends StatelessWidget {
                       course.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -385,7 +385,7 @@ class CoursesTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Kainuwa Studio', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                    Text('Kainuwa Studio', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600)),
                     Text('Make videos, even offline',
                         style: TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6))),
                   ],
@@ -415,7 +415,7 @@ class CoursesTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Create a new video',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white)),
                         const SizedBox(height: 4),
                         Text('Name it, then open the canvas and start.',
                             style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
@@ -444,7 +444,7 @@ class CoursesTab extends StatelessWidget {
           const SizedBox(height: 22),
           Text(
             'My projects  (${courses.length})',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           if (courses.isEmpty)

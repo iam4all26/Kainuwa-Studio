@@ -216,11 +216,11 @@ class _AudioSheetState extends State<_AudioSheet> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Sound', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const Text('Sound', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           const Text(
             'Narration for this scene',
-            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent),
+            style: TextStyle(fontWeight: FontWeight.w600, color: KColors.accent),
           ),
           const SizedBox(height: 8),
           if (_recording) ...[
@@ -229,7 +229,7 @@ class _AudioSheetState extends State<_AudioSheet> {
                 const Icon(Icons.fiber_manual_record, color: Colors.red, size: 18),
                 const SizedBox(width: 6),
                 Text('Recording ${_clock(_elapsedMs)}',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
               ],
             ),
             const SizedBox(height: 8),
@@ -354,7 +354,7 @@ class _AudioSheetState extends State<_AudioSheet> {
           const Divider(height: 32),
           const Text(
             'Music for the whole video',
-            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.accent),
+            style: TextStyle(fontWeight: FontWeight.w600, color: KColors.accent),
           ),
           const SizedBox(height: 8),
           if (lesson.musicPath.isEmpty)
