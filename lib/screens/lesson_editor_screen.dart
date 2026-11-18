@@ -2029,7 +2029,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         borderRadius: BorderRadius.circular(_s(u, 28, 12)),
         child: AspectRatio(
           aspectRatio: lesson.aspect,
-          child: _withTransition(lesson, spot, playing, ValueListenableBuilder<int?>(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+          _withTransition(lesson, spot, playing, ValueListenableBuilder<int?>(
             valueListenable: _demoMs,
             builder: (context, demoMs, _) => SceneCanvas(
             scene: viewScene(scene, lesson.hiddenTracks),
@@ -2055,10 +2058,33 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             },
             ),
           )),
+              if (!playing && _selectedLayer(scene) != null)
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: _NudgePad(
+                    step: _nudgeStep,
+                    onStep: (v) => setState(() => _nudgeStep = v),
+                    onMove: (dx, dy) {
+                      final layer = _selectedLayer(scene);
+                      if (layer == null) return;
+                      setState(() {
+                        layer.cx = (layer.cx + dx * _nudgeStep / 100).clamp(0.0, 1.0).toDouble();
+                        layer.cy = (layer.cy + dy * _nudgeStep / 100).clamp(0.0, 1.0).toDouble();
+                      });
+                    },
+                    onDone: _commit,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  /// How far one arrow press moves the selected item, in percent of the slide.
+  static double _nudgeStep = 1.0;
 
   /// Keeps the slide (and its native video player) alive when the transition wrapper comes and goes.
   final GlobalKey _stageKey = GlobalKey();
@@ -2906,6 +2932,103 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             ]),
         ),
       ),
+    );
+  }
+}
+
+/// Four arrows that move the selected item. Hold a button to keep moving.
+class _NudgePad extends StatefulWidget {
+  const _NudgePad({required this.step, required this.onStep, required this.onMove, required this.onDone});
+
+  final double step;
+  final ValueChanged<double> onStep;
+  final void Function(double dx, double dy) onMove;
+  final VoidCallback onDone;
+
+  @override
+  State<_NudgePad> createState() => _NudgePadState();
+}
+
+class _NudgePadState extends State<_NudgePad> {
+  static const List<double> _steps = [0.25, 0.5, 1, 2, 5, 10];
+  Timer? _hold;
+  Timer? _repeat;
+  bool _moved = false;
+
+  void _down(double dx, double dy) {
+    _moved = true;
+    widget.onMove(dx, dy);
+    _hold?.cancel();
+    _repeat?.cancel();
+    _hold = Timer(const Duration(milliseconds: 350), () {
+      _repeat = Timer.periodic(const Duration(milliseconds: 70), (_) => widget.onMove(dx, dy));
+    });
+  }
+
+  void _up() {
+    _hold?.cancel();
+    _repeat?.cancel();
+    if (_moved) {
+      _moved = false;
+      widget.onDone();
+    }
+  }
+
+  @override
+  void dispose() {
+    _hold?.cancel();
+    _repeat?.cancel();
+    super.dispose();
+  }
+
+  Widget _btn(IconData icon, double dx, double dy) {
+    return Listener(
+      onPointerDown: (_) => _down(dx, dy),
+      onPointerUp: (_) => _up(),
+      onPointerCancel: (_) => _up(),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: const BoxDecoration(color: Color(0xCC2A2250), shape: BoxShape.circle),
+        child: Icon(icon, size: 20, color: Colors.white),
+      ),
+    );
+  }
+
+  String _label(double v) => v == v.roundToDouble() ? '${v.toInt()}%' : '$v%';
+
+  @override
+  Widget build(BuildContext context) {
+    final i = _steps.indexOf(widget.step);
+    final next = _steps[(i + 1) % _steps.length];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _btn(Icons.keyboard_arrow_up, 0, -1),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _btn(Icons.keyboard_arrow_left, -1, 0),
+            const SizedBox(width: 2),
+            InkWell(
+              borderRadius: BorderRadius.circular(15),
+              onTap: () => widget.onStep(next),
+              child: Container(
+                width: 38,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: const Color(0xCC7351FF), borderRadius: BorderRadius.circular(15)),
+                child: Text(_label(widget.step), style: const TextStyle(fontSize: 11, color: Colors.white)),
+              ),
+            ),
+            const SizedBox(width: 2),
+            _btn(Icons.keyboard_arrow_right, 1, 0),
+          ],
+        ),
+        const SizedBox(height: 2),
+        _btn(Icons.keyboard_arrow_down, 0, 1),
+      ],
     );
   }
 }
