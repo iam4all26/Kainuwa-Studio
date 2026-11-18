@@ -92,6 +92,9 @@ class AppState extends ChangeNotifier {
     return id;
   }
 
+  /// Saves the courses after a change made outside this class.
+  Future<void> saveNow() => _saveCourses();
+
   /// A single video with no course around it. Returns the ids to open the editor with.
   Future<(String, String)> addVideo({String title = 'Untitled video', int aspectW = 16, int aspectH = 9}) async {
     final courseId = _newId();

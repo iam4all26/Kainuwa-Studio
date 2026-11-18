@@ -22,6 +22,15 @@ import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.view.Surface;
 import android.view.WindowManager;
+import android.content.SharedPreferences;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
+import java.security.KeyStore;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
@@ -300,6 +309,82 @@ public class KainuwaEncoderPlugin
 
     // ---- Method calls ----
 
+    // ---- Secure storage for API keys (Android Keystore, AES-GCM) ----
+    private static final String SECURE_ALIAS = "kainuwa_secure_key";
+
+    @androidx.annotation.RequiresApi(23)
+    private SecretKey secureKey() throws Exception {
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        if (!ks.containsAlias(SECURE_ALIAS)) {
+            KeyGenerator kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+            kg.init(new KeyGenParameterSpec.Builder(SECURE_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build());
+            return kg.generateKey();
+        }
+        return ((KeyStore.SecretKeyEntry) ks.getEntry(SECURE_ALIAS, null)).getSecretKey();
+    }
+
+    private void secureSet(String name, String value, MethodChannel.Result result) {
+        try {
+            SharedPreferences sp = appContext.getSharedPreferences("kainuwa_secure", Context.MODE_PRIVATE);
+            if (name == null) {
+                result.error("secure", "missing name", null);
+                return;
+            }
+            if (value == null || value.isEmpty()) {
+                sp.edit().remove(name).apply();
+                result.success(true);
+                return;
+            }
+            byte[] plain = value.getBytes("UTF-8");
+            if (Build.VERSION.SDK_INT >= 23) {
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.ENCRYPT_MODE, secureKey());
+                byte[] iv = cipher.getIV();
+                byte[] enc = cipher.doFinal(plain);
+                sp.edit().putString(name, "v1:" + Base64.encodeToString(iv, Base64.NO_WRAP)
+                        + ":" + Base64.encodeToString(enc, Base64.NO_WRAP)).apply();
+            } else {
+                sp.edit().putString(name, "p:" + Base64.encodeToString(plain, Base64.NO_WRAP)).apply();
+            }
+            result.success(true);
+        } catch (Exception e) {
+            result.error("secure", "Could not save the key: " + e.getMessage(), null);
+        }
+    }
+
+    private void secureGet(String name, MethodChannel.Result result) {
+        try {
+            SharedPreferences sp = appContext.getSharedPreferences("kainuwa_secure", Context.MODE_PRIVATE);
+            String stored = name == null ? null : sp.getString(name, null);
+            if (stored == null || stored.isEmpty()) {
+                result.success("");
+                return;
+            }
+            if (stored.startsWith("p:")) {
+                result.success(new String(Base64.decode(stored.substring(2), Base64.NO_WRAP), "UTF-8"));
+                return;
+            }
+            if (stored.startsWith("v1:") && Build.VERSION.SDK_INT >= 23) {
+                String[] parts = stored.split(":");
+                byte[] iv = Base64.decode(parts[1], Base64.NO_WRAP);
+                byte[] enc = Base64.decode(parts[2], Base64.NO_WRAP);
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.DECRYPT_MODE, secureKey(), new GCMParameterSpec(128, iv));
+                result.success(new String(cipher.doFinal(enc), "UTF-8"));
+                return;
+            }
+            result.success("");
+        } catch (Exception e) {
+            result.success("");
+        }
+    }
+
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
         switch (call.method) {
@@ -321,6 +406,12 @@ public class KainuwaEncoderPlugin
                 break;
             case "playLastVideo":
                 playLastVideo(result);
+                break;
+            case "secureSet":
+                secureSet((String) call.argument("name"), (String) call.argument("value"), result);
+                break;
+            case "secureGet":
+                secureGet((String) call.argument("name"), result);
                 break;
             case "lastVideoUri":
                 result.success(lastSavedUri == null ? null : lastSavedUri.toString());

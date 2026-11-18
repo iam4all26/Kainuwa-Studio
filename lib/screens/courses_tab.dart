@@ -9,6 +9,7 @@ import '../project_package.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'lesson_editor_screen.dart';
+import 'ai_import_screen.dart';
 import 'video_setup_dialog.dart';
 import 'lessons_screen.dart';
 
@@ -440,6 +441,46 @@ class CoursesTab extends StatelessWidget {
               const SizedBox(width: 12),
               _quickCard(Icons.file_download_outlined, 'Import', 'Open a .kainuwa file', () => _import(context)),
             ],
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const AiImportScreen()),
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1938),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: KColors.selected.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_awesome, size: 21),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Create with AI', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                        SizedBox(height: 2),
+                        Text('Paste a lesson, get slides', style: TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6))),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 22),
           Text(

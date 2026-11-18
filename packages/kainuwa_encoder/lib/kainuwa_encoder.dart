@@ -322,6 +322,19 @@ class KainuwaEncoder {
     await _channel.invokeMethod<bool>('playLastVideo');
   }
 
+  /// Keeps a secret (such as an API key) in the phone's secure storage.
+  /// An empty value removes it.
+  static Future<void> secureSet(String name, String value) async {
+    _init();
+    await _channel.invokeMethod<bool>('secureSet', {'name': name, 'value': value});
+  }
+
+  /// Reads a secret saved with [secureSet]; empty when there is none.
+  static Future<String> secureGet(String name) async {
+    _init();
+    return (await _channel.invokeMethod<String>('secureGet', {'name': name})) ?? '';
+  }
+
   /// Address of the video saved last, or null.
   static Future<String?> lastVideoUri() async {
     _init();

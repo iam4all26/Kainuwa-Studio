@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'ai_settings_screen.dart';
 import 'scene_test_screen.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -259,14 +260,27 @@ class _SettingsTabState extends State<SettingsTab> {
             key: _keys[2],
             icon: Icons.code,
             title: 'Tools',
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.movie_creation_outlined),
-              title: const Text('Export Test'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SceneTestScreen()),
-              ),
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.auto_awesome),
+                  title: const Text('AI assistant'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const AiSettingsScreen()),
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.movie_creation_outlined),
+                  title: const Text('Export Test'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const SceneTestScreen()),
+                  ),
+                ),
+              ],
             ),
           ),
           _card(
