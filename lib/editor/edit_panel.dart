@@ -1060,6 +1060,9 @@ class _EditPanelState extends State<_EditPanel> {
     return d;
   }
 
+  /// How far one arrow press moves the item, in percent of the slide.
+  static double _nudgeStep = 1.0;
+
   Widget _transformTab() {
     return Column(
       children: [
@@ -1099,6 +1102,22 @@ class _EditPanelState extends State<_EditPanel> {
                 ),
               ),
             ],
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: NudgePad(
+              step: _nudgeStep,
+              onStep: (v) => setState(() => _nudgeStep = v),
+              onMove: (dx, dy) {
+                l.cx += dx * _nudgeStep / 100;
+                l.cy += dy * _nudgeStep / 100;
+                _changed();
+              },
+              onDone: () {},
+            ),
           ),
         ),
         _card(
@@ -2212,6 +2231,104 @@ class _HexFieldState extends State<_HexField> {
         onChanged: _typed,
         onSubmitted: _typed,
       ),
+    );
+  }
+}
+
+/// Four arrows that move the selected item. Hold a button to keep moving.
+class NudgePad extends StatefulWidget {
+  const NudgePad({super.key, this.size = 40, required this.step, required this.onStep, required this.onMove, required this.onDone});
+
+  final double size;
+  final double step;
+  final ValueChanged<double> onStep;
+  final void Function(double dx, double dy) onMove;
+  final VoidCallback onDone;
+
+  @override
+  State<NudgePad> createState() => NudgePadState();
+}
+
+class NudgePadState extends State<NudgePad> {
+  static const List<double> _steps = [0.25, 0.5, 1, 2, 5, 10];
+  Timer? _hold;
+  Timer? _repeat;
+  bool _moved = false;
+
+  void _down(double dx, double dy) {
+    _moved = true;
+    widget.onMove(dx, dy);
+    _hold?.cancel();
+    _repeat?.cancel();
+    _hold = Timer(const Duration(milliseconds: 350), () {
+      _repeat = Timer.periodic(const Duration(milliseconds: 70), (_) => widget.onMove(dx, dy));
+    });
+  }
+
+  void _up() {
+    _hold?.cancel();
+    _repeat?.cancel();
+    if (_moved) {
+      _moved = false;
+      widget.onDone();
+    }
+  }
+
+  @override
+  void dispose() {
+    _hold?.cancel();
+    _repeat?.cancel();
+    super.dispose();
+  }
+
+  Widget _btn(IconData icon, double dx, double dy) {
+    return Listener(
+      onPointerDown: (_) => _down(dx, dy),
+      onPointerUp: (_) => _up(),
+      onPointerCancel: (_) => _up(),
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: const BoxDecoration(color: Color(0xFF2A2250), shape: BoxShape.circle),
+        child: Icon(icon, size: widget.size * 0.66, color: Colors.white),
+      ),
+    );
+  }
+
+  String _label(double v) => v == v.roundToDouble() ? '${v.toInt()}%' : '$v%';
+
+  @override
+  Widget build(BuildContext context) {
+    final i = _steps.indexOf(widget.step);
+    final next = _steps[(i + 1) % _steps.length];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _btn(Icons.keyboard_arrow_up, 0, -1),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _btn(Icons.keyboard_arrow_left, -1, 0),
+            const SizedBox(width: 2),
+            InkWell(
+              borderRadius: BorderRadius.circular(widget.size / 2),
+              onTap: () => widget.onStep(next),
+              child: Container(
+                width: widget.size * 1.3,
+                height: widget.size,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: const Color(0xFF7351FF), borderRadius: BorderRadius.circular(widget.size / 2)),
+                child: Text(_label(widget.step), style: const TextStyle(fontSize: 11, color: Colors.white)),
+              ),
+            ),
+            const SizedBox(width: 2),
+            _btn(Icons.keyboard_arrow_right, 1, 0),
+          ],
+        ),
+        const SizedBox(height: 2),
+        _btn(Icons.keyboard_arrow_down, 0, 1),
+      ],
     );
   }
 }
