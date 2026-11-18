@@ -1,3 +1,4 @@
+import '../editor/bulk_edit_sheet.dart';
 import '../editor/side_sheet.dart';
 import 'dart:async';
 import 'dart:io';
@@ -370,7 +371,21 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 'shape':
         await _addShape();
         break;
+      case 'bulk':
+        await _bulkEdit();
+        break;
     }
+  }
+
+  Future<void> _bulkEdit() async {
+    final lesson = _lesson();
+    final player = _player;
+    if (lesson == null || player == null || lesson.scenes.isEmpty) return;
+    final index = sceneAt(lesson, player.positionMs).index;
+    final count = await showBulkEdit(context, lesson, index);
+    if (count == null || !mounted) return;
+    await _commit();
+    _snack('Changed $count items.');
   }
 
   /// Backgrounds already used in this video, newest slide first, without repeats.

@@ -541,6 +541,17 @@ Future<String?> showAddSheet(BuildContext context) {
                 _AddOption(icon: Icons.category_outlined, label: 'Shape', value: 'shape', sheetContext: sheetContext),
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _AddOption(
+                  icon: Icons.edit_note,
+                  label: 'Edit many items at once',
+                  value: 'bulk',
+                  sheetContext: sheetContext,
+                ),
+              ],
+            ),
           ],
         ),
       )),
