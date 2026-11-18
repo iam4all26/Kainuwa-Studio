@@ -1,3 +1,4 @@
+import 'pic_filter.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -864,6 +865,12 @@ class SceneBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inner = _buildInner(context);
+    if (scene.bgFilter.isEmpty || scene.hasVideo || videoOnly) return inner;
+    return PicFilter.parse(scene.bgFilter).wrap(inner);
+  }
+
+  Widget _buildInner(BuildContext context) {
     if (scene.hasVideo && scene.phoneFrame && !noVideo && !videoOnly) {
       return LayoutBuilder(builder: (context, c) {
         final geo = PhoneGeometry(c.maxWidth, c.maxHeight, scene.phoneScale);
@@ -1232,6 +1239,9 @@ class LayerContent extends StatelessWidget {
     final clip = clipFraction;
     if (clip != null && clip < 1) {
       body = ClipRect(clipper: FractionClipper(clip), child: body);
+    }
+    if (layer.filter.isNotEmpty && (layer.type == 'asset' || layer.type == 'image')) {
+      body = PicFilter.parse(layer.filter).wrap(body);
     }
     if (layer.shadowOn || layer.glowOn || layer.outlineOn) body = _withEffects(body);
     if (layer.opacity >= 0.999) return body;

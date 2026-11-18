@@ -442,7 +442,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final scene = _currentScene();
     final lesson = _lesson();
     if (scene == null || lesson == null) return;
-    final choice = await showBackgroundSheet(context, recent: _recentBackgrounds());
+    final choice = await showBackgroundSheet(
+      context,
+      recent: _recentBackgrounds(),
+      current: BackgroundChoice(scene.bgType, scene.bgValue),
+      currentFilter: scene.bgFilter,
+    );
     if (choice == null || !mounted) return;
     var targets = <Scene>[scene];
     if (choice.scope == 1) {
@@ -453,8 +458,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       targets = [for (final i in picked) lesson.scenes[i]];
     }
     for (final s in targets) {
-      s.bgType = choice.type;
-      s.bgValue = choice.value;
+      if (choice.type == 'filter') {
+        s.bgFilter = choice.filter ?? '';
+      } else {
+        s.bgType = choice.type;
+        s.bgValue = choice.value;
+      }
     }
     _commit();
   }

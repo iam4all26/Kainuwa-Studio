@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
+import '../editor/filter_editor.dart';
+import '../pic_filter.dart';
 import '../text_reveal.dart';
 import '../editor/hand_picker.dart';
 import '../data/asset_catalog.dart';
@@ -15,7 +17,7 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class BackgroundChoice {
-  const BackgroundChoice(this.type, this.value, {this.scope = 0});
+  const BackgroundChoice(this.type, this.value, {this.scope = 0, this.filter});
 
   /// color, asset or file
   final String type;
@@ -24,21 +26,27 @@ class BackgroundChoice {
   /// 0 = this slide, 1 = all slides, 2 = slides I choose
   final int scope;
 
-  BackgroundChoice withScope(int s) => BackgroundChoice(type, value, scope: s);
+  /// Set only when the person changed the filter: type is then 'filter' and the picture stays.
+  final String? filter;
+
+  BackgroundChoice withScope(int s) => BackgroundChoice(type, value, scope: s, filter: filter);
 }
 
-Future<BackgroundChoice?> showBackgroundSheet(BuildContext context, {List<BackgroundChoice> recent = const []}) {
+Future<BackgroundChoice?> showBackgroundSheet(BuildContext context,
+    {List<BackgroundChoice> recent = const [], BackgroundChoice? current, String currentFilter = ''}) {
   return showEditorSheet<BackgroundChoice>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => FractionallySizedBox(heightFactor: 0.85, child: _BackgroundSheet(recent: recent)),
+    builder: (_) => FractionallySizedBox(heightFactor: 0.85, child: _BackgroundSheet(recent: recent, current: current, currentFilter: currentFilter)),
   );
 }
 
 class _BackgroundSheet extends StatefulWidget {
-  const _BackgroundSheet({required this.recent});
+  const _BackgroundSheet({required this.recent, this.current, this.currentFilter = ''});
 
   final List<BackgroundChoice> recent;
+  final BackgroundChoice? current;
+  final String currentFilter;
 
   @override
   State<_BackgroundSheet> createState() => _BackgroundSheetState();
@@ -46,6 +54,51 @@ class _BackgroundSheet extends StatefulWidget {
 
 class _BackgroundSheetState extends State<_BackgroundSheet> {
   int _scope = 0;
+
+  Future<void> _openFilter(BuildContext context) async {
+    final cur = widget.current;
+    var latest = widget.currentFilter;
+    Widget face() {
+      if (cur == null) return const ColoredBox(color: Colors.white);
+      if (cur.type == 'color') return ColoredBox(color: Color(int.tryParse(cur.value) ?? 0xFFFFFFFF));
+      return catalogImage(CatalogItem(cur.value, ''), fit: BoxFit.cover, cacheWidth: 600);
+    }
+
+    await showEditorSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setLocal) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Background filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    height: 140,
+                    width: double.infinity,
+                    child: PicFilter.parse(latest).wrap(face()),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilterEditor(
+                  initial: PicFilter.parse(latest),
+                  onChanged: (f) => setLocal(() => latest = f.encode()),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    Navigator.of(context).pop(BackgroundChoice('filter', '', scope: _scope, filter: latest));
+  }
 
   void _done(BuildContext context, BackgroundChoice c) => Navigator.of(context).pop(c.withScope(_scope));
 
@@ -100,6 +153,18 @@ class _BackgroundSheetState extends State<_BackgroundSheet> {
             ],
           ),
           const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: const Color(0xFF2A2250),
+              foregroundColor: Colors.white,
+              shape: const StadiumBorder(),
+            ),
+            onPressed: () => _openFilter(context),
+            icon: const Icon(Icons.tune),
+            label: const Text('Filter for this background'),
+          ),
+          const SizedBox(height: 8),
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),

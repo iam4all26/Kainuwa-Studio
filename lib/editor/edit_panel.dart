@@ -1,3 +1,5 @@
+import '../pic_filter.dart';
+import 'filter_editor.dart';
 import 'side_sheet.dart';
 import 'dart:async';
 import 'dart:io';
@@ -977,6 +979,7 @@ class _EditPanelState extends State<_EditPanel> {
               ],
             ),
           ),
+        if (l.type == 'image' || l.type == 'asset') _filterCard(),
         _outlineCard(),
         _glowCard(),
         _shadowCard(),
@@ -1357,6 +1360,21 @@ class _EditPanelState extends State<_EditPanel> {
           child: Text('${(value * 100).round()}', style: const TextStyle(fontSize: 12, color: KColors.ink)),
         ),
       ],
+    );
+  }
+
+  Widget _filterCard() {
+    return _card(
+      'Filter',
+      Icons.tune,
+      FilterEditor(
+        key: ValueKey('filter-${l.id}'),
+        initial: PicFilter.parse(l.filter),
+        onChanged: (f) {
+          l.filter = f.encode();
+          _changed();
+        },
+      ),
     );
   }
 

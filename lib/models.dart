@@ -73,6 +73,7 @@ class Layer {
     this.glowColor = 0xFFFFD54F,
     this.glowSize = 0.12,
     this.glowStrength = 0.5,
+    this.filter = '',
     this.cropL = 0,
     this.cropT = 0,
     this.cropR = 0,
@@ -170,6 +171,9 @@ class Layer {
   double glowSize;
   double glowStrength;
 
+  /// Picture filter, see PicFilter. Empty means none.
+  String filter;
+
   /// Gradient fill for text (two colours and an angle in degrees: 0 left to right, 90 top to bottom).
   bool gradOn;
   int gradC1;
@@ -245,6 +249,7 @@ class Layer {
         'glowColor': glowColor,
         'glowSize': glowSize,
         'glowStrength': glowStrength,
+        'filter': filter,
         'cropL': cropL,
         'cropT': cropT,
         'cropR': cropR,
@@ -313,6 +318,7 @@ class Layer {
         glowColor: _int(json['glowColor'], 0xFFFFD54F),
         glowSize: _num(json['glowSize'], 0.12),
         glowStrength: _num(json['glowStrength'], 0.5),
+        filter: _str(json['filter'], ''),
         cropL: _num(json['cropL'], 0),
         cropT: _num(json['cropT'], 0),
         cropR: _num(json['cropR'], 0),
@@ -329,6 +335,7 @@ class Scene {
     this.durationMs = 5000,
     this.bgType = 'color',
     this.bgValue = '4294967295',
+    this.bgFilter = '',
     this.narrationPath = '',
     this.narrationMs = 0,
     this.narrationVolume = 1.0,
@@ -356,6 +363,9 @@ class Scene {
   /// color (bgValue is the ARGB number), asset (an asset path) or file (a photo path)
   String bgType;
   String bgValue;
+
+  /// Filter on the background, see PicFilter. Empty means none.
+  String bgFilter;
 
   /// Voice recording or imported audio for this scene. Empty means none.
   String narrationPath;
@@ -413,6 +423,7 @@ class Scene {
         durationMs: durationMs,
         bgType: bgType,
         bgValue: bgValue,
+        bgFilter: bgFilter,
         narrationPath: narrationPath,
         narrationMs: narrationMs,
         narrationVolume: narrationVolume,
@@ -439,6 +450,7 @@ class Scene {
         'durationMs': durationMs,
         'bgType': bgType,
         'bgValue': bgValue,
+        'bgFilter': bgFilter,
         'narrationPath': narrationPath,
         'narrationMs': narrationMs,
         'narrationVolume': narrationVolume,
@@ -473,6 +485,7 @@ class Scene {
       durationMs: _int(json['durationMs'], 5000),
       bgType: _str(json['bgType'], 'color'),
       bgValue: _str(json['bgValue'], '4294967295'),
+      bgFilter: _str(json['bgFilter'], ''),
       narrationPath: _str(json['narrationPath'], ''),
       narrationMs: _int(json['narrationMs'], 0),
       narrationVolume: _num(json['narrationVolume'], 1.0),
