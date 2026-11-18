@@ -373,13 +373,89 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     }
   }
 
+  /// Backgrounds already used in this video, newest slide first, without repeats.
+  List<BackgroundChoice> _recentBackgrounds() {
+    final lesson = _lesson();
+    final out = <BackgroundChoice>[];
+    if (lesson == null) return out;
+    final seen = <String>{};
+    for (final s in lesson.scenes.reversed) {
+      final key = '${s.bgType}|${s.bgValue}';
+      if (seen.add(key)) out.add(BackgroundChoice(s.bgType, s.bgValue));
+      if (out.length >= 10) break;
+    }
+    return out;
+  }
+
+  /// Lets the person tick which slides get the change. Returns slide indexes or null.
+  Future<List<int>?> _pickSlides(Lesson lesson, int current) {
+    final ticked = <int>{current};
+    return showDialog<List<int>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: const Text('Choose slides'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (var i = 0; i < lesson.scenes.length; i++)
+                  CheckboxListTile(
+                    dense: true,
+                    value: ticked.contains(i),
+                    title: Text('Slide ${i + 1}'),
+                    onChanged: (v) => setLocal(() {
+                      if (v == true) {
+                        ticked.add(i);
+                      } else {
+                        ticked.remove(i);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => setLocal(() {
+                if (ticked.length == lesson.scenes.length) {
+                  ticked.clear();
+                } else {
+                  ticked.addAll([for (var i = 0; i < lesson.scenes.length; i++) i]);
+                }
+              }),
+              child: const Text('All / none'),
+            ),
+            FilledButton(
+              onPressed: ticked.isEmpty ? null : () => Navigator.of(dialogContext).pop(ticked.toList()..sort()),
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _setBackground() async {
     final scene = _currentScene();
-    if (scene == null) return;
-    final choice = await showBackgroundSheet(context);
-    if (choice == null) return;
-    scene.bgType = choice.type;
-    scene.bgValue = choice.value;
+    final lesson = _lesson();
+    if (scene == null || lesson == null) return;
+    final choice = await showBackgroundSheet(context, recent: _recentBackgrounds());
+    if (choice == null || !mounted) return;
+    var targets = <Scene>[scene];
+    if (choice.scope == 1) {
+      targets = List<Scene>.from(lesson.scenes);
+    } else if (choice.scope == 2) {
+      final picked = await _pickSlides(lesson, lesson.scenes.indexOf(scene));
+      if (picked == null || !mounted) return;
+      targets = [for (final i in picked) lesson.scenes[i]];
+    }
+    for (final s in targets) {
+      s.bgType = choice.type;
+      s.bgValue = choice.value;
+    }
     _commit();
   }
 

@@ -15,29 +15,65 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class BackgroundChoice {
-  const BackgroundChoice(this.type, this.value);
+  const BackgroundChoice(this.type, this.value, {this.scope = 0});
 
   /// color, asset or file
   final String type;
   final String value;
+
+  /// 0 = this slide, 1 = all slides, 2 = slides I choose
+  final int scope;
+
+  BackgroundChoice withScope(int s) => BackgroundChoice(type, value, scope: s);
 }
 
-Future<BackgroundChoice?> showBackgroundSheet(BuildContext context) {
+Future<BackgroundChoice?> showBackgroundSheet(BuildContext context, {List<BackgroundChoice> recent = const []}) {
   return showEditorSheet<BackgroundChoice>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => const FractionallySizedBox(heightFactor: 0.8, child: _BackgroundSheet()),
+    builder: (_) => FractionallySizedBox(heightFactor: 0.85, child: _BackgroundSheet(recent: recent)),
   );
 }
 
-class _BackgroundSheet extends StatelessWidget {
-  const _BackgroundSheet();
+class _BackgroundSheet extends StatefulWidget {
+  const _BackgroundSheet({required this.recent});
+
+  final List<BackgroundChoice> recent;
+
+  @override
+  State<_BackgroundSheet> createState() => _BackgroundSheetState();
+}
+
+class _BackgroundSheetState extends State<_BackgroundSheet> {
+  int _scope = 0;
+
+  void _done(BuildContext context, BackgroundChoice c) => Navigator.of(context).pop(c.withScope(_scope));
+
+  Widget _recentTile(BuildContext context, BackgroundChoice c) {
+    Widget face;
+    if (c.type == 'color') {
+      face = ColoredBox(color: Color(int.tryParse(c.value) ?? 0xFFFFFFFF));
+    } else {
+      face = catalogImage(CatalogItem(c.value, ''), fit: BoxFit.cover, cacheWidth: 300);
+    }
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _done(context, c),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(width: 96, height: 64, child: face),
+        ),
+      ),
+    );
+  }
 
   Future<void> _pickPhoto(BuildContext context) async {
     final navigator = Navigator.of(context);
     try {
       final path = await pickMedia(context, MediaKind.image);
-      if (path != null) navigator.pop(BackgroundChoice('file', path));
+      if (path != null) navigator.pop(BackgroundChoice('file', path, scope: _scope));
     } catch (_) {
       // The picker was closed or failed. Stay on this sheet.
     }
@@ -52,6 +88,18 @@ class _BackgroundSheet extends StatelessWidget {
         children: [
           const Text('Background', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final e in const [(0, 'This slide'), (1, 'All slides'), (2, 'Choose slides')])
+                ChoiceChip(
+                  label: Text(e.$2),
+                  selected: _scope == e.$1,
+                  onSelected: (_) => setState(() => _scope = e.$1),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
@@ -64,10 +112,22 @@ class _BackgroundSheet extends StatelessWidget {
             label: const Text('Choose a photo'),
           ),
           const SizedBox(height: 16),
+          if (widget.recent.isNotEmpty) ...[
+            const Text('Recently used', style: TextStyle(fontWeight: FontWeight.w500, color: Color(0xFFB5ABD6))),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 64,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [for (final c in widget.recent) _recentTile(context, c)],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           const Text('Colours', style: TextStyle(fontWeight: FontWeight.w500, color: Color(0xFFB5ABD6))),
           const SizedBox(height: 8),
           ColorSwatches(
-            onPick: (value) => Navigator.of(context).pop(BackgroundChoice('color', '$value')),
+            onPick: (value) => _done(context, BackgroundChoice('color', '$value')),
           ),
           const SizedBox(height: 16),
           const Text('Backgrounds', style: TextStyle(fontWeight: FontWeight.w500, color: Color(0xFFB5ABD6))),
@@ -86,7 +146,7 @@ class _BackgroundSheet extends StatelessWidget {
               final item = backgrounds[index];
               return InkWell(
                 borderRadius: BorderRadius.circular(14),
-                onTap: () => Navigator.of(context).pop(BackgroundChoice(item.isFile ? 'file' : 'asset', item.path)),
+                onTap: () => _done(context, BackgroundChoice(item.isFile ? 'file' : 'asset', item.path)),
                 child: Column(
                   children: [
                     Expanded(
