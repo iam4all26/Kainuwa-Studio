@@ -106,7 +106,6 @@ class AiClient {
       {'authorization': 'Bearer ${c.key.trim()}'},
       {
         'model': c.model,
-        'temperature': temperature,
         'messages': [
           {'role': 'system', 'content': system},
           {'role': 'user', 'content': user},
@@ -127,7 +126,6 @@ class AiClient {
       {
         'model': c.model,
         'max_tokens': maxTokens,
-        'temperature': temperature,
         'system': system,
         'messages': [
           {'role': 'user', 'content': user},
