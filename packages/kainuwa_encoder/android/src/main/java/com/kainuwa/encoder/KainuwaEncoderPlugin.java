@@ -492,11 +492,40 @@ public class KainuwaEncoderPlugin
             case "audioPeaks":
                 audioPeaks((String) call.argument("path"), (int) num(call, "bins", 64), result);
                 break;
+            case "appVersion":
+                result.success(appVersion());
+                break;
+            case "openUrl":
+                openUrl((String) call.argument("url"), result);
+                break;
             case "filesDir":
                 result.success(appContext.getFilesDir().getAbsolutePath());
                 break;
             default:
                 result.notImplemented();
+        }
+    }
+
+    // ---- App version and links ----
+
+    private String appVersion() {
+        try {
+            String name = appContext.getPackageManager()
+                    .getPackageInfo(appContext.getPackageName(), 0).versionName;
+            return name == null ? "0.0.0" : name;
+        } catch (Exception e) {
+            return "0.0.0";
+        }
+    }
+
+    private void openUrl(String url, MethodChannel.Result result) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            appContext.startActivity(intent);
+            result.success(true);
+        } catch (Exception e) {
+            result.error("open_failed", "Could not open the link.", null);
         }
     }
 

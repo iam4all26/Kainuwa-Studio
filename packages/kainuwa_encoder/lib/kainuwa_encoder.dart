@@ -47,6 +47,18 @@ class KainuwaEncoder {
     return result ?? '';
   }
 
+  /// The version name of the installed app, such as 1.2.0 (from pubspec version, without the build number).
+  static Future<String> appVersion() async {
+    _init();
+    return (await _channel.invokeMethod<String>('appVersion')) ?? '0.0.0';
+  }
+
+  /// Opens a web link or a download link in the phone's browser.
+  static Future<void> openUrl(String url) async {
+    _init();
+    await _channel.invokeMethod<bool>('openUrl', {'url': url});
+  }
+
   /// Fires when audio started with [playAudio] reaches its end.
   static Stream<void> get playbackDone {
     _init();

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'package:kainuwa_encoder/kainuwa_encoder.dart';
+
+import '../control/app_control.dart';
 import 'ai_settings_screen.dart';
 import 'scene_test_screen.dart';
 
@@ -262,6 +265,24 @@ class _SettingsTabState extends State<SettingsTab> {
             title: 'Tools',
             child: Column(
               children: [
+                FutureBuilder<String>(
+                  future: KainuwaEncoder.appVersion(),
+                  builder: (context, snap) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.system_update_alt),
+                    title: const Text('Check for updates'),
+                    subtitle: Text('Version ${snap.data ?? ''}'),
+                    onTap: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final outcome = await AppControl.instance.run(manual: true);
+                      if (outcome == ControlOutcome.offline) {
+                        messenger.showSnackBar(const SnackBar(content: Text('Could not reach the update server.')));
+                      } else if (outcome == ControlOutcome.upToDate) {
+                        messenger.showSnackBar(const SnackBar(content: Text('You have the latest version.')));
+                      }
+                    },
+                  ),
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.auto_awesome),

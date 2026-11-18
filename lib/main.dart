@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_state.dart';
+import 'control/app_control.dart';
 import 'screens/splash_screen.dart';
 import 'storage.dart';
 import 'store/store_service.dart';
@@ -22,11 +23,25 @@ class KainuwaStudioApp extends StatefulWidget {
   State<KainuwaStudioApp> createState() => _KainuwaStudioAppState();
 }
 
-class _KainuwaStudioAppState extends State<KainuwaStudioApp> {
+class _KainuwaStudioAppState extends State<KainuwaStudioApp> with WidgetsBindingObserver {
   late final AppState _state = AppState(StorageService());
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Look at the owner's control file a few seconds after start, once the first screen is up.
+    Future<void>.delayed(const Duration(seconds: 5), () => AppControl.instance.run());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) AppControl.instance.onResume();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _state.dispose();
     super.dispose();
   }
@@ -37,6 +52,7 @@ class _KainuwaStudioAppState extends State<KainuwaStudioApp> {
       state: _state,
       child: MaterialApp(
         title: 'Kainuwa Studio',
+        navigatorKey: appNavKey,
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         builder: (context, child) {
