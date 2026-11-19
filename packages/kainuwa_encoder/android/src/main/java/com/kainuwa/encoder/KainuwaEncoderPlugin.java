@@ -42,8 +42,13 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.Brightness;
+import androidx.media3.effect.Contrast;
+import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
+import androidx.media3.effect.RgbAdjustment;
+import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
@@ -859,6 +864,7 @@ public class KainuwaEncoderPlugin
     private final List<Long> lessonVideoStarts = new ArrayList<>();
     private final List<Double> lessonVideoScales = new ArrayList<>();
     private final List<Boolean> lessonVideoFills = new ArrayList<>();
+    private final List<String> lessonVideoFilters = new ArrayList<>();
     private final List<TransitionEffect.Spec> lessonTransitions = new ArrayList<>();
 
     // Live preview frames: one reader stays open so each frame is quicker to get.
@@ -999,6 +1005,7 @@ public class KainuwaEncoderPlugin
         lessonVideoStarts.clear();
         lessonVideoScales.clear();
         lessonVideoFills.clear();
+        lessonVideoFilters.clear();
         lessonTransitions.clear();
         final List<Map<String, Object>> rawTransitions = call.argument("transitions");
         if (rawTransitions != null) {
@@ -1025,6 +1032,7 @@ public class KainuwaEncoderPlugin
             lessonVideoPaths.add(vid instanceof String && !((String) vid).isEmpty() ? (String) vid : null);
             lessonVideoStarts.add(longOf(sc.get("videoStartMs"), 0));
             lessonVideoFills.add(Boolean.TRUE.equals(sc.get("videoFill")));
+            lessonVideoFilters.add(sc.get("videoFilter") instanceof String ? (String) sc.get("videoFilter") : "");
             lessonVideoScales.add(sc.get("videoScale") instanceof Number ? ((Number) sc.get("videoScale")).doubleValue() : 1.0);
             durations.add(dur);
             totalMs += dur;
@@ -1192,6 +1200,73 @@ public class KainuwaEncoderPlugin
         }
     }
 
+    /** Colour look for a video clip. Text is "preset;brightness;contrast;saturation;blur;dim" (blur is ignored). */
+    private static void addVideoLook(List<Effect> effects, String text) {
+        if (text == null || text.isEmpty()) return;
+        String[] p = text.split(";");
+        String preset = p.length > 0 ? p[0] : "none";
+        double brightness = look(p, 1, -0.5, 0.5);
+        double contrast = look(p, 2, -0.5, 0.8);
+        double saturation = look(p, 3, -1.0, 1.0);
+        double dim = look(p, 5, 0.0, 0.9);
+        switch (preset) {
+            case "gray":
+                effects.add(RgbFilter.createGrayscaleFilter());
+                break;
+            case "invert":
+                effects.add(RgbFilter.createInvertedFilter());
+                break;
+            case "sepia":
+                effects.add(RgbFilter.createGrayscaleFilter());
+                effects.add(new RgbAdjustment.Builder()
+                        .setRedScale(1.1f).setGreenScale(0.85f).setBlueScale(0.6f).build());
+                break;
+            case "warm":
+                effects.add(new RgbAdjustment.Builder().setRedScale(1.12f).setBlueScale(0.86f).build());
+                break;
+            case "cool":
+                effects.add(new RgbAdjustment.Builder().setRedScale(0.88f).setBlueScale(1.14f).build());
+                break;
+            case "vivid":
+                effects.add(new Contrast(0.1f));
+                effects.add(new HslAdjustment.Builder().adjustSaturation(45f).build());
+                break;
+            case "faded":
+                effects.add(new Brightness(0.07f));
+                effects.add(new Contrast(-0.18f));
+                effects.add(new HslAdjustment.Builder().adjustSaturation(-25f).build());
+                break;
+            case "dramatic":
+                effects.add(new Contrast(0.3f));
+                effects.add(new HslAdjustment.Builder().adjustSaturation(-20f).build());
+                break;
+            default:
+                break;
+        }
+        if (saturation != 0) {
+            effects.add(new HslAdjustment.Builder().adjustSaturation((float) (saturation * 100)).build());
+        }
+        if (contrast != 0) {
+            effects.add(new Contrast((float) Math.max(-1.0, Math.min(1.0, contrast))));
+        }
+        if (brightness != 0) {
+            effects.add(new Brightness((float) brightness));
+        }
+        if (dim > 0) {
+            float k = (float) (1.0 - dim);
+            effects.add(new RgbAdjustment.Builder().setRedScale(k).setGreenScale(k).setBlueScale(k).build());
+        }
+    }
+
+    private static double look(String[] p, int i, double lo, double hi) {
+        if (i >= p.length) return 0;
+        try {
+            return Math.max(lo, Math.min(hi, Double.parseDouble(p[i])));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     private void startLessonVideo(List<String> images, List<Long> durations, File wav,
                                   String musicPath, long musicMs, float musicVolume,
                                   long musicFadeMs, LessonOverlays overlays, int width,
@@ -1236,6 +1311,9 @@ public class KainuwaEncoderPlugin
                 effects.add(new androidx.media3.effect.ScaleAndRotateTransformation.Builder()
                         .setScale((float) vScale, (float) vScale)
                         .build());
+            }
+            if (videoPath != null && i < lessonVideoFilters.size()) {
+                addVideoLook(effects, lessonVideoFilters.get(i));
             }
             EditedMediaItem.Builder pictureBuilder = new EditedMediaItem.Builder(item)
                     .setFrameRate(fps)

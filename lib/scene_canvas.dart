@@ -866,6 +866,12 @@ class SceneBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inner = _buildInner(context);
+    // Colour look of a video clip. Not on the phone body or the slide background around it.
+    final clipShown = scene.hasVideo && !noVideo && (!scene.phoneFrame || videoOnly);
+    if (clipShown && scene.videoFilter.isNotEmpty) {
+      final f = PicFilter.parse(scene.videoFilter).copyWith(blur: 0);
+      return f.isNone ? inner : f.wrap(inner);
+    }
     if (scene.bgFilter.isEmpty || scene.hasVideo || videoOnly) return inner;
     return PicFilter.parse(scene.bgFilter).wrap(inner);
   }

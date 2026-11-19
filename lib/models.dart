@@ -348,6 +348,7 @@ class Scene {
     this.videoMuted = false,
     this.phoneFrame = false,
     this.videoFill = false,
+    this.videoFilter = '',
     this.phoneScale = 0.9,
     this.phoneLight = false,
     this.transKind = 'none',
@@ -394,6 +395,9 @@ class Scene {
 
   /// A video clip fills the whole frame (edges are cropped) instead of fitting inside it with bars.
   bool videoFill;
+
+  /// Colour look of the video clip, see PicFilter (blur is ignored). Empty means none.
+  String videoFilter;
   double phoneScale;
   bool phoneLight;
 
@@ -436,6 +440,7 @@ class Scene {
         videoMuted: videoMuted,
         phoneFrame: phoneFrame,
         videoFill: videoFill,
+        videoFilter: videoFilter,
         phoneScale: phoneScale,
         phoneLight: phoneLight,
         transKind: transKind,
@@ -463,6 +468,7 @@ class Scene {
         'videoMuted': videoMuted,
         'phoneFrame': phoneFrame,
         'videoFill': videoFill,
+        'videoFilter': videoFilter,
         'phoneScale': phoneScale,
         'phoneLight': phoneLight,
         'transKind': transKind,
@@ -498,6 +504,7 @@ class Scene {
       videoMuted: json['videoMuted'] is bool ? json['videoMuted'] as bool : false,
       phoneFrame: json['phoneFrame'] is bool ? json['phoneFrame'] as bool : false,
       videoFill: json['videoFill'] is bool ? json['videoFill'] as bool : false,
+      videoFilter: _str(json['videoFilter'], ''),
       phoneScale: _num(json['phoneScale'], 0.9),
       phoneLight: json['phoneLight'] is bool ? json['phoneLight'] as bool : false,
       transKind: _str(json['transKind'], 'none'),

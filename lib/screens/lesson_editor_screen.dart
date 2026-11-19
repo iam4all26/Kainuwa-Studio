@@ -19,7 +19,9 @@ import '../editor/add_timeline_sheet.dart';
 import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
 import '../editor/editor_tools.dart';
+import '../editor/filter_editor.dart';
 import '../editor/fullscreen_player.dart';
+import '../pic_filter.dart';
 import '../editor/lesson_player.dart';
 import '../editor/timeline_panel.dart';
 import '../editor/track_visibility.dart';
@@ -1580,6 +1582,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   onChanged: scene.videoMuted
                       ? null
                       : (v) => setSheet(() => scene.videoVolume = v),
+                ),
+                const SizedBox(height: 6),
+                const Text('Enhance', style: TextStyle(fontWeight: FontWeight.w500)),
+                FilterEditor(
+                  video: true,
+                  initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
+                  onChanged: (f) {
+                    scene.videoFilter = f.copyWith(blur: 0).encode();
+                    if (mounted) setState(() {});
+                  },
                 ),
                 if (!scene.phoneFrame)
                   SwitchListTile(

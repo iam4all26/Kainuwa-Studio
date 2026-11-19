@@ -5,10 +5,13 @@ import '../theme.dart';
 
 /// Preset chips and four sliders. Calls [onChanged] with the new look as you drag.
 class FilterEditor extends StatefulWidget {
-  const FilterEditor({super.key, required this.initial, required this.onChanged});
+  const FilterEditor({super.key, required this.initial, required this.onChanged, this.video = false});
 
   final PicFilter initial;
   final ValueChanged<PicFilter> onChanged;
+
+  /// Video clips: the Blur slider is hidden (the exporter cannot blur).
+  final bool video;
 
   @override
   State<FilterEditor> createState() => _FilterEditorState();
@@ -64,7 +67,7 @@ class _FilterEditorState extends State<FilterEditor> {
         _slider('Brightness', _f.brightness, -0.5, 0.5, (v) => _f.copyWith(brightness: v)),
         _slider('Contrast', _f.contrast, -0.5, 0.8, (v) => _f.copyWith(contrast: v)),
         _slider('Saturation', _f.saturation, -1, 1, (v) => _f.copyWith(saturation: v)),
-        _slider('Blur', _f.blur, 0, 0.05, (v) => _f.copyWith(blur: v)),
+        if (!widget.video) _slider('Blur', _f.blur, 0, 0.05, (v) => _f.copyWith(blur: v)),
         _slider('Darken', _f.dim, 0, 0.9, (v) => _f.copyWith(dim: v)),
         Align(
           alignment: Alignment.centerRight,
