@@ -74,6 +74,7 @@ class Layer {
     this.glowSize = 0.12,
     this.glowStrength = 0.5,
     this.filter = '',
+    this.wrapW = 0,
     this.cropL = 0,
     this.cropT = 0,
     this.cropR = 0,
@@ -174,6 +175,10 @@ class Layer {
   /// Picture filter, see PicFilter. Empty means none.
   String filter;
 
+  /// Text only: the widest a line may be before it breaks onto the next one, in the
+  /// units of measureLayerText (100 px font). 0 means one line (only your own line breaks).
+  double wrapW;
+
   /// Gradient fill for text (two colours and an angle in degrees: 0 left to right, 90 top to bottom).
   bool gradOn;
   int gradC1;
@@ -250,6 +255,7 @@ class Layer {
         'glowSize': glowSize,
         'glowStrength': glowStrength,
         'filter': filter,
+        'wrapW': wrapW,
         'cropL': cropL,
         'cropT': cropT,
         'cropR': cropR,
@@ -319,6 +325,7 @@ class Layer {
         glowSize: _num(json['glowSize'], 0.12),
         glowStrength: _num(json['glowStrength'], 0.5),
         filter: _str(json['filter'], ''),
+        wrapW: _num(json['wrapW'], 0),
         cropL: _num(json['cropL'], 0),
         cropT: _num(json['cropT'], 0),
         cropR: _num(json['cropR'], 0),

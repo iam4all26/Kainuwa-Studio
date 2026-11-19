@@ -75,6 +75,15 @@ class _SceneCanvasState extends State<SceneCanvas> {
   double _startRotation = 0;
   double _startDistance = 1;
 
+  // side handles of a text item (line breaks)
+  double _wrapDx = 0;
+  double _wrapStartBoxW = 1;
+  double _wrapStartBoxH = 1;
+  double _wrapStartCx = 0;
+  double _wrapStartCy = 0;
+  double _wrapScale = 1;
+  double _wrapFullW = 1;
+
   /// True while the user is moving, resizing or turning the selected item: guide lines show.
   bool _guiding = false;
   bool _snapX = false;
@@ -271,6 +280,73 @@ class _SceneCanvasState extends State<SceneCanvas> {
       );
     }
 
+    // Pull the middle of a side in or out: the text breaks into more lines, or fewer.
+    Widget side(bool right) {
+      final pillW = dot * 0.8;
+      final pillH = dot * 2.2;
+      return Positioned(
+        left: pad + (right ? boxW : 0.0) - hit / 2,
+        top: pad + boxH / 2 - hit / 2,
+        width: hit,
+        height: hit,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (_) {
+            _guideOn();
+            _wrapDx = 0;
+            _wrapStartBoxW = layer.w * width;
+            _wrapStartBoxH = layer.h * height;
+            _wrapStartCx = layer.cx;
+            _wrapStartCy = layer.cy;
+            _wrapScale = _wrapStartBoxW / measureLayerText(layer).width;
+            final saved = layer.wrapW;
+            layer.wrapW = 0;
+            _wrapFullW = measureLayerText(layer).width;
+            layer.wrapW = saved;
+          },
+          onPanUpdate: (d) {
+            final r = layer.rotation;
+            _wrapDx += d.delta.dx * math.cos(r) + d.delta.dy * math.sin(r);
+            final newBoxW = math.max(20.0, _wrapStartBoxW + (right ? _wrapDx : -_wrapDx));
+            final padNat = layer.bgBox ? _kBoxPadX * 2 : 0.0;
+            final wanted = newBoxW / _wrapScale - padNat;
+            final full = _wrapFullW - padNat;
+            setState(() {
+              layer.wrapW = wanted >= full - 1 ? 0.0 : math.max(wanted, 120.0);
+              final m = measureLayerText(layer);
+              layer.w = (m.width * _wrapScale / width).clamp(0.02, 1.6).toDouble();
+              layer.h = (m.height * _wrapScale / height).clamp(0.02, 1.6).toDouble();
+              final dW = layer.w * width - _wrapStartBoxW;
+              final dH = layer.h * height - _wrapStartBoxH;
+              final lx = (right ? dW : -dW) / 2;
+              final ly = dH / 2;
+              layer.cx = _wrapStartCx + (lx * math.cos(r) - ly * math.sin(r)) / width;
+              layer.cy = _wrapStartCy + (lx * math.sin(r) + ly * math.cos(r)) / height;
+            });
+          },
+          onPanEnd: (_) {
+            _guideOff();
+            widget.onCommit?.call();
+          },
+          onPanCancel: () {
+            _guideOff();
+            widget.onCommit?.call();
+          },
+          child: Center(
+            child: Container(
+              width: pillW,
+              height: pillH,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(pillW),
+                boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 3)],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     Widget line(double left, double top, double w, double h) {
       return Positioned(
         left: left,
@@ -317,6 +393,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
         corner(boxW, 0),
         corner(0, boxH),
         corner(boxW, boxH),
+        if (layer.type == 'text') ...[side(false), side(true)],
         // turn
         Positioned(
           left: midX - btn / 2,
@@ -1052,7 +1129,8 @@ Size measureLayerText(Layer layer) {
     text: TextSpan(text: layer.text.isEmpty ? ' ' : layer.text, style: layerTextStyle(layer)),
     textDirection: TextDirection.ltr,
     textAlign: layerTextAlign(layer),
-  )..layout();
+    textWidthBasis: layer.wrapW > 0 ? TextWidthBasis.longestLine : TextWidthBasis.parent,
+  )..layout(maxWidth: layer.wrapW > 0 ? layer.wrapW : double.infinity);
   var w = painter.width;
   var h = painter.height;
   painter.dispose();
@@ -1136,7 +1214,11 @@ class LayerContent extends StatelessWidget {
             : Text.rich(
                 layerTextSpan(layer, layerTextStyle(layer)),
                 textAlign: layerTextAlign(layer),
+                textWidthBasis: layer.wrapW > 0 ? TextWidthBasis.longestLine : TextWidthBasis.parent,
               );
+        if (layer.wrapW > 0) {
+          text = ConstrainedBox(constraints: BoxConstraints(maxWidth: layer.wrapW), child: text);
+        }
         if (layer.gradOn) {
           final a = layer.gradAngle * math.pi / 180;
           text = ShaderMask(

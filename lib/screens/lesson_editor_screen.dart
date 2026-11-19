@@ -1545,6 +1545,39 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _commit();
   }
 
+  /// Colour tools for the video clip. A short sheet with no dark curtain, so the picture stays visible.
+  Future<void> _enhanceSheet() async {
+    final scene = _currentScene();
+    if (scene == null || !scene.hasVideo) return;
+    _pause();
+    await showEditorSheet<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (sheetContext) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enhance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              FilterEditor(
+                video: true,
+                initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
+                onChanged: (f) {
+                  scene.videoFilter = f.copyWith(blur: 0).encode();
+                  if (mounted) setState(() {});
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted) _commit();
+  }
+
   Future<void> _videoSettings() async {
     final scene = _currentScene();
     if (scene == null || !scene.hasVideo) return;
@@ -1582,16 +1615,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                   onChanged: scene.videoMuted
                       ? null
                       : (v) => setSheet(() => scene.videoVolume = v),
-                ),
-                const SizedBox(height: 6),
-                const Text('Enhance', style: TextStyle(fontWeight: FontWeight.w500)),
-                FilterEditor(
-                  video: true,
-                  initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
-                  onChanged: (f) {
-                    scene.videoFilter = f.copyWith(blur: 0).encode();
-                    if (mounted) setState(() {});
-                  },
                 ),
                 if (!scene.phoneFrame)
                   SwitchListTile(
@@ -2700,7 +2723,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       tools.addAll([
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
-        (Icons.videocam_outlined, 'Video', _videoSettings),
+        (Icons.auto_fix_high, 'Enhance', _enhanceSheet),
+        (Icons.videocam_outlined, 'Clip', _videoSettings),
         (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.compare_arrows, 'Transition', _transitionSheet),
         (Icons.delete_outline, 'Delete', _deleteSelection),

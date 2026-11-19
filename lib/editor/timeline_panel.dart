@@ -401,6 +401,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
   // ---- handles and moving of a selected item ----
 
   int _layerStartA = 0;
+  bool _movingLayer = false;
+  int? _dropScene;
   int _layerStartB = 0;
 
   void _layerDragStart(Layer layer, int sceneMs) {
@@ -562,9 +564,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
     bool selected = false;
     VoidCallback? onTap;
     VoidCallback? onLong;
-    GestureDragStartCallback? dragStart;
-    GestureDragUpdateCallback? dragUpdate;
-    VoidCallback? dragEnd;
+    // Moving an item needs a press and hold first, so a plain swipe always scrolls the timeline.
+    VoidCallback? moveStart;
+    void Function(double dx)? moveUpdate;
+    VoidCallback? moveEnd;
 
     switch (clip.kind) {
       case 'scene':
@@ -595,14 +598,47 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final layer = clip.layer!;
         selected = !widget.sceneSelected && widget.selectedLayerId == layer.id;
         onTap = () => widget.onSelectLayer(clip.sceneIndex, layer.id);
-        if (selected) {
-          final sceneMs = widget.lesson.scenes[clip.sceneIndex].durationMs;
-          dragStart = (_) => _layerDragStart(layer, sceneMs);
-          dragUpdate = (d) {
-            _dragAccum += d.delta.dx;
-            _layerMove(layer, sceneMs);
+        {
+          final fromScene = clip.sceneIndex;
+          final sceneMs = widget.lesson.scenes[fromScene].durationMs;
+          moveStart = () {
+            if (!selected) widget.onSelectLayer(fromScene, layer.id);
+            _layerDragStart(layer, sceneMs);
+            setState(() {
+              _movingLayer = true;
+              _dropScene = fromScene;
+            });
           };
-          dragEnd = widget.onEditEnd;
+          moveUpdate = (dx) {
+            _dragAccum = dx;
+            _layerMove(layer, sceneMs);
+            final total = widget.lesson.durationMs;
+            final abs = sceneStartMs(widget.lesson, fromScene) + _layerStartA + _roundedDelta().round();
+            final target = sceneAt(widget.lesson, abs.clamp(0, math.max(0, total - 1)).toInt()).index;
+            if (target != _dropScene) setState(() => _dropScene = target);
+          };
+          moveEnd = () {
+            final to = _dropScene ?? fromScene;
+            setState(() {
+              _movingLayer = false;
+              _dropScene = null;
+            });
+            if (to != fromScene) {
+              // Dropped on another slide: the item goes there, at the time it was dropped.
+              final lesson = widget.lesson;
+              final toMs = lesson.scenes[to].durationMs;
+              final dur = _layerStartB - _layerStartA;
+              final abs = sceneStartMs(lesson, fromScene) + _layerStartA + _roundedDelta().round();
+              final local = (abs - sceneStartMs(lesson, to)).clamp(0, math.max(0, toMs - 300)).toInt();
+              final end = local + dur;
+              layer.startMs = local;
+              layer.endMs = end >= toMs ? -1 : end;
+              lesson.scenes[fromScene].layers.remove(layer);
+              lesson.scenes[to].layers.add(layer);
+              widget.onSelectLayer(to, layer.id);
+            }
+            widget.onEditEnd();
+          };
         }
         final isText = layer.type == 'text';
         final fg = isText ? KColors.onGold : Colors.white;
@@ -666,14 +702,15 @@ class _TimelinePanelState extends State<TimelinePanel> {
               ),
             ],
           );
-          if (selected) {
-            dragStart = (_) => _audioDragStart(ac);
-            dragUpdate = (d) {
-              _dragAccum += d.delta.dx;
-              _audioMove(ac);
-            };
-            dragEnd = widget.onEditEnd;
-          }
+          moveStart = () {
+            if (!selected) widget.onSelectAudio(ac.id);
+            _audioDragStart(ac);
+          };
+          moveUpdate = (dx) {
+            _dragAccum = dx;
+            _audioMove(ac);
+          };
+          moveEnd = widget.onEditEnd;
         }
         break;
       default:
@@ -694,6 +731,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
     }
 
     Widget view = ClipRRect(borderRadius: radius, child: body);
+    final dropHere = clip.kind == 'scene' && _movingLayer && _dropScene == clip.sceneIndex;
     if (selected) {
       view = Container(
         decoration: BoxDecoration(
@@ -721,14 +759,24 @@ class _TimelinePanelState extends State<TimelinePanel> {
         ),
       );
     }
+    if (dropHere) {
+      view = Container(
+        foregroundDecoration: BoxDecoration(
+          borderRadius: radius,
+          border: Border.all(color: const Color(0xFFFFC21A), width: 3),
+        ),
+        child: view,
+      );
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLong,
-      onHorizontalDragStart: dragStart,
-      onHorizontalDragUpdate: dragUpdate,
-      onHorizontalDragEnd: dragEnd == null ? null : (_) => dragEnd!(),
+      onLongPressStart: moveStart == null ? null : (_) => moveStart!(),
+      onLongPressMoveUpdate: moveUpdate == null ? null : (d) => moveUpdate!(d.offsetFromOrigin.dx),
+      onLongPressEnd: moveEnd == null ? null : (_) => moveEnd!(),
+      onLongPressCancel: moveEnd,
       child: view,
     );
   }
