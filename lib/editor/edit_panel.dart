@@ -82,6 +82,7 @@ Future<void> showEditPanel(
   required VoidCallback onLive,
   required ValueChanged<Layer?> onDemo,
   required int Function(Layer source, String part, bool wholeVideo) onApplyAll,
+  void Function(Layer layer, bool allSlides)? onSpread,
 }) {
   return showEditorSheet<void>(
     context: context,
@@ -96,6 +97,7 @@ Future<void> showEditPanel(
             onLive: onLive,
             onDemo: onDemo,
             onApplyAll: onApplyAll,
+            onSpread: onSpread,
           )
         : Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
@@ -109,6 +111,7 @@ Future<void> showEditPanel(
           onLive: onLive,
           onDemo: onDemo,
           onApplyAll: onApplyAll,
+          onSpread: onSpread,
         ),
       ),
     ),
@@ -123,6 +126,7 @@ class _EditPanel extends StatefulWidget {
     required this.onLive,
     required this.onDemo,
     required this.onApplyAll,
+    this.onSpread,
   });
 
   final Layer layer;
@@ -136,6 +140,7 @@ class _EditPanel extends StatefulWidget {
   /// Copies one part of this item's animation (in, overall, out, text) to every item of the same
   /// kind on this slide or in the whole video. Returns how many items were changed.
   final int Function(Layer source, String part, bool wholeVideo) onApplyAll;
+  final void Function(Layer layer, bool allSlides)? onSpread;
 
   @override
   State<_EditPanel> createState() => _EditPanelState();
@@ -1060,9 +1065,6 @@ class _EditPanelState extends State<_EditPanel> {
     return d;
   }
 
-  /// How far one arrow press moves the item, in percent of the slide.
-  static double _nudgeStep = 1.0;
-
   Widget _transformTab() {
     return Column(
       children: [
@@ -1102,22 +1104,6 @@ class _EditPanelState extends State<_EditPanel> {
                 ),
               ),
             ],
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: NudgePad(
-              step: _nudgeStep,
-              onStep: (v) => setState(() => _nudgeStep = v),
-              onMove: (dx, dy) {
-                l.cx += dx * _nudgeStep / 100;
-                l.cy += dy * _nudgeStep / 100;
-                _changed();
-              },
-              onDone: () {},
-            ),
           ),
         ),
         _card(
@@ -1701,6 +1687,30 @@ class _EditPanelState extends State<_EditPanel> {
                       l.endMs = ms >= sceneMs ? -1 : ms;
                       _changed();
                     },
+                  ),
+                ),
+              if (widget.onSpread != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () {
+                          widget.onSpread!(l, false);
+                          setState(() {});
+                        },
+                        child: const Text('Show on this whole slide'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () {
+                          widget.onSpread!(l, true);
+                          setState(() {});
+                        },
+                        child: const Text('Show on all slides'),
+                      ),
+                    ],
                   ),
                 ),
             ],

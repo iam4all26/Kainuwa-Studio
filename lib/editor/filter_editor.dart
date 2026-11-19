@@ -65,6 +65,7 @@ class _FilterEditorState extends State<FilterEditor> {
         _slider('Contrast', _f.contrast, -0.5, 0.8, (v) => _f.copyWith(contrast: v)),
         _slider('Saturation', _f.saturation, -1, 1, (v) => _f.copyWith(saturation: v)),
         _slider('Blur', _f.blur, 0, 0.05, (v) => _f.copyWith(blur: v)),
+        _slider('Darken', _f.dim, 0, 0.9, (v) => _f.copyWith(dim: v)),
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(

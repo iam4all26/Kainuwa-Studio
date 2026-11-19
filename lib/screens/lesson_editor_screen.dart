@@ -348,7 +348,20 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   // ---- adding things ----
 
-  void _addLayer(Scene scene, Layer layer) {
+  void _addLayer(Scene scene, Layer layer, {bool shortStay = true}) {
+    // A new picture stays for 3 seconds from the playhead. Use "Show on this whole slide"
+    // or "Show on all slides" in the Timing tab to make it stay longer.
+    if (shortStay && (layer.type == 'image' || layer.type == 'asset')) {
+      final lesson = _lesson();
+      final player = _player;
+      final index = lesson == null ? -1 : lesson.scenes.indexOf(scene);
+      if (lesson != null && player != null && index >= 0) {
+        final local =
+            (player.positionMs - sceneStartMs(lesson, index)).clamp(0, math.max(0, scene.durationMs - 600)).toInt();
+        layer.startMs = local;
+        layer.endMs = local + 3000 >= scene.durationMs ? -1 : local + 3000;
+      }
+    }
     scene.layers.add(layer);
     _selectedId = layer.id;
     _sceneSelected = false;
@@ -816,6 +829,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       },
       onDemo: _onDemo,
       onApplyAll: _applyAnimToAll,
+      onSpread: _spreadLayer,
     );
     _stopDemo();
     _commit();
@@ -968,7 +982,41 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final copy = Layer.fromJson({...clip, 'id': newId()});
     if (copy.startMs >= scene.durationMs - 300) copy.startMs = 0;
     if (copy.endMs >= 0 && copy.endMs > scene.durationMs) copy.endMs = -1;
-    _addLayer(scene, copy);
+    _addLayer(scene, copy, shortStay: false);
+  }
+
+  /// Makes an item stay for the whole slide, or puts a copy of it on every slide.
+  void _spreadLayer(Layer layer, bool allSlides) {
+    final lesson = _lesson();
+    if (lesson == null) return;
+    layer.startMs = 0;
+    layer.endMs = -1;
+    if (allSlides) {
+      final json = layer.toJson();
+      for (final s in lesson.scenes) {
+        if (s.layers.any((x) => x.id == layer.id)) continue;
+        s.layers.add(Layer.fromJson({...json, 'id': newId()}));
+      }
+    }
+    _commit();
+  }
+
+  Future<void> _confirmLeave() async {
+    _pause();
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Leave this project?'),
+        content: const Text('Your work is saved automatically.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Stay')),
+          FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Leave')),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+    await _commit();
+    if (mounted) Navigator.of(context).pop();
   }
 
   /// Exact X and Y of the selected item's centre, in percent of the slide, with copy and paste of the position.
@@ -998,6 +1046,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       _commit();
     }
 
+    var nudge = 1.0;
     await showEditorSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1033,7 +1082,23 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                     ),
                   ),
                 ]),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
+                Center(
+                  child: NudgePad(
+                    size: 38,
+                    step: nudge,
+                    onStep: (v) => setSheet(() => nudge = v),
+                    onMove: (dx, dy) {
+                      layer.cx = (layer.cx + dx * nudge / 100).clamp(0.0, 1.0).toDouble();
+                      layer.cy = (layer.cy + dy * nudge / 100).clamp(0.0, 1.0).toDouble();
+                      xc.text = fmt(layer.cx);
+                      yc.text = fmt(layer.cy);
+                      if (mounted) setState(() {});
+                    },
+                    onDone: _commit,
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Row(children: [
                   Expanded(
                     child: TextField(
@@ -2885,7 +2950,12 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final width = math.min(MediaQuery.of(context).size.width, 640.0);
     final u = math.min(width / 941.0, MediaQuery.of(context).size.height / 1700.0);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: Scaffold(
       backgroundColor: KColors.editorPanel,
       body: Center(
         child: ConstrainedBox(
@@ -2935,6 +3005,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             ]),
         ),
       ),
+    ),
     );
   }
 }

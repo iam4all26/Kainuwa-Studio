@@ -597,15 +597,20 @@ class Lesson {
     this.musicFade = true,
     Set<String>? hiddenTracks,
     List<AudioClip>? audioClips,
+    List<int>? bookmarks,
     this.aspectW = 16,
     this.aspectH = 9,
   })  : scenes = scenes ?? <Scene>[],
         hiddenTracks = hiddenTracks ?? <String>{},
-        audioClips = audioClips ?? <AudioClip>[];
+        audioClips = audioClips ?? <AudioClip>[],
+        bookmarks = bookmarks ?? <int>[];
 
   final String id;
   String title;
   final List<Scene> scenes;
+
+  /// Red markers on the timeline, in milliseconds from the start of the video.
+  final List<int> bookmarks;
 
   /// The shape of the video, for example 16 and 9, or 9 and 16 for TikTok.
   int aspectW;
@@ -641,6 +646,7 @@ class Lesson {
         'aspectH': aspectH,
         'hiddenTracks': hiddenTracks.toList(),
         'audioClips': audioClips.map((c) => c.toJson()).toList(),
+        'bookmarks': bookmarks,
         'scenes': scenes.map((s) => s.toJson()).toList(),
       };
 
@@ -669,6 +675,7 @@ class Lesson {
           for (final item in json['audioClips'] as List)
             if (item is Map<String, dynamic>) AudioClip.fromJson(item),
       ],
+      bookmarks: json['bookmarks'] is List ? (json['bookmarks'] as List).whereType<num>().map((e) => e.round()).toList() : <int>[],
       scenes: scenes,
     );
   }

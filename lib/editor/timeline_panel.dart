@@ -957,7 +957,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       setState(() => _zoom = (_zoomStart * d.scale).clamp(0.25, 30.0).toDouble());
                     }
                   },
-                  child: CustomPaint(painter: _RulerPainter(pps: pps, u: u)),
+                  child: CustomPaint(painter: _RulerPainter(pps: pps, u: u, bookmarks: List<int>.of(widget.lesson.bookmarks))),
                 ),
               ),
               ...rows,
@@ -975,6 +975,22 @@ class _TimelinePanelState extends State<TimelinePanel> {
                 height: pillH + 10,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
+                  // Touching the time adds a red bookmark here; touching it again removes it.
+                  onTap: () {
+                    final ms = widget.player.positionMs;
+                    final tol = (12 / pps * 1000).round() + 50;
+                    final list = widget.lesson.bookmarks;
+                    final near = list.indexWhere((b) => (b - ms).abs() <= tol);
+                    setState(() {
+                      if (near >= 0) {
+                        list.removeAt(near);
+                      } else {
+                        list.add(ms);
+                        list.sort();
+                      }
+                    });
+                    widget.onEditEnd();
+                  },
                   onHorizontalDragUpdate: (d) {
                     final ms = widget.player.positionMs + (d.delta.dx / pps * 1000).round();
                     widget.player.seek(ms);
@@ -1117,10 +1133,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
 // ---------------------------------------------------------------------------
 
 class _RulerPainter extends CustomPainter {
-  _RulerPainter({required this.pps, required this.u});
+  _RulerPainter({required this.pps, required this.u, required this.bookmarks});
 
   final double pps;
   final double u;
+  final List<int> bookmarks;
 
   static const List<double> _steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
 
@@ -1172,11 +1189,24 @@ class _RulerPainter extends CustomPainter {
         painter.dispose();
       }
     }
+    // Red bookmarks
+    final red = Paint()..color = const Color(0xFFFF3B3B);
+    for (final ms in bookmarks) {
+      final x = ms / 1000 * pps;
+      if (x < 0 || x > size.width) continue;
+      canvas.drawRect(Rect.fromLTWH(x - math.max(1.0, u), 36 * u, math.max(2.0, 2 * u), 64 * u), red);
+      final flag = Path()
+        ..moveTo(x, 36 * u)
+        ..lineTo(x + 20 * u, 45 * u)
+        ..lineTo(x, 54 * u)
+        ..close();
+      canvas.drawPath(flag, red);
+    }
   }
 
   @override
   bool shouldRepaint(covariant _RulerPainter oldDelegate) =>
-      oldDelegate.pps != pps || oldDelegate.u != u;
+      oldDelegate.pps != pps || oldDelegate.u != u || oldDelegate.bookmarks.join(',') != bookmarks.join(',');
 }
 
 /// A waveform. It uses the real loudness of the file when it is known, and a

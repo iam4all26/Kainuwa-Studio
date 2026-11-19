@@ -75,7 +75,7 @@ class _BackgroundSheetState extends State<_BackgroundSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Background filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const Text('Filter and darken', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(14),
@@ -162,7 +162,7 @@ class _BackgroundSheetState extends State<_BackgroundSheet> {
             ),
             onPressed: () => _openFilter(context),
             icon: const Icon(Icons.tune),
-            label: const Text('Filter for this background'),
+            label: const Text('Filter and darken'),
           ),
           const SizedBox(height: 8),
           FilledButton.tonalIcon(

@@ -12,6 +12,7 @@ class PicFilter {
     this.contrast = 0,
     this.saturation = 0,
     this.blur = 0,
+    this.dim = 0,
   });
 
   final String preset;
@@ -28,6 +29,9 @@ class PicFilter {
   /// Fraction of the item's smaller side, 0 to 0.05
   final double blur;
 
+  /// How much darker, 0 (none) to 0.9
+  final double dim;
+
   static const List<(String, String)> presets = [
     ('none', 'None'),
     ('gray', 'Black and white'),
@@ -41,19 +45,20 @@ class PicFilter {
   ];
 
   bool get isNone =>
-      preset == 'none' && brightness == 0 && contrast == 0 && saturation == 0 && blur == 0;
+      preset == 'none' && brightness == 0 && contrast == 0 && saturation == 0 && blur == 0 && dim == 0;
 
-  PicFilter copyWith({String? preset, double? brightness, double? contrast, double? saturation, double? blur}) =>
+  PicFilter copyWith({String? preset, double? brightness, double? contrast, double? saturation, double? blur, double? dim}) =>
       PicFilter(
         preset: preset ?? this.preset,
         brightness: brightness ?? this.brightness,
         contrast: contrast ?? this.contrast,
         saturation: saturation ?? this.saturation,
         blur: blur ?? this.blur,
+        dim: dim ?? this.dim,
       );
 
   /// Empty text means no filter.
-  String encode() => isNone ? '' : '$preset;$brightness;$contrast;$saturation;$blur';
+  String encode() => isNone ? '' : '$preset;$brightness;$contrast;$saturation;$blur;$dim';
 
   static PicFilter parse(String s) {
     if (s.isEmpty) return const PicFilter();
@@ -66,6 +71,7 @@ class PicFilter {
       contrast: d(2).clamp(-0.5, 0.8).toDouble(),
       saturation: d(3).clamp(-1.0, 1.0).toDouble(),
       blur: d(4).clamp(0.0, 0.05).toDouble(),
+      dim: d(5).clamp(0.0, 0.9).toDouble(),
     );
   }
 
@@ -144,6 +150,10 @@ class PicFilter {
     if (saturation != 0) m = _mul(_sat(1 + saturation), m);
     if (contrast != 0) m = _mul(_contrast(1 + contrast), m);
     if (brightness != 0) m = _mul(_bright(brightness), m);
+    if (dim > 0) {
+      final k = 1 - dim;
+      m = _mul([k, 0, 0, 0, 0, 0, k, 0, 0, 0, 0, 0, k, 0, 0, 0, 0, 0, 1, 0], m);
+    }
     return m;
   }
 
@@ -154,7 +164,7 @@ class PicFilter {
       final w = c.maxWidth.isFinite ? c.maxWidth : 100.0;
       final h = c.maxHeight.isFinite ? c.maxHeight : 100.0;
       Widget out = child;
-      if (preset != 'none' || brightness != 0 || contrast != 0 || saturation != 0) {
+      if (preset != 'none' || brightness != 0 || contrast != 0 || saturation != 0 || dim != 0) {
         out = ColorFiltered(colorFilter: ColorFilter.matrix(matrix()), child: out);
       }
       final sigma = blur * math.min(w, h);
