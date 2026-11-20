@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../animation_math.dart';
 import '../models.dart';
@@ -179,6 +181,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   void dispose() {
     widget.player.removeListener(_follow);
     PeaksCache.instance.removeListener(_peaksReady);
+    _edgeTimer?.cancel();
     _scroll.dispose();
     super.dispose();
   }
@@ -405,6 +408,58 @@ class _TimelinePanelState extends State<TimelinePanel> {
   int? _dropScene;
   int _layerStartB = 0;
 
+  // Moving an item to another slide: the slide under the FINGER is the target.
+  int _moveFrom = 0;
+  double _pressAbsMs = 0;
+  double _pressInItemMs = 0;
+  double _scrollAtPress = 0;
+  double _fingerDx = 0;
+  double _fingerGx = 0;
+  Timer? _edgeTimer;
+
+  /// Lesson time (ms) under the finger now, counting any scrolling done since the press.
+  double _fingerAbsMs() {
+    final scrolled = _scroll.hasClients ? _scroll.offset - _scrollAtPress : 0.0;
+    return _pressAbsMs + (_fingerDx + scrolled) / _pps * 1000;
+  }
+
+  void _refreshTarget() {
+    final total = widget.lesson.durationMs;
+    final abs = _fingerAbsMs().round().clamp(0, math.max(0, total - 1)).toInt();
+    final target = sceneAt(widget.lesson, abs).index;
+    if (target != _dropScene) {
+      HapticFeedback.selectionClick();
+      setState(() => _dropScene = target);
+    }
+  }
+
+  /// Scrolls the timeline while the finger is near its left or right edge, so far slides can be reached.
+  void _startEdgeScroll() {
+    _edgeTimer?.cancel();
+    _edgeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!mounted || !_movingLayer || !_scroll.hasClients) return;
+      final box = _scroll.position.context.storageContext.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) return;
+      final left = box.localToGlobal(Offset.zero).dx;
+      final right = left + box.size.width;
+      const edge = 56.0;
+      var v = 0.0;
+      if (_fingerGx > right - edge) {
+        v = (_fingerGx - (right - edge)) / edge;
+      } else if (_fingerGx < left + edge) {
+        v = -((left + edge) - _fingerGx) / edge;
+      }
+      if (v == 0) return;
+      final pos = _scroll.position;
+      final next = (pos.pixels + v.clamp(-1.0, 1.0) * 14).clamp(0.0, pos.maxScrollExtent).toDouble();
+      if (next != pos.pixels) {
+        _scroll.jumpTo(next);
+        _holdFollow(3000);
+        _refreshTarget();
+      }
+    });
+  }
+
   void _layerDragStart(Layer layer, int sceneMs) {
     _dragAccum = 0;
     _layerStartA = layer.startMs;
@@ -565,8 +620,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
     VoidCallback? onTap;
     VoidCallback? onLong;
     // Moving an item needs a press and hold first, so a plain swipe always scrolls the timeline.
-    VoidCallback? moveStart;
-    void Function(double dx)? moveUpdate;
+    void Function(Offset local, double gx)? moveStart;
+    void Function(double dx, double gx)? moveUpdate;
     VoidCallback? moveEnd;
 
     switch (clip.kind) {
@@ -601,37 +656,48 @@ class _TimelinePanelState extends State<TimelinePanel> {
         {
           final fromScene = clip.sceneIndex;
           final sceneMs = widget.lesson.scenes[fromScene].durationMs;
-          moveStart = () {
+          moveStart = (local, gx) {
             if (!selected) widget.onSelectLayer(fromScene, layer.id);
             _layerDragStart(layer, sceneMs);
+            // The slide is chosen by where the FINGER is, not by where the item bar is.
+            _pressInItemMs = local.dx / _pps * 1000;
+            _pressAbsMs = clip.startMs + _pressInItemMs;
+            _scrollAtPress = _scroll.hasClients ? _scroll.offset : 0;
+            _fingerDx = 0;
+            _fingerGx = gx;
+            _moveFrom = fromScene;
             setState(() {
               _movingLayer = true;
               _dropScene = fromScene;
             });
+            HapticFeedback.mediumImpact();
+            _startEdgeScroll();
           };
-          moveUpdate = (dx) {
+          moveUpdate = (dx, gx) {
+            if (!_movingLayer) return;
             _dragAccum = dx;
+            _fingerDx = dx;
+            _fingerGx = gx;
             _layerMove(layer, sceneMs);
-            final total = widget.lesson.durationMs;
-            // The slide under the middle of the item counts, so it needs only half a slide of dragging.
-            final abs = sceneStartMs(widget.lesson, fromScene) + _layerStartA + _roundedDelta().round() +
-                (_layerStartB - _layerStartA) ~/ 2;
-            final target = sceneAt(widget.lesson, abs.clamp(0, math.max(0, total - 1)).toInt()).index;
-            if (target != _dropScene) setState(() => _dropScene = target);
+            _refreshTarget();
           };
           moveEnd = () {
+            if (!_movingLayer) return;
+            _edgeTimer?.cancel();
+            _refreshTarget();
             final to = _dropScene ?? fromScene;
+            final fingerAbs = _fingerAbsMs();
             setState(() {
               _movingLayer = false;
               _dropScene = null;
             });
             if (to != fromScene) {
-              // Dropped on another slide: the item goes there, at the time it was dropped.
+              // Dropped on another slide: the item goes there, starting where the finger let go.
               final lesson = widget.lesson;
               final toMs = lesson.scenes[to].durationMs;
               final dur = _layerStartB - _layerStartA;
-              final abs = sceneStartMs(lesson, fromScene) + _layerStartA + _roundedDelta().round() + dur ~/ 2;
-              final local = (abs - dur ~/ 2 - sceneStartMs(lesson, to)).clamp(0, math.max(0, toMs - 300)).toInt();
+              final raw = (fingerAbs - _pressInItemMs - sceneStartMs(lesson, to)).round();
+              final local = ((raw / 100).round() * 100).clamp(0, math.max(0, toMs - 300)).toInt();
               final end = local + dur;
               layer.startMs = local;
               layer.endMs = end >= toMs ? -1 : end;
@@ -775,8 +841,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLong,
-      onLongPressStart: moveStart == null ? null : (_) => moveStart!(),
-      onLongPressMoveUpdate: moveUpdate == null ? null : (d) => moveUpdate!(d.offsetFromOrigin.dx),
+      onLongPressStart: moveStart == null ? null : (d) => moveStart!(d.localPosition, d.globalPosition.dx),
+      onLongPressMoveUpdate: moveUpdate == null ? null : (d) => moveUpdate!(d.offsetFromOrigin.dx, d.globalPosition.dx),
       onLongPressEnd: moveEnd == null ? null : (_) => moveEnd!(),
       onLongPressCancel: moveEnd,
       child: view,
@@ -1170,6 +1236,29 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   ],
                 ),
               ),
+              if (_movingLayer && _dropScene != null)
+                Positioned(
+                  left: stripLeft,
+                  right: 13 * u,
+                  top: 4 * u,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFC21A),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          _dropScene == _moveFrom
+                              ? 'Stays on slide ${_dropScene! + 1}'
+                              : 'Drop on slide ${_dropScene! + 1}',
+                          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
