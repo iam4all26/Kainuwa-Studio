@@ -613,7 +613,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
             _dragAccum = dx;
             _layerMove(layer, sceneMs);
             final total = widget.lesson.durationMs;
-            final abs = sceneStartMs(widget.lesson, fromScene) + _layerStartA + _roundedDelta().round();
+            // The slide under the middle of the item counts, so it needs only half a slide of dragging.
+            final abs = sceneStartMs(widget.lesson, fromScene) + _layerStartA + _roundedDelta().round() +
+                (_layerStartB - _layerStartA) ~/ 2;
             final target = sceneAt(widget.lesson, abs.clamp(0, math.max(0, total - 1)).toInt()).index;
             if (target != _dropScene) setState(() => _dropScene = target);
           };
@@ -628,8 +630,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
               final lesson = widget.lesson;
               final toMs = lesson.scenes[to].durationMs;
               final dur = _layerStartB - _layerStartA;
-              final abs = sceneStartMs(lesson, fromScene) + _layerStartA + _roundedDelta().round();
-              final local = (abs - sceneStartMs(lesson, to)).clamp(0, math.max(0, toMs - 300)).toInt();
+              final abs = sceneStartMs(lesson, fromScene) + _layerStartA + _roundedDelta().round() + dur ~/ 2;
+              final local = (abs - dur ~/ 2 - sceneStartMs(lesson, to)).clamp(0, math.max(0, toMs - 300)).toInt();
               final end = local + dur;
               layer.startMs = local;
               layer.endMs = end >= toMs ? -1 : end;

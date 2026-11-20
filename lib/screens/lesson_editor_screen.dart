@@ -987,6 +987,57 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _addLayer(scene, copy, shortStay: false);
   }
 
+  /// Moves the selected item to another slide (an alternative to dragging it on the timeline).
+  Future<void> _moveLayerToSlide() async {
+    final lesson = _lesson();
+    final id = _selectedId;
+    if (lesson == null || id == null) return;
+    int from = -1;
+    Layer? layer;
+    for (var i = 0; i < lesson.scenes.length && layer == null; i++) {
+      for (final l in lesson.scenes[i].layers) {
+        if (l.id == id) {
+          from = i;
+          layer = l;
+          break;
+        }
+      }
+    }
+    if (layer == null) return;
+    _pause();
+    final to = await showDialog<int>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('Move to slide'),
+        children: [
+          SizedBox(
+            width: double.maxFinite,
+            height: math.min(360.0, 56.0 * lesson.scenes.length),
+            child: ListView(
+              children: [
+                for (var i = 0; i < lesson.scenes.length; i++)
+                  ListTile(
+                    dense: true,
+                    enabled: i != from,
+                    title: Text(i == from ? 'Slide ${i + 1} (now here)' : 'Slide ${i + 1}'),
+                    onTap: () => Navigator.of(c).pop(i),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (to == null || to == from || !mounted) return;
+    final toMs = lesson.scenes[to].durationMs;
+    if (layer.startMs > toMs - 300) layer.startMs = 0;
+    if (layer.endMs >= 0 && layer.endMs > toMs) layer.endMs = -1;
+    lesson.scenes[from].layers.remove(layer);
+    lesson.scenes[to].layers.add(layer);
+    _commit();
+    _seekToScene(lesson, to);
+  }
+
   /// Makes an item stay for the whole slide, or puts a copy of it on every slide.
   void _spreadLayer(Layer layer, bool allSlides) {
     final lesson = _lesson();
@@ -2713,6 +2764,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         if (_clipLayer != null) (Icons.content_paste, 'Paste', _pasteLayer),
         (Icons.open_with, 'Pos & size', _positionSheet),
         (Icons.layers_outlined, 'Layer', _openLayers),
+        (Icons.drive_file_move_outlined, 'Move', _moveLayerToSlide),
         (Icons.tune, 'Adjust', _adjust),
         (Icons.auto_awesome_outlined, 'Animate', _openAnimate),
         (Icons.speed, 'Speed', _speed),
