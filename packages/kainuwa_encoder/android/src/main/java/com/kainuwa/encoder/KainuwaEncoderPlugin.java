@@ -865,6 +865,7 @@ public class KainuwaEncoderPlugin
     private final List<Double> lessonVideoScales = new ArrayList<>();
     private final List<Boolean> lessonVideoFills = new ArrayList<>();
     private final List<String> lessonVideoFilters = new ArrayList<>();
+    private final List<String> lessonVideoGrades = new ArrayList<>();
     private final List<TransitionEffect.Spec> lessonTransitions = new ArrayList<>();
 
     // Live preview frames: one reader stays open so each frame is quicker to get.
@@ -1006,6 +1007,7 @@ public class KainuwaEncoderPlugin
         lessonVideoScales.clear();
         lessonVideoFills.clear();
         lessonVideoFilters.clear();
+        lessonVideoGrades.clear();
         lessonTransitions.clear();
         final List<Map<String, Object>> rawTransitions = call.argument("transitions");
         if (rawTransitions != null) {
@@ -1033,6 +1035,7 @@ public class KainuwaEncoderPlugin
             lessonVideoStarts.add(longOf(sc.get("videoStartMs"), 0));
             lessonVideoFills.add(Boolean.TRUE.equals(sc.get("videoFill")));
             lessonVideoFilters.add(sc.get("videoFilter") instanceof String ? (String) sc.get("videoFilter") : "");
+            lessonVideoGrades.add(sc.get("videoGrade") instanceof String ? (String) sc.get("videoGrade") : "");
             lessonVideoScales.add(sc.get("videoScale") instanceof Number ? ((Number) sc.get("videoScale")).doubleValue() : 1.0);
             durations.add(dur);
             totalMs += dur;
@@ -1258,6 +1261,29 @@ public class KainuwaEncoderPlugin
         }
     }
 
+    /** Colour grading of a video clip: "exposure;temperature;tint;hue;red;green;blue". Same maths as video_grade.dart. */
+    private static void addVideoGrade(List<Effect> effects, String text) {
+        if (text == null || text.isEmpty()) return;
+        String[] p = text.split(";");
+        double exposure = look(p, 0, -1.0, 1.0);
+        double temperature = look(p, 1, -1.0, 1.0);
+        double tint = look(p, 2, -1.0, 1.0);
+        double hue = look(p, 3, -180.0, 180.0);
+        double red = look(p, 4, -0.5, 0.5);
+        double green = look(p, 5, -0.5, 0.5);
+        double blue = look(p, 6, -0.5, 0.5);
+        if (hue != 0) {
+            effects.add(new HslAdjustment.Builder().adjustHue((float) hue).build());
+        }
+        double e = Math.pow(2.0, exposure);
+        float sr = (float) (e * (1 + 0.25 * temperature) * (1 + red));
+        float sg = (float) (e * (1 - 0.2 * tint) * (1 + green));
+        float sb = (float) (e * (1 - 0.25 * temperature) * (1 + blue));
+        if (sr != 1f || sg != 1f || sb != 1f) {
+            effects.add(new RgbAdjustment.Builder().setRedScale(sr).setGreenScale(sg).setBlueScale(sb).build());
+        }
+    }
+
     private static double look(String[] p, int i, double lo, double hi) {
         if (i >= p.length) return 0;
         try {
@@ -1314,6 +1340,9 @@ public class KainuwaEncoderPlugin
             }
             if (videoPath != null && i < lessonVideoFilters.size()) {
                 addVideoLook(effects, lessonVideoFilters.get(i));
+            }
+            if (videoPath != null && i < lessonVideoGrades.size()) {
+                addVideoGrade(effects, lessonVideoGrades.get(i));
             }
             EditedMediaItem.Builder pictureBuilder = new EditedMediaItem.Builder(item)
                     .setFrameRate(fps)

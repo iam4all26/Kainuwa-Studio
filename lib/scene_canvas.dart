@@ -13,6 +13,7 @@ import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
 import 'stage_shape.dart';
+import 'video_grade.dart';
 import 'text_reveal.dart';
 
 /// Draws one scene. Everything is sized from fractions of the slide, so the
@@ -945,9 +946,14 @@ class SceneBackground extends StatelessWidget {
     final inner = _buildInner(context);
     // Colour look of a video clip. Not on the phone body or the slide background around it.
     final clipShown = scene.hasVideo && !noVideo && (!scene.phoneFrame || videoOnly);
-    if (clipShown && scene.videoFilter.isNotEmpty) {
-      final f = PicFilter.parse(scene.videoFilter).copyWith(blur: 0);
-      return f.isNone ? inner : f.wrap(inner);
+    if (clipShown) {
+      var look = inner;
+      if (scene.videoFilter.isNotEmpty) {
+        final f = PicFilter.parse(scene.videoFilter).copyWith(blur: 0);
+        if (!f.isNone) look = f.wrap(look);
+      }
+      if (scene.videoGrade.isNotEmpty) look = VideoGrade.parse(scene.videoGrade).wrap(look);
+      return look;
     }
     if (scene.bgFilter.isEmpty || scene.hasVideo || videoOnly) return inner;
     return PicFilter.parse(scene.bgFilter).wrap(inner);

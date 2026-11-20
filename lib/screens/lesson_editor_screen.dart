@@ -20,6 +20,8 @@ import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
 import '../editor/editor_tools.dart';
 import '../editor/filter_editor.dart';
+import '../editor/grade_editor.dart';
+import '../video_grade.dart';
 import '../editor/fullscreen_player.dart';
 import '../pic_filter.dart';
 import '../editor/lesson_player.dart';
@@ -1601,27 +1603,52 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final scene = _currentScene();
     if (scene == null || !scene.hasVideo) return;
     _pause();
+    var tab = 0;
     await showEditorSheet<void>(
       context: context,
       barrierColor: Colors.transparent,
-      builder: (sheetContext) => SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Enhance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              FilterEditor(
-                video: true,
-                initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
-                onChanged: (f) {
-                  scene.videoFilter = f.copyWith(blur: 0).encode();
-                  if (mounted) setState(() {});
-                },
-              ),
-            ],
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setTab) => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Enhance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment<int>(value: 0, label: Text('Look')),
+                      ButtonSegment<int>(value: 1, label: Text('Colour grade')),
+                    ],
+                    selected: {tab},
+                    onSelectionChanged: (s) => setTab(() => tab = s.first),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (tab == 0)
+                  FilterEditor(
+                    video: true,
+                    initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
+                    onChanged: (f) {
+                      scene.videoFilter = f.copyWith(blur: 0).encode();
+                      if (mounted) setState(() {});
+                    },
+                  )
+                else
+                  GradeEditor(
+                    initial: VideoGrade.parse(scene.videoGrade),
+                    onChanged: (g) {
+                      scene.videoGrade = g.encode();
+                      if (mounted) setState(() {});
+                    },
+                  ),
+              ],
+            ),
           ),
         ),
       ),

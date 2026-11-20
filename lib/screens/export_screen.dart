@@ -531,6 +531,7 @@ class _ExportScreenState extends State<ExportScreen> {
           'videoStartMs': scene.videoStartMs,
           'videoFill': scene.hasVideo && scene.videoFill && !scene.phoneFrame,
           'videoFilter': scene.hasVideo ? scene.videoFilter : '',
+          'videoGrade': scene.hasVideo ? scene.videoGrade : '',
           'videoScale': scene.hasVideo && scene.phoneFrame
               ? PhoneGeometry(stageW, stageH, scene.phoneScale).screenH / stageH
               : 1.0,
