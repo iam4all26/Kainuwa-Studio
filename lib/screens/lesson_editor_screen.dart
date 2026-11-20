@@ -25,6 +25,7 @@ import '../editor/colour_pick_dialog.dart';
 import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
 import '../video_curves.dart';
+import '../video_styles.dart';
 import '../video_grade.dart';
 import '../editor/fullscreen_player.dart';
 import '../pic_filter.dart';
@@ -1608,6 +1609,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null || !scene.hasVideo) return;
     _pause();
     var tab = 0;
+    var gen = 0;
     await showEditorSheet<void>(
       context: context,
       barrierColor: Colors.transparent,
@@ -1637,13 +1639,41 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 ),
                 const SizedBox(height: 8),
                 if (tab == 0)
-                  FilterEditor(
-                    video: true,
-                    initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
-                    onChanged: (f) {
-                      scene.videoFilter = f.copyWith(blur: 0).encode();
-                      if (mounted) setState(() {});
-                    },
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Styles', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          for (final st in kVideoStyles)
+                            ActionChip(
+                              label: Text(st.name),
+                              onPressed: () {
+                                scene.videoFilter = st.look;
+                                scene.videoGrade = st.grade;
+                                scene.videoCurves = st.curves;
+                                gen++;
+                                setTab(() {});
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      FilterEditor(
+                        key: ValueKey('look$gen'),
+                        video: true,
+                        initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
+                        onChanged: (f) {
+                          scene.videoFilter = f.copyWith(blur: 0).encode();
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    ],
                   )
                 else if (tab == 3)
                   ColourKeyEditor(
