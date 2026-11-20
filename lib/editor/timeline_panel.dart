@@ -770,11 +770,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
               ),
             ],
           );
-          moveStart = () {
+          moveStart = (local, gx) {
             if (!selected) widget.onSelectAudio(ac.id);
             _audioDragStart(ac);
           };
-          moveUpdate = (dx) {
+          moveUpdate = (dx, gx) {
             _dragAccum = dx;
             _audioMove(ac);
           };
