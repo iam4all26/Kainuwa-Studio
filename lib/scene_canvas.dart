@@ -13,6 +13,7 @@ import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
 import 'stage_shape.dart';
+import 'video_curves.dart';
 import 'video_grade.dart';
 import 'text_reveal.dart';
 
@@ -995,6 +996,13 @@ class SceneBackground extends StatelessWidget {
             final file = snap.data;
             if (file == null) {
               return const Center(child: Icon(Icons.videocam, color: Colors.white54, size: 32));
+            }
+            if (scene.videoCurves.isNotEmpty) {
+              return CurvedFrame(
+                path: file,
+                spec: scene.videoCurves,
+                fit: scene.videoFill && !scene.phoneFrame ? BoxFit.cover : BoxFit.contain,
+              );
             }
             return Image.file(
               File(file),

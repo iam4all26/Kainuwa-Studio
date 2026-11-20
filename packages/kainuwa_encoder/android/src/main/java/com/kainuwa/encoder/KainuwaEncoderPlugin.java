@@ -49,6 +49,7 @@ import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbAdjustment;
 import androidx.media3.effect.RgbFilter;
+import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
@@ -866,6 +867,7 @@ public class KainuwaEncoderPlugin
     private final List<Boolean> lessonVideoFills = new ArrayList<>();
     private final List<String> lessonVideoFilters = new ArrayList<>();
     private final List<String> lessonVideoGrades = new ArrayList<>();
+    private final List<String> lessonVideoLuts = new ArrayList<>();
     private final List<TransitionEffect.Spec> lessonTransitions = new ArrayList<>();
 
     // Live preview frames: one reader stays open so each frame is quicker to get.
@@ -1008,6 +1010,7 @@ public class KainuwaEncoderPlugin
         lessonVideoFills.clear();
         lessonVideoFilters.clear();
         lessonVideoGrades.clear();
+        lessonVideoLuts.clear();
         lessonTransitions.clear();
         final List<Map<String, Object>> rawTransitions = call.argument("transitions");
         if (rawTransitions != null) {
@@ -1036,6 +1039,7 @@ public class KainuwaEncoderPlugin
             lessonVideoFills.add(Boolean.TRUE.equals(sc.get("videoFill")));
             lessonVideoFilters.add(sc.get("videoFilter") instanceof String ? (String) sc.get("videoFilter") : "");
             lessonVideoGrades.add(sc.get("videoGrade") instanceof String ? (String) sc.get("videoGrade") : "");
+            lessonVideoLuts.add(sc.get("videoLut") instanceof String ? (String) sc.get("videoLut") : "");
             lessonVideoScales.add(sc.get("videoScale") instanceof Number ? ((Number) sc.get("videoScale")).doubleValue() : 1.0);
             durations.add(dur);
             totalMs += dur;
@@ -1261,6 +1265,35 @@ public class KainuwaEncoderPlugin
         }
     }
 
+    /**
+     * Curves and tone of a video clip as a 3D colour table written by video_curves.dart: a PNG that is
+     * (n*n) wide and n high; the pixel for red r, green g, blue b is at x = b*n + r, y = g.
+     */
+    private static void addVideoLut(List<Effect> effects, String path) {
+        if (path == null || path.isEmpty()) return;
+        try {
+            Bitmap bmp = android.graphics.BitmapFactory.decodeFile(path);
+            if (bmp == null) return;
+            int n = bmp.getHeight();
+            int w = bmp.getWidth();
+            if (n < 2 || w != n * n) return;
+            int[] px = new int[w * n];
+            bmp.getPixels(px, 0, w, 0, 0, w, n);
+            bmp.recycle();
+            int[][][] cube = new int[n][n][n];
+            for (int b = 0; b < n; b++) {
+                for (int g = 0; g < n; g++) {
+                    for (int r = 0; r < n; r++) {
+                        cube[r][g][b] = px[g * w + b * n + r] | 0xFF000000;
+                    }
+                }
+            }
+            effects.add(SingleColorLut.createFromCube(cube));
+        } catch (Exception e) {
+            // A bad table means no curves; the export still works.
+        }
+    }
+
     /** Colour grading of a video clip: "exposure;temperature;tint;hue;red;green;blue". Same maths as video_grade.dart. */
     private static void addVideoGrade(List<Effect> effects, String text) {
         if (text == null || text.isEmpty()) return;
@@ -1337,6 +1370,9 @@ public class KainuwaEncoderPlugin
                 effects.add(new androidx.media3.effect.ScaleAndRotateTransformation.Builder()
                         .setScale((float) vScale, (float) vScale)
                         .build());
+            }
+            if (videoPath != null && i < lessonVideoLuts.size()) {
+                addVideoLut(effects, lessonVideoLuts.get(i));
             }
             if (videoPath != null && i < lessonVideoFilters.size()) {
                 addVideoLook(effects, lessonVideoFilters.get(i));

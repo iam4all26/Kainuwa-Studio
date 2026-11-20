@@ -14,6 +14,7 @@ import '../app_state.dart';
 import '../editor/track_visibility.dart';
 import '../models.dart';
 import '../transition_math.dart';
+import '../video_curves.dart';
 import '../watermark.dart';
 import '../scene_canvas.dart';
 import '../hands.dart';
@@ -519,6 +520,11 @@ class _ExportScreenState extends State<ExportScreen> {
             missingNarration++;
           }
         }
+        var lutPath = '';
+        if (scene.hasVideo && scene.videoCurves.isNotEmpty) {
+          lutPath = '${work.path}/scene_${i}_lut.png';
+          await VideoCurves.parse(scene.videoCurves).writeLutPng(lutPath);
+        }
         specs.add({
           'image': basePath,
           'durationMs': scene.durationMs,
@@ -532,6 +538,7 @@ class _ExportScreenState extends State<ExportScreen> {
           'videoFill': scene.hasVideo && scene.videoFill && !scene.phoneFrame,
           'videoFilter': scene.hasVideo ? scene.videoFilter : '',
           'videoGrade': scene.hasVideo ? scene.videoGrade : '',
+          'videoLut': lutPath,
           'videoScale': scene.hasVideo && scene.phoneFrame
               ? PhoneGeometry(stageW, stageH, scene.phoneScale).screenH / stageH
               : 1.0,

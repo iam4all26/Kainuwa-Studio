@@ -357,6 +357,7 @@ class Scene {
     this.videoFill = false,
     this.videoFilter = '',
     this.videoGrade = '',
+    this.videoCurves = '',
     this.phoneScale = 0.9,
     this.phoneLight = false,
     this.transKind = 'none',
@@ -409,6 +410,9 @@ class Scene {
 
   /// Colour grading of the video clip, see VideoGrade. Empty means none.
   String videoGrade;
+
+  /// Curves, shadows, highlights and vibrance of the video clip, see VideoCurves. Empty means none.
+  String videoCurves;
   double phoneScale;
   bool phoneLight;
 
@@ -453,6 +457,7 @@ class Scene {
         videoFill: videoFill,
         videoFilter: videoFilter,
         videoGrade: videoGrade,
+        videoCurves: videoCurves,
         phoneScale: phoneScale,
         phoneLight: phoneLight,
         transKind: transKind,
@@ -482,6 +487,7 @@ class Scene {
         'videoFill': videoFill,
         'videoFilter': videoFilter,
         'videoGrade': videoGrade,
+        'videoCurves': videoCurves,
         'phoneScale': phoneScale,
         'phoneLight': phoneLight,
         'transKind': transKind,
@@ -519,6 +525,7 @@ class Scene {
       videoFill: json['videoFill'] is bool ? json['videoFill'] as bool : false,
       videoFilter: _str(json['videoFilter'], ''),
       videoGrade: _str(json['videoGrade'], ''),
+      videoCurves: _str(json['videoCurves'], ''),
       phoneScale: _num(json['phoneScale'], 0.9),
       phoneLight: json['phoneLight'] is bool ? json['phoneLight'] as bool : false,
       transKind: _str(json['transKind'], 'none'),

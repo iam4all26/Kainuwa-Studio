@@ -20,7 +20,9 @@ import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
 import '../editor/editor_tools.dart';
 import '../editor/filter_editor.dart';
+import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
+import '../video_curves.dart';
 import '../video_grade.dart';
 import '../editor/fullscreen_player.dart';
 import '../pic_filter.dart';
@@ -1623,7 +1625,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                     showSelectedIcon: false,
                     segments: const [
                       ButtonSegment<int>(value: 0, label: Text('Look')),
-                      ButtonSegment<int>(value: 1, label: Text('Colour grade')),
+                      ButtonSegment<int>(value: 1, label: Text('Grade')),
+                      ButtonSegment<int>(value: 2, label: Text('Curves')),
                     ],
                     selected: {tab},
                     onSelectionChanged: (s) => setTab(() => tab = s.first),
@@ -1636,6 +1639,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                     initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
                     onChanged: (f) {
                       scene.videoFilter = f.copyWith(blur: 0).encode();
+                      if (mounted) setState(() {});
+                    },
+                  )
+                else if (tab == 2)
+                  CurveEditor(
+                    initial: VideoCurves.parse(scene.videoCurves),
+                    onChanged: (c) {
+                      scene.videoCurves = c.encode();
                       if (mounted) setState(() {});
                     },
                   )
