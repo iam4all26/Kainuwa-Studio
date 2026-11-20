@@ -19,7 +19,12 @@ class VideoCurves {
     this.shadows = 0,
     this.highlights = 0,
     this.vibrance = 0,
-  })  : master = master ?? identity(),
+    List<double>? keyHues,
+    this.keyMode = 0,
+    this.keyRange = 30,
+    this.keySoft = 0.5,
+  })  : keyHues = keyHues ?? const <double>[],
+        master = master ?? identity(),
         red = red ?? identity(),
         green = green ?? identity(),
         blue = blue ?? identity();
@@ -38,6 +43,18 @@ class VideoCurves {
   /// -1 to 1: saturation that mostly affects dull colours.
   final double vibrance;
 
+  /// Picked colours (hue in degrees, 0 to 360). Empty means the colour tool is off.
+  final List<double> keyHues;
+
+  /// 0 = remove these colours (they turn grey), 1 = keep only these colours.
+  final int keyMode;
+
+  /// Half width of the picked hue range in degrees (5 to 90).
+  final double keyRange;
+
+  /// 0 = hard edge, 1 = very soft edge.
+  final double keySoft;
+
   static List<Offset> identity() => [const Offset(0, 0), const Offset(1, 1)];
 
   static bool _isIdentity(List<Offset> p) =>
@@ -50,7 +67,8 @@ class VideoCurves {
       _isIdentity(blue) &&
       shadows == 0 &&
       highlights == 0 &&
-      vibrance == 0;
+      vibrance == 0 &&
+      keyHues.isEmpty;
 
   List<Offset> channel(int i) => i == 0 ? master : (i == 1 ? red : (i == 2 ? green : blue));
 
@@ -62,6 +80,10 @@ class VideoCurves {
         shadows: shadows,
         highlights: highlights,
         vibrance: vibrance,
+        keyHues: keyHues,
+        keyMode: keyMode,
+        keyRange: keyRange,
+        keySoft: keySoft,
       );
 
   VideoCurves copyWith({double? shadows, double? highlights, double? vibrance}) => VideoCurves(
@@ -72,6 +94,25 @@ class VideoCurves {
         shadows: shadows ?? this.shadows,
         highlights: highlights ?? this.highlights,
         vibrance: vibrance ?? this.vibrance,
+        keyHues: keyHues,
+        keyMode: keyMode,
+        keyRange: keyRange,
+        keySoft: keySoft,
+      );
+
+  /// Changes the colour remove or keep settings.
+  VideoCurves withKey({List<double>? hues, int? mode, double? range, double? soft}) => VideoCurves(
+        master: master,
+        red: red,
+        green: green,
+        blue: blue,
+        shadows: shadows,
+        highlights: highlights,
+        vibrance: vibrance,
+        keyHues: hues ?? keyHues,
+        keyMode: mode ?? keyMode,
+        keyRange: range ?? keyRange,
+        keySoft: soft ?? keySoft,
       );
 
   static String _enc(List<Offset> p) =>
@@ -95,7 +136,23 @@ class VideoCurves {
 
   String encode() => isNone
       ? ''
-      : '${_enc(master)}|${_enc(red)}|${_enc(green)}|${_enc(blue)}|$shadows|$highlights|$vibrance';
+      : '${_enc(master)}|${_enc(red)}|${_enc(green)}|${_enc(blue)}|$shadows|$highlights|$vibrance|'
+          '${keyHues.isEmpty ? '' : '$keyMode,$keyRange,$keySoft,${keyHues.join(',')}'}';
+
+  static (int, double, double, List<double>) _decKey(String s) {
+    if (s.isEmpty) return (0, 30.0, 0.5, <double>[]);
+    final v = s.split(',');
+    if (v.length < 4) return (0, 30.0, 0.5, <double>[]);
+    final mode = (int.tryParse(v[0]) ?? 0).clamp(0, 1).toInt();
+    final range = (double.tryParse(v[1]) ?? 30).clamp(5.0, 90.0).toDouble();
+    final soft = (double.tryParse(v[2]) ?? 0.5).clamp(0.0, 1.0).toDouble();
+    final hues = <double>[];
+    for (var i = 3; i < v.length && hues.length < 3; i++) {
+      final h = double.tryParse(v[i]);
+      if (h != null) hues.add(h.clamp(0.0, 360.0).toDouble());
+    }
+    return (mode, range, soft, hues);
+  }
 
   static VideoCurves parse(String s) {
     if (s.isEmpty) return VideoCurves();
@@ -110,6 +167,10 @@ class VideoCurves {
       shadows: d(4),
       highlights: d(5),
       vibrance: d(6),
+      keyHues: _decKey(at(7)).$4,
+      keyMode: _decKey(at(7)).$1,
+      keyRange: _decKey(at(7)).$2,
+      keySoft: _decKey(at(7)).$3,
     );
   }
 
@@ -178,7 +239,48 @@ class VideoCurves {
   }
 
   /// The look of one colour (all values 0 to 1). The order is: tone, vibrance, master curve, colour curves.
+  /// How much a colour belongs to the picked colours (0 to 1). Grey pixels never count.
+  double _keyWeight(double r, double g, double b) {
+    final mx = math.max(r, math.max(g, b)), mn = math.min(r, math.min(g, b));
+    final dl = mx - mn;
+    if (dl < 0.02) return 0;
+    double h;
+    if (mx == r) {
+      h = 60 * (((g - b) / dl) % 6);
+    } else if (mx == g) {
+      h = 60 * ((b - r) / dl + 2);
+    } else {
+      h = 60 * ((r - g) / dl + 4);
+    }
+    final sat = mx == 0 ? 0.0 : dl / mx;
+    final inner = keyRange * (1 - keySoft);
+    var w = 0.0;
+    for (final target in keyHues) {
+      var d = (h - target).abs();
+      if (d > 180) d = 360 - d;
+      double t;
+      if (d <= inner) {
+        t = 1;
+      } else if (d >= keyRange) {
+        t = 0;
+      } else {
+        final x = (keyRange - d) / (keyRange - inner);
+        t = x * x * (3 - 2 * x);
+      }
+      if (t > w) w = t;
+    }
+    return w * (sat / 0.2).clamp(0.0, 1.0);
+  }
+
   (double, double, double) mapRgb(double r, double g, double b) {
+    if (keyHues.isNotEmpty) {
+      final w = _keyWeight(r, g, b);
+      final k = keyMode == 0 ? 1 - w : w;
+      final l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      r = l + (r - l) * k;
+      g = l + (g - l) * k;
+      b = l + (b - l) * k;
+    }
     if (shadows != 0 || highlights != 0) {
       final l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
       final d = shadows * 0.3 * (1 - l) * (1 - l) + highlights * 0.3 * l * l;

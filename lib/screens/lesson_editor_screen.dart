@@ -20,6 +20,8 @@ import '../editor/edit_panel.dart';
 import '../editor/editor_history.dart';
 import '../editor/editor_tools.dart';
 import '../editor/filter_editor.dart';
+import '../editor/colour_key_editor.dart';
+import '../editor/colour_pick_dialog.dart';
 import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
 import '../video_curves.dart';
@@ -1627,6 +1629,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                       ButtonSegment<int>(value: 0, label: Text('Look')),
                       ButtonSegment<int>(value: 1, label: Text('Grade')),
                       ButtonSegment<int>(value: 2, label: Text('Curves')),
+                      ButtonSegment<int>(value: 3, label: Text('Colours')),
                     ],
                     selected: {tab},
                     onSelectionChanged: (s) => setTab(() => tab = s.first),
@@ -1640,6 +1643,19 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                     onChanged: (f) {
                       scene.videoFilter = f.copyWith(blur: 0).encode();
                       if (mounted) setState(() {});
+                    },
+                  )
+                else if (tab == 3)
+                  ColourKeyEditor(
+                    initial: VideoCurves.parse(scene.videoCurves),
+                    onChanged: (c) {
+                      scene.videoCurves = c.encode();
+                      if (mounted) setState(() {});
+                    },
+                    onPick: () async {
+                      final frame = await VideoFrames.frame(scene.videoPath, scene.videoStartMs);
+                      if (frame == null || !context.mounted) return null;
+                      return showColourPicker(context, frame);
                     },
                   )
                 else if (tab == 2)
