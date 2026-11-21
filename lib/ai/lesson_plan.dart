@@ -113,6 +113,20 @@ String _userPrompt(String lesson, String language, int slides) {
   return 'Language: $lang\nTarget number of slides: about $slides\n\nLESSON:\n$lesson';
 }
 
+/// The whole instruction as one text, to paste into any AI app (ChatGPT, Claude, Gemini...).
+/// The answer can be pasted back and read with [parsePlan].
+String buildExternalPrompt({
+  required String lesson,
+  required String language,
+  required int slides,
+  required AiCatalog catalog,
+}) {
+  return 'Follow these instructions exactly. Your whole answer must be the JSON object and nothing else, '
+      'because I will paste it into my video app.\n\n'
+      '${_systemPrompt(catalog)}\n${_userPrompt(lesson, language, slides)}\n\n'
+      'Now reply with the JSON object only.';
+}
+
 Future<LessonPlan> generatePlan(
   AiConfig config, {
   required String lesson,
