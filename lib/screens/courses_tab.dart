@@ -10,6 +10,8 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'lesson_editor_screen.dart';
 import 'ai_import_screen.dart';
+import 'music_setup_screen.dart';
+import '../music_project.dart';
 import 'video_setup_dialog.dart';
 import 'lessons_screen.dart';
 
@@ -79,6 +81,8 @@ class CoursesTab extends StatelessWidget {
               const SizedBox(height: 14),
               _choiceTile(sheetContext, Icons.movie_creation_outlined, 'Video',
                   'Open the canvas and start right away', 'video'),
+              _choiceTile(sheetContext, Icons.album_outlined, 'Music video',
+                  'Cover art, a turning record and an audio picture', 'music'),
               _choiceTile(sheetContext, Icons.school_outlined, 'Course',
                   'A set of lessons, each one a video', 'course'),
             ],
@@ -87,6 +91,26 @@ class CoursesTab extends StatelessWidget {
       ),
     );
     if (choice == null || !context.mounted) return;
+    if (choice == 'music') {
+      final music = await Navigator.of(context).push<MusicSetup>(
+        MaterialPageRoute<MusicSetup>(builder: (_) => const MusicSetupScreen()),
+      );
+      if (music == null || !context.mounted) return;
+      final title = music.title.trim().isEmpty ? 'Music video' : music.title.trim();
+      final ids = await state.addVideo(title: title, aspectW: music.aspectW, aspectH: music.aspectH);
+      final lesson = state.lessonById(ids.$1, ids.$2);
+      if (lesson != null) {
+        buildMusicProject(lesson, music);
+        await state.saveNow();
+      }
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LessonEditorScreen(courseId: ids.$1, lessonId: ids.$2),
+        ),
+      );
+      return;
+    }
     if (choice == 'video') {
       final setup = await showVideoSetup(context);
       if (setup == null || !context.mounted) return;

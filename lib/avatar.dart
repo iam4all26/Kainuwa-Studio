@@ -133,6 +133,21 @@ class AvatarLevels {
     changed.value++;
   }
 
+  /// Loudness 0 to 1 at [absMs] (smoothly between the small steps), 0 when there is no sound.
+  static double raw(AvatarSpec spec, int absMs) {
+    final values = _data[spec.audio];
+    if (values == null || values.isEmpty) return 0;
+    final t = absMs - spec.startMs + spec.trimMs;
+    if (t < 0 || t >= spec.sourceMs) return 0;
+    final binMs = _binMs[spec.audio] ?? 50.0;
+    final f = t / binMs;
+    final i = f.floor();
+    final fr = f - i;
+    final a = values[i.clamp(0, values.length - 1).toInt()];
+    final b = values[(i + 1).clamp(0, values.length - 1).toInt()];
+    return a + (b - a) * fr;
+  }
+
   /// Mouth opening 0 (closed) to 4 (wide open) at [absMs], the time in the whole video.
   static int levelAt(AvatarSpec spec, int absMs) {
     final values = _data[spec.audio];

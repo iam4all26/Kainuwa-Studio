@@ -11,6 +11,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import 'animation_math.dart';
 import 'avatar.dart';
 import 'effects.dart';
+import 'visualizer.dart';
 import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
@@ -1293,6 +1294,9 @@ class LayerContent extends StatelessWidget {
         }
         return _pictureWidget(BoxFit.contain);
       case 'shape':
+        if (isVizLayerShape(layer.shape)) {
+          return VizView(kind: layer.shape.substring(4), avatar: layer.avatar, color: color, absMs: avatarAbsMs);
+        }
         if (isFxLayerShape(layer.shape)) {
           return EffectView(kind: layer.shape.substring(3), timeMs: fxMs ?? 1500);
         }

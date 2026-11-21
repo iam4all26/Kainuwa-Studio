@@ -11,6 +11,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import '../animation_math.dart';
 import '../avatar.dart';
 import '../effects.dart';
+import '../visualizer.dart';
 import '../export_history.dart';
 import '../app_state.dart';
 import '../editor/track_visibility.dart';
@@ -188,7 +189,7 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   /// The box around a rotated item, with some room for shadows.
-  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip, int? avatarLevel, int? fxMs}) {
+  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip, int? avatarLevel, int? fxMs, int? absMs}) {
     final lw = l.w * _sw;
     final lh = l.h * _sh;
     final c = math.cos(l.rotation).abs();
@@ -211,7 +212,7 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Center(
         child: Transform.rotate(
           angle: l.rotation,
-          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel, fxMs: fxMs)),
+          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel, fxMs: fxMs, avatarAbsMs: absMs)),
         ),
       ),
     );
@@ -402,6 +403,7 @@ class _ExportScreenState extends State<ExportScreen> {
             final layer = scene.layers[k];
             final picture = _layerPicture(layer);
             final isFxLayer = layer.type == 'shape' && isFxLayerShape(layer.shape);
+            final isVizLayer = layer.type == 'shape' && isVizLayerShape(layer.shape) && layer.avatar.isNotEmpty;
             final handSpec = handById(layer.hand);
             final handAnimated = handSpec != null;
             final textAnimated = !handAnimated && layer.type == 'text' && layer.textAnim != 'none';
@@ -409,9 +411,11 @@ class _ExportScreenState extends State<ExportScreen> {
                 ? _layerPicture(layer, revealMs: -1)
                 : (handAnimated
                     ? _layerPicture(layer, clip: 0.0)
-                    : (layer.avatar.isNotEmpty
-                        ? _layerPicture(layer, avatarLevel: 0)
-                        : (isFxLayer ? _layerPicture(layer, fxMs: 0) : picture)));
+                    : (isVizLayer
+                        ? _layerPicture(layer, absMs: offsetMs + layer.startMs)
+                        : (layer.type == 'image' && layer.avatar.isNotEmpty
+                            ? _layerPicture(layer, avatarLevel: 0)
+                            : (isFxLayer ? _layerPicture(layer, fxMs: 0) : picture))));
             final image = await _capture(firstPicture.$3, firstPicture.$1, firstPicture.$2, ratio);
             final path = '${work.path}/scene_${i}_layer_$k.png';
             await _savePng(image, path);
@@ -456,7 +460,31 @@ class _ExportScreenState extends State<ExportScreen> {
                 frames.add({'path': loop[j % kFxFrames], 'atMs': at});
               }
             }
-            if (layer.avatar.isNotEmpty && !handAnimated && !textAnimated) {
+            if (isVizLayer && !handAnimated && !textAnimated) {
+              // The audio picture: a new picture whenever the columns change (10 times a second at most).
+              final vspec = AvatarSpec.parse(layer.avatar);
+              await AvatarLevels.load(vspec.audio, vspec.sourceMs);
+              final vEnd = layerEndMs(layer, scene.durationMs);
+              final sigPaths = <String, String>{};
+              var lastSig = '';
+              frames = [];
+              for (var t = layer.startMs; t < vEnd; t += 100) {
+                final sig = vizSignature(vspec, offsetMs + t);
+                if (sig == lastSig) continue;
+                var vp = sigPaths[sig];
+                if (vp == null) {
+                  _guard();
+                  final pic = _layerPicture(layer, absMs: offsetMs + t);
+                  final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                  vp = '${work.path}/scene_${i}_layer_${k}_viz${sigPaths.length}.png';
+                  await _savePng(img, vp);
+                  sigPaths[sig] = vp;
+                }
+                frames.add({'path': vp, 'atMs': t});
+                lastSig = sig;
+              }
+            }
+            if (layer.type == 'image' && layer.avatar.isNotEmpty && !handAnimated && !textAnimated) {
               // A talking picture: a few pictures with the mouth open to different amounts,
               // switched at the moments the sound gets louder or quieter.
               final spec = AvatarSpec.parse(layer.avatar);
