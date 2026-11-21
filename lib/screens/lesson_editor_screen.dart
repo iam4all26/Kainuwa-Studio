@@ -22,6 +22,7 @@ import '../editor/editor_tools.dart';
 import '../editor/filter_editor.dart';
 import '../editor/colour_key_editor.dart';
 import '../editor/avatar_setup_screen.dart';
+import '../phone_mockup.dart';
 import '../editor/colour_pick_dialog.dart';
 import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
@@ -399,6 +400,41 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 'avatar':
         await _addAvatar();
         break;
+      case 'screenshot':
+        await _addScreenshot();
+        break;
+    }
+  }
+
+  /// A screenshot inside a phone: pick the picture, pick a phone, and add the result as an image item.
+  Future<void> _addScreenshot() async {
+    final scene = _currentScene();
+    if (scene == null) return;
+    String? path;
+    try {
+      path = await pickMedia(context, MediaKind.image);
+    } catch (_) {
+      path = null;
+    }
+    if (path == null || !mounted) return;
+    if (path.toLowerCase().endsWith('.svg')) {
+      _snack('Please choose a screenshot or photo (JPG or PNG), not an SVG.');
+      return;
+    }
+    final frame = await showPhoneFramePicker(context);
+    if (frame == null || !mounted) return;
+    try {
+      final base = await KainuwaEncoder.filesDir();
+      final out = '$base/kainuwa_data/mockups/shot_${DateTime.now().millisecondsSinceEpoch}.png';
+      await composeMockup(screenshot: path, frame: frame, outPath: out);
+      if (!mounted) return;
+      final aspect = kPhoneFrameW / kPhoneFrameH;
+      final box = fitBox(aspect, maxW: 0.5, maxH: 0.92);
+      final layer = Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: out);
+      layer.srcAspect = aspect;
+      _addLayer(scene, layer);
+    } catch (e) {
+      if (mounted) _snack('The screenshot could not be placed in the phone.');
     }
   }
 

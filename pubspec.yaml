@@ -26,6 +26,7 @@ flutter:
     - assets/icons_svg/
     - assets/illustrations/
     - assets/hands/
+    - assets/phones/
     - assets/brands/social/
     - assets/brands/dev/
     - assets/brands/lang/
