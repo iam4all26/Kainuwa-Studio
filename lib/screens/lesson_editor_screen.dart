@@ -24,6 +24,8 @@ import '../editor/colour_key_editor.dart';
 import '../editor/avatar_setup_screen.dart';
 import '../phone_mockup.dart';
 import '../effects.dart';
+import '../avatar.dart';
+import '../visualizer.dart';
 import '../editor/colour_pick_dialog.dart';
 import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
@@ -408,6 +410,177 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _addEffect();
         break;
     }
+  }
+
+  /// Which sound clip of the video to follow. Null when cancelled or there is none.
+  Future<AudioClip?> _pickSyncClip() async {
+    final lesson = _lesson();
+    if (lesson == null) return null;
+    if (lesson.audioClips.isEmpty) {
+      _snack('There is no sound clip in this video yet.');
+      return null;
+    }
+    String at(int ms) {
+      final s = ms ~/ 1000;
+      return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+    }
+
+    return showDialog<AudioClip>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('Follow which sound?'),
+        children: [
+          for (final clip in lesson.audioClips)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.audiotrack_outlined),
+              title: Text(clip.label.isEmpty ? 'Sound' : clip.label, overflow: TextOverflow.ellipsis),
+              subtitle: Text('starts at ${at(clip.startMs)}'),
+              onTap: () => Navigator.of(c).pop(clip),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Change a talking picture: place the mouth again, change the photo, or follow a moved sound.
+  Future<void> _editAvatar(Layer l) async {
+    final choice = await showEditorSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.face_retouching_natural),
+              title: const Text('Adjust the mouth or the photo'),
+              onTap: () => Navigator.of(sheetContext).pop('mouth'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sync),
+              title: const Text('Follow a sound clip'),
+              subtitle: const Text('Use this after you moved or cut the voice'),
+              onTap: () => Navigator.of(sheetContext).pop('sync'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final old = AvatarSpec.parse(l.avatar);
+    if (choice == 'mouth') {
+      final r = await Navigator.of(context).push<AvatarSetupResult>(
+        MaterialPageRoute<AvatarSetupResult>(
+          builder: (_) => AvatarSetupScreen(
+            initialPhoto: l.path,
+            initialAspect: l.srcAspect > 0 ? l.srcAspect : 1.0,
+            initialSpec: old,
+          ),
+        ),
+      );
+      if (r == null || !mounted) return;
+      if (r.photo != l.path) {
+        l.path = r.photo;
+        l.srcAspect = r.aspect;
+      }
+      l.avatar = r.spec
+          .copyWith(audio: old.audio, startMs: old.startMs, sourceMs: old.sourceMs, trimMs: old.trimMs)
+          .encode();
+      _commit();
+    } else {
+      final clip = await _pickSyncClip();
+      if (clip == null || !mounted) return;
+      l.avatar = old
+          .copyWith(audio: clip.path, startMs: clip.startMs, sourceMs: clip.sourceMs, trimMs: clip.trimMs)
+          .encode();
+      _commit();
+      _snack('The mouth now follows "${clip.label}".');
+    }
+  }
+
+  /// Change the audio picture: style, colour, or which sound it follows.
+  Future<void> _editViz(Layer l) async {
+    const colours = [0xFFFF9F1C, 0xFFFFD54F, 0xFF4DD0E1, 0xFF69F0AE, 0xFFFF4D6D, 0xFFB9A0FF, 0xFFFFFFFF];
+    await showEditorSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Audio picture', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final k in kVizKinds)
+                      ChoiceChip(
+                        label: Text(k.name),
+                        selected: l.shape == 'viz_${k.id}',
+                        onSelected: (_) {
+                          l.shape = 'viz_${k.id}';
+                          _commit();
+                          setSheet(() {});
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  children: [
+                    for (final c in colours)
+                      GestureDetector(
+                        onTap: () {
+                          l.color = c;
+                          _commit();
+                          setSheet(() {});
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Color(c),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: l.color == c ? Colors.white : Colors.white24, width: l.color == c ? 3 : 1),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final clip = await _pickSyncClip();
+                    if (clip == null) return;
+                    l.avatar = AvatarSpec.parse(l.avatar)
+                        .copyWith(audio: clip.path, startMs: clip.startMs, sourceMs: clip.sourceMs, trimMs: clip.trimMs)
+                        .encode();
+                    _commit();
+                    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                  },
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Follow a different sound'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Change which floating effect an effect item shows.
+  Future<void> _editEffect(Layer l) async {
+    final id = await showEffectPicker(context, current: l.shape.substring(3));
+    if (id == null || !mounted) return;
+    l.shape = 'fx_$id';
+    _commit();
   }
 
   /// A floating effect (snow, sparks...) over the whole slide, drawn behind the other items.
@@ -2921,6 +3094,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       ]);
     } else if (layer != null) {
       tools.addAll([
+        if (layer.type == 'image' && layer.avatar.isNotEmpty) (Icons.face_retouching_natural, 'Mouth', () => _editAvatar(layer)),
+        if (layer.type == 'shape' && isVizLayerShape(layer.shape)) (Icons.graphic_eq, 'Audio look', () => _editViz(layer)),
+        if (layer.type == 'shape' && isFxLayerShape(layer.shape)) (Icons.ac_unit, 'Effect', () => _editEffect(layer)),
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.content_copy, 'Copy', _copyLayer),
@@ -2931,7 +3107,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.tune, 'Adjust', _adjust),
         (Icons.auto_awesome_outlined, 'Animate', _openAnimate),
         (Icons.speed, 'Speed', _speed),
-        if (layer.type == 'image' || layer.type == 'shape') (Icons.swap_horiz, 'Replace', _replaceMedia),
+        if ((layer.type == 'image' || layer.type == 'shape') && !isFxLayerShape(layer.shape) && !isVizLayerShape(layer.shape))
+          (Icons.swap_horiz, 'Replace', _replaceMedia),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_sceneSelected && scene != null && scene.hasVideo) {

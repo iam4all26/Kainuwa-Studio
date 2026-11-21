@@ -253,7 +253,7 @@ class _FxPainter extends CustomPainter {
 }
 
 /// Lets the user choose an effect. Returns its id, or null when cancelled.
-Future<String?> showEffectPicker(BuildContext context) {
+Future<String?> showEffectPicker(BuildContext context, {String? current}) {
   return showDialog<String>(
     context: context,
     builder: (c) => SimpleDialog(
@@ -264,6 +264,7 @@ Future<String?> showEffectPicker(BuildContext context) {
             dense: true,
             leading: Icon(k.icon),
             title: Text(k.name),
+            trailing: k.id == current ? const Icon(Icons.check) : null,
             onTap: () => Navigator.of(c).pop(k.id),
           ),
       ],

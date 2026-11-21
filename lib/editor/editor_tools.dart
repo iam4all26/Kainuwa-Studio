@@ -17,8 +17,10 @@ String layerLabel(Layer layer) {
     case 'asset':
       return 'Icon';
     case 'image':
-      return 'Photo';
+      return layer.avatar.isNotEmpty ? 'Talking picture' : 'Photo';
     case 'shape':
+      if (layer.shape.startsWith('fx_')) return 'Effect: ${layer.shape.substring(3)}';
+      if (layer.shape.startsWith('viz_')) return 'Audio picture';
       switch (layer.shape) {
         case 'circle':
           return 'Circle';

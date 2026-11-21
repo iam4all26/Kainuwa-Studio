@@ -30,7 +30,12 @@ class AvatarSetupResult {
 
 /// Pick a photo, mark the mouth, then give a sound file or type text for the phone to speak.
 class AvatarSetupScreen extends StatefulWidget {
-  const AvatarSetupScreen({super.key});
+  const AvatarSetupScreen({super.key, this.initialPhoto, this.initialAspect = 1.0, this.initialSpec});
+
+  /// When set, the screen changes an existing talking picture (no voice part).
+  final String? initialPhoto;
+  final double initialAspect;
+  final AvatarSpec? initialSpec;
 
   @override
   State<AvatarSetupScreen> createState() => _AvatarSetupScreenState();
@@ -43,6 +48,19 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
   double _test = 0;
   double _step = 0.004;
   Timer? _repeat;
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.initialPhoto;
+    if (p != null && p.isNotEmpty) {
+      _editing = true;
+      _photo = p;
+      _aspect = widget.initialAspect;
+      _spec = widget.initialSpec ?? const AvatarSpec();
+    }
+  }
 
   bool _useText = false;
   final TextEditingController _text = TextEditingController();
@@ -267,7 +285,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ready = _photo.isNotEmpty && _audio.isNotEmpty && !_busy;
+    final ready = _photo.isNotEmpty && (_editing || _audio.isNotEmpty) && !_busy;
     final width = MediaQuery.of(context).size.width - 32;
     final ph = math.min(340.0, width / math.max(0.2, _aspect));
     final pw = ph * _aspect;
@@ -327,6 +345,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
               _slider('Mouth movement', _spec.jaw, 0.3, 2.0, (v) => setState(() => _spec = _spec.copyWith(jaw: v))),
               _slider('Test: open the mouth', _test, 0, 4, (v) => setState(() => _test = v)),
             ],
+            if (!_editing) ...[
             const SizedBox(height: 16),
             const Text('2. Voice', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
@@ -379,6 +398,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                 ],
               ),
             ],
+            ],
             if (_message.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(_message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -388,7 +408,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
               onPressed: ready ? _done : null,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('Add to slide'),
+                child: Text(_editing ? 'Save changes' : 'Add to slide'),
               ),
             ),
             const SizedBox(height: 8),
