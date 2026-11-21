@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -40,6 +41,8 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
   double _aspect = 1.0;
   AvatarSpec _spec = const AvatarSpec();
   double _test = 0;
+  double _step = 0.004;
+  Timer? _repeat;
 
   bool _useText = false;
   final TextEditingController _text = TextEditingController();
@@ -51,6 +54,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
 
   @override
   void dispose() {
+    _repeat?.cancel();
     _text.dispose();
     if (_playing) {
       KainuwaEncoder.stopAudio();
@@ -191,6 +195,68 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
     });
   }
 
+  void _nudge(double dx, double dy) {
+    setState(() {
+      _spec = _spec.copyWith(
+        x: (_spec.x + dx * _step).clamp(0.0, 1.0).toDouble(),
+        y: (_spec.y + dy * _step).clamp(0.0, 1.0).toDouble(),
+      );
+    });
+  }
+
+  void _startRepeat(double dx, double dy) {
+    _repeat?.cancel();
+    _nudge(dx, dy);
+    _repeat = Timer.periodic(const Duration(milliseconds: 70), (_) => _nudge(dx, dy));
+  }
+
+  void _stopRepeat() {
+    _repeat?.cancel();
+    _repeat = null;
+  }
+
+  Widget _arrow(IconData icon, double dx, double dy) {
+    return GestureDetector(
+      onTapDown: (_) => _startRepeat(dx, dy),
+      onTapUp: (_) => _stopRepeat(),
+      onTapCancel: _stopRepeat,
+      onPanEnd: (_) => _stopRepeat(),
+      child: Container(
+        width: 56,
+        height: 56,
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: const Color(0x33808080),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, size: 32),
+      ),
+    );
+  }
+
+  Widget _pad() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [_arrow(Icons.keyboard_arrow_up, 0, -1)],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _arrow(Icons.keyboard_arrow_left, -1, 0),
+            const SizedBox(width: 56, height: 56),
+            _arrow(Icons.keyboard_arrow_right, 1, 0),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [_arrow(Icons.keyboard_arrow_down, 0, 1)],
+        ),
+      ],
+    );
+  }
+
   void _done() {
     Navigator.of(context).pop(
       AvatarSetupResult(photo: _photo, aspect: _aspect, audio: _audio, sourceMs: _audioMs, spec: _spec),
@@ -252,6 +318,11 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                 ),
               ),
               const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              const Text('Move the mouth (hold a button to keep moving):'),
+              const SizedBox(height: 4),
+              _pad(),
+              _slider('Move speed', _step, 0.001, 0.02, (v) => setState(() => _step = v)),
               _slider('Mouth width', _spec.w, 0.06, 0.5, (v) => setState(() => _spec = _spec.copyWith(w: v))),
               _slider('Mouth movement', _spec.jaw, 0.3, 2.0, (v) => setState(() => _spec = _spec.copyWith(jaw: v))),
               _slider('Test: open the mouth', _test, 0, 4, (v) => setState(() => _test = v)),
