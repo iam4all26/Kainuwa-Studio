@@ -546,6 +546,7 @@ Future<String?> showAddSheet(BuildContext context) {
               children: [
                 _AddOption(icon: Icons.face_retouching_natural, label: 'Talking picture', value: 'avatar', sheetContext: sheetContext),
                 _AddOption(icon: Icons.smartphone, label: 'Screenshot', value: 'screenshot', sheetContext: sheetContext),
+                _AddOption(icon: Icons.ac_unit, label: 'Effect', value: 'effect', sheetContext: sheetContext),
               ],
             ),
             const SizedBox(height: 8),

@@ -23,6 +23,7 @@ import '../editor/filter_editor.dart';
 import '../editor/colour_key_editor.dart';
 import '../editor/avatar_setup_screen.dart';
 import '../phone_mockup.dart';
+import '../effects.dart';
 import '../editor/colour_pick_dialog.dart';
 import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
@@ -403,7 +404,33 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 'screenshot':
         await _addScreenshot();
         break;
+      case 'effect':
+        await _addEffect();
+        break;
     }
+  }
+
+  /// A floating effect (snow, sparks...) over the whole slide, drawn behind the other items.
+  Future<void> _addEffect() async {
+    final scene = _currentScene();
+    final lesson = _lesson();
+    final player = _player;
+    if (scene == null || lesson == null || player == null) return;
+    final id = await showEffectPicker(context);
+    if (id == null || !mounted) return;
+    final index = lesson.scenes.indexOf(scene);
+    final local =
+        (player.positionMs - sceneStartMs(lesson, index)).clamp(0, math.max(0, scene.durationMs - 600)).toInt();
+    final layer = Layer(id: newId(), type: 'shape', shape: 'fx_$id', w: 1.0, h: 1.0);
+    layer.cx = 0.5;
+    layer.cy = 0.5;
+    layer.startMs = local;
+    layer.endMs = -1;
+    scene.layers.insert(0, layer);
+    _selectedId = layer.id;
+    _sceneSelected = false;
+    _commit();
+    _snack('Effect added. Select it from the timeline to change when it shows or to make it last over more slides.');
   }
 
   /// A screenshot inside a phone: pick the picture, pick a phone, and add the result as an image item.

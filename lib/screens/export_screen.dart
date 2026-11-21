@@ -10,6 +10,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
 import '../avatar.dart';
+import '../effects.dart';
 import '../export_history.dart';
 import '../app_state.dart';
 import '../editor/track_visibility.dart';
@@ -187,7 +188,7 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   /// The box around a rotated item, with some room for shadows.
-  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip, int? avatarLevel}) {
+  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip, int? avatarLevel, int? fxMs}) {
     final lw = l.w * _sw;
     final lh = l.h * _sh;
     final c = math.cos(l.rotation).abs();
@@ -210,7 +211,7 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Center(
         child: Transform.rotate(
           angle: l.rotation,
-          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel)),
+          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel, fxMs: fxMs)),
         ),
       ),
     );
@@ -400,6 +401,7 @@ class _ExportScreenState extends State<ExportScreen> {
             _guard();
             final layer = scene.layers[k];
             final picture = _layerPicture(layer);
+            final isFxLayer = layer.type == 'shape' && isFxLayerShape(layer.shape);
             final handSpec = handById(layer.hand);
             final handAnimated = handSpec != null;
             final textAnimated = !handAnimated && layer.type == 'text' && layer.textAnim != 'none';
@@ -407,7 +409,9 @@ class _ExportScreenState extends State<ExportScreen> {
                 ? _layerPicture(layer, revealMs: -1)
                 : (handAnimated
                     ? _layerPicture(layer, clip: 0.0)
-                    : (layer.avatar.isNotEmpty ? _layerPicture(layer, avatarLevel: 0) : picture));
+                    : (layer.avatar.isNotEmpty
+                        ? _layerPicture(layer, avatarLevel: 0)
+                        : (isFxLayer ? _layerPicture(layer, fxMs: 0) : picture)));
             final image = await _capture(firstPicture.$3, firstPicture.$1, firstPicture.$2, ratio);
             final path = '${work.path}/scene_${i}_layer_$k.png';
             await _savePng(image, path);
@@ -430,6 +434,26 @@ class _ExportScreenState extends State<ExportScreen> {
                 await _savePng(img, fp);
                 frames.add({'path': fp, 'atMs': t0 + reveal});
                 if (reveal >= total) break;
+              }
+            }
+            if (isFxLayer && !handAnimated && !textAnimated) {
+              // A floating effect repeats every few seconds: draw one loop of pictures and
+              // show them again and again.
+              final loop = <String>[];
+              for (var j = 0; j < kFxFrames; j++) {
+                _guard();
+                final pic = _layerPicture(layer, fxMs: (j * kFxPeriodMs / kFxFrames).round());
+                final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                final fp = '${work.path}/scene_${i}_layer_${k}_fx$j.png';
+                await _savePng(img, fp);
+                loop.add(fp);
+              }
+              final fxEnd = layerEndMs(layer, scene.durationMs);
+              frames = [];
+              for (var j = 0;; j++) {
+                final at = layer.startMs + (j * kFxPeriodMs / kFxFrames).round();
+                if (at >= fxEnd) break;
+                frames.add({'path': loop[j % kFxFrames], 'atMs': at});
               }
             }
             if (layer.avatar.isNotEmpty && !handAnimated && !textAnimated) {

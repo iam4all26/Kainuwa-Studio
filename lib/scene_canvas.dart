@@ -10,6 +10,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'animation_math.dart';
 import 'avatar.dart';
+import 'effects.dart';
 import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
@@ -501,7 +502,9 @@ class _SceneCanvasState extends State<SceneCanvas> {
       layer: layer,
       revealMs: revealMs,
       avatarAbsMs: (timing != null && layer.avatar.isNotEmpty) ? widget.startAbsMs + timing.$2 : null,
+      fxMs: timing != null ? timing.$2 - layer.startMs : null,
     );
+    final isFx = layer.type == 'shape' && isFxLayerShape(layer.shape);
     if (handSpec != null && timing != null) {
       final hs = handStateAt(timing.$1, timing.$2 - (timing.$1.startMs + timing.$1.animStartMs));
       if (hs.reveal < 1) {
@@ -509,7 +512,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
       }
     }
 
-    if (widget.interactive) {
+    if (widget.interactive && !isFx) {
       content = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onSelect?.call(layer.id),
@@ -1191,7 +1194,7 @@ void refitLayerText(Layer layer, double keepSizePx) {
 
 /// What a single layer looks like, without any gestures.
 class LayerContent extends StatelessWidget {
-  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction, this.avatarAbsMs, this.avatarLevel});
+  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction, this.avatarAbsMs, this.avatarLevel, this.fxMs});
 
   final Layer layer;
 
@@ -1206,6 +1209,9 @@ class LayerContent extends StatelessWidget {
 
   /// Talking picture: force this mouth opening (video export).
   final int? avatarLevel;
+
+  /// Floating effect: milliseconds since it started (null when paused, then a still moment is shown).
+  final int? fxMs;
 
   bool get _needsShaping =>
       (layer.type == 'asset' || layer.type == 'image') &&
@@ -1287,6 +1293,9 @@ class LayerContent extends StatelessWidget {
         }
         return _pictureWidget(BoxFit.contain);
       case 'shape':
+        if (isFxLayerShape(layer.shape)) {
+          return EffectView(kind: layer.shape.substring(3), timeMs: fxMs ?? 1500);
+        }
         switch (layer.shape) {
           case 'circle':
             return ClipOval(child: ColoredBox(color: color));

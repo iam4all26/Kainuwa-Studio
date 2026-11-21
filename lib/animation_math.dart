@@ -296,6 +296,7 @@ AnimFrame loopFrame(String kind, int timeMs, int periodMs) {
 /// being part of the slide picture.
 bool layerNeedsOverlay(Layer layer) =>
     layer.avatar.isNotEmpty ||
+    (layer.type == 'shape' && layer.shape.startsWith('fx_')) ||
     layer.animIn != 'none' ||
     layer.animOut != 'none' ||
     (layer.type == 'text' && layer.textAnim != 'none') ||
