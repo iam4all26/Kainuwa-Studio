@@ -38,6 +38,8 @@ class Layer {
     this.startMs = 0,
     this.endMs = -1,
     this.animOut = 'none',
+    this.linkId = '',
+    this.avatar = '',
     this.animOutDurationMs = 500,
     this.italic = false,
     this.underline = false,
@@ -115,6 +117,12 @@ class Layer {
 
   /// Exit animation, played just before the item leaves.
   String animOut;
+
+  /// Pieces of one item that continues over several slides share this id (empty = a normal item).
+  String linkId;
+
+  /// A talking picture: JSON with the sound and the mouth place (see avatar.dart). Empty for a normal item.
+  String avatar;
   int animOutDurationMs;
 
   // Text style
@@ -219,6 +227,8 @@ class Layer {
         'startMs': startMs,
         'endMs': endMs,
         'animOut': animOut,
+        'linkId': linkId,
+        'avatar': avatar,
         'animOutDurationMs': animOutDurationMs,
         'italic': italic,
         'underline': underline,
@@ -284,6 +294,8 @@ class Layer {
         startMs: _int(json['startMs'], 0),
         endMs: _int(json['endMs'], -1),
         animOut: _str(json['animOut'], 'none'),
+        linkId: _str(json['linkId'], ''),
+        avatar: _str(json['avatar'], ''),
         animOutDurationMs: _int(json['animOutDurationMs'], 500),
         italic: json['italic'] is bool ? json['italic'] as bool : false,
         underline: json['underline'] is bool ? json['underline'] as bool : false,

@@ -425,7 +425,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
 
   void _refreshTarget() {
     final total = widget.lesson.durationMs;
-    final abs = _fingerAbsMs().round().clamp(0, math.max(0, total - 1)).toInt();
+    final raw = _extending ? _extBaseEndAbs + (_fingerDx + _scrolledSincePress()) / _pps * 1000 - 1 : _fingerAbsMs();
+    final abs = raw.round().clamp(0, math.max(0, total - 1)).toInt();
     final target = sceneAt(widget.lesson, abs).index;
     if (target != _dropScene) {
       HapticFeedback.selectionClick();
@@ -437,7 +438,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   void _startEdgeScroll() {
     _edgeTimer?.cancel();
     _edgeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (!mounted || !_movingLayer || !_scroll.hasClients) return;
+      if (!mounted || !(_movingLayer || _extending) || !_scroll.hasClients) return;
       final box = _scroll.position.context.storageContext.findRenderObject();
       if (box is! RenderBox || !box.hasSize) return;
       final left = box.localToGlobal(Offset.zero).dx;
@@ -518,7 +519,118 @@ class _TimelinePanelState extends State<TimelinePanel> {
     widget.onLayerTiming();
   }
 
-  Widget _layerHandle({required bool left, required Layer layer, required int sceneMs, required double u}) {
+  // ---- an item that continues over several slides (drag the grip at its right end) ----
+
+  bool _extending = false;
+  double _extBaseEndAbs = 0;
+
+  double _scrolledSincePress() => _scroll.hasClients ? _scroll.offset - _scrollAtPress : 0.0;
+
+  void _extendStart(Layer layer, int pieceScene, int sceneMs, double gx) {
+    _layerDragStart(layer, sceneMs);
+    _extBaseEndAbs = (sceneStartMs(widget.lesson, pieceScene) + _layerStartB).toDouble();
+    _scrollAtPress = _scroll.hasClients ? _scroll.offset : 0;
+    _fingerDx = 0;
+    _fingerGx = gx;
+    _extending = true;
+    setState(() => _dropScene = pieceScene);
+    _startEdgeScroll();
+  }
+
+  void _extendUpdate(Layer layer, int sceneMs, double gx) {
+    _fingerDx = _dragAccum;
+    _fingerGx = gx;
+    _layerTrim(layer, sceneMs, left: false);
+    _refreshTarget();
+  }
+
+  void _extendEnd(Layer piece, int pieceScene) {
+    _edgeTimer?.cancel();
+    if (!_extending) return;
+    var endAbs = _extBaseEndAbs + (_fingerDx + _scrolledSincePress()) / _pps * 1000;
+    endAbs = ((endAbs / 100).round() * 100).toDouble();
+    setState(() {
+      _extending = false;
+      _dropScene = null;
+    });
+    _applyChain(piece, pieceScene, endAbs.round());
+  }
+
+  /// Makes the item (and its continuation pieces) end at the lesson time [endAbs].
+  /// Beyond the end of its slide the item gets a copy on each following slide, with no new
+  /// entrance animation, so it looks like one item that just carries on.
+  void _applyChain(Layer piece, int pieceScene, int endAbs) {
+    final lesson = widget.lesson;
+    final total = lesson.durationMs;
+    // The first piece of the chain.
+    Layer head = piece;
+    var headScene = pieceScene;
+    if (piece.linkId.isNotEmpty) {
+      var found = false;
+      for (var i = 0; i < lesson.scenes.length && !found; i++) {
+        for (final l in lesson.scenes[i].layers) {
+          if (l.linkId == piece.linkId) {
+            head = l;
+            headScene = i;
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+    // The last piece holds the exit animation; remember it, then remove the continuation pieces.
+    var outAnim = head.animOut;
+    var outDur = head.animOutDurationMs;
+    if (head.linkId.isNotEmpty) {
+      for (var i = headScene + 1; i < lesson.scenes.length; i++) {
+        final gone = lesson.scenes[i].layers.where((l) => l.linkId == head.linkId).toList();
+        for (final l in gone) {
+          outAnim = l.animOut;
+          outDur = l.animOutDurationMs;
+          lesson.scenes[i].layers.remove(l);
+        }
+      }
+    }
+    final headStart = sceneStartMs(lesson, headScene);
+    final headMs = lesson.scenes[headScene].durationMs;
+    final minEnd = headStart + head.startMs + 200;
+    final end = endAbs.clamp(minEnd, math.max(minEnd, total)).toInt();
+    if (end <= headStart + headMs) {
+      // Fits inside its own slide: a normal item again.
+      final local = end - headStart;
+      head.endMs = local >= headMs ? -1 : local;
+      head.animOut = outAnim;
+      head.animOutDurationMs = outDur;
+      head.linkId = '';
+    } else {
+      final link = head.linkId.isNotEmpty ? head.linkId : newId();
+      head.linkId = link;
+      head.endMs = -1;
+      head.animOut = 'none';
+      final order = lesson.scenes[headScene].layers.indexOf(head);
+      for (var k = headScene + 1; k < lesson.scenes.length; k++) {
+        final s0 = sceneStartMs(lesson, k);
+        if (s0 >= end) break;
+        final dur = lesson.scenes[k].durationMs;
+        final isLast = end <= s0 + dur;
+        final p = head.copy();
+        p.linkId = link;
+        p.startMs = 0;
+        p.animIn = 'none';
+        p.animStartMs = 0;
+        p.textAnim = 'none';
+        p.hand = '';
+        p.endMs = isLast ? ((end - s0) >= dur ? -1 : end - s0) : -1;
+        p.animOut = isLast ? outAnim : 'none';
+        p.animOutDurationMs = outDur;
+        final list = lesson.scenes[k].layers;
+        list.insert(math.min(math.max(order, 0), list.length), p);
+      }
+    }
+    widget.onSelectLayer(headScene, head.id);
+  }
+
+  Widget _layerHandle({required bool left, required Layer layer, required int sceneIndex, required int sceneMs, required double u}) {
     final width = math.max(24.0, 40 * u);
     return Positioned(
       left: left ? 0.0 : null,
@@ -528,13 +640,29 @@ class _TimelinePanelState extends State<TimelinePanel> {
       width: width,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (_) => _layerDragStart(layer, sceneMs),
+        onHorizontalDragStart: (d) {
+          if (left) {
+            _layerDragStart(layer, sceneMs);
+          } else {
+            _extendStart(layer, sceneIndex, sceneMs, d.globalPosition.dx);
+          }
+        },
         onHorizontalDragUpdate: (d) {
           _dragAccum += d.delta.dx;
-          _layerTrim(layer, sceneMs, left: left);
+          if (left) {
+            _layerTrim(layer, sceneMs, left: true);
+          } else {
+            _extendUpdate(layer, sceneMs, d.globalPosition.dx);
+          }
         },
-        onHorizontalDragEnd: (_) => widget.onEditEnd(),
-        onHorizontalDragCancel: () => widget.onEditEnd(),
+        onHorizontalDragEnd: (_) {
+          if (!left) _extendEnd(layer, sceneIndex);
+          widget.onEditEnd();
+        },
+        onHorizontalDragCancel: () {
+          if (!left) _extendEnd(layer, sceneIndex);
+          widget.onEditEnd();
+        },
         child: Container(
           alignment: Alignment.center,
           color: const Color(0x33000000),
@@ -820,8 +948,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
               _audioHandle(left: false, ac: clip.audio!, u: u),
             ],
             if (clip.kind == 'layer') ...[
-              _layerHandle(left: true, layer: clip.layer!, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
-              _layerHandle(left: false, layer: clip.layer!, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
+              _layerHandle(left: true, layer: clip.layer!, sceneIndex: clip.sceneIndex, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
+              _layerHandle(left: false, layer: clip.layer!, sceneIndex: clip.sceneIndex, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
             ],
           ],
         ),
@@ -1236,7 +1364,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   ],
                 ),
               ),
-              if (_movingLayer && _dropScene != null)
+              if ((_movingLayer || _extending) && _dropScene != null)
                 Positioned(
                   left: stripLeft,
                   right: 13 * u,
@@ -1250,9 +1378,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
-                          _dropScene == _moveFrom
-                              ? 'Stays on slide ${_dropScene! + 1}'
-                              : 'Drop on slide ${_dropScene! + 1}',
+                          _extending
+                              ? 'Shows until slide ${_dropScene! + 1}'
+                              : (_dropScene == _moveFrom
+                                  ? 'Stays on slide ${_dropScene! + 1}'
+                                  : 'Drop on slide ${_dropScene! + 1}'),
                           style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),

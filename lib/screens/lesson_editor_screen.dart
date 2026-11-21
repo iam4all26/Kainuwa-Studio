@@ -21,11 +21,11 @@ import '../editor/editor_history.dart';
 import '../editor/editor_tools.dart';
 import '../editor/filter_editor.dart';
 import '../editor/colour_key_editor.dart';
+import '../editor/avatar_setup_screen.dart';
 import '../editor/colour_pick_dialog.dart';
 import '../editor/curve_editor.dart';
 import '../editor/grade_editor.dart';
 import '../video_curves.dart';
-import '../video_styles.dart';
 import '../video_grade.dart';
 import '../editor/fullscreen_player.dart';
 import '../pic_filter.dart';
@@ -396,6 +396,50 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 'bulk':
         await _bulkEdit();
         break;
+      case 'avatar':
+        await _addAvatar();
+        break;
+    }
+  }
+
+  /// A talking picture: the photo as an item, plus its voice as a sound clip at the playhead.
+  Future<void> _addAvatar() async {
+    final scene = _currentScene();
+    final lesson = _lesson();
+    final player = _player;
+    if (scene == null || lesson == null || player == null) return;
+    _pause();
+    final r = await Navigator.of(context).push<AvatarSetupResult>(
+      MaterialPageRoute<AvatarSetupResult>(builder: (_) => const AvatarSetupScreen()),
+    );
+    if (r == null || !mounted) return;
+    final total = lesson.durationMs;
+    final start = math.min(player.positionMs, math.max(0, total - 1000));
+    final clip = AudioClip(
+      id: newId(),
+      path: r.audio,
+      label: _clipName(r.audio),
+      kind: 'voice',
+      startMs: start,
+      durationMs: math.min(r.sourceMs, math.max(1000, total - start)),
+      sourceMs: r.sourceMs,
+      volume: 1.0,
+    );
+    lesson.audioClips.add(clip);
+    final box = fitBox(r.aspect, maxW: 0.6, maxH: 0.8);
+    final layer = Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: r.photo);
+    layer.srcAspect = r.aspect;
+    layer.avatar = r.spec.copyWith(audio: r.audio, startMs: start, sourceMs: r.sourceMs, trimMs: 0).encode();
+    final index = lesson.scenes.indexOf(scene);
+    final local = (start - sceneStartMs(lesson, index)).clamp(0, math.max(0, scene.durationMs - 600)).toInt();
+    layer.startMs = local;
+    layer.endMs = (local + r.sourceMs >= scene.durationMs) ? -1 : local + r.sourceMs;
+    scene.layers.add(layer);
+    _selectedId = layer.id;
+    _sceneSelected = false;
+    _commit();
+    if (start + r.sourceMs > sceneStartMs(lesson, index) + scene.durationMs) {
+      _snack('The voice is longer than this slide. Make the picture last over the next slides with the handle on its right end.');
     }
   }
 
@@ -1609,7 +1653,6 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (scene == null || !scene.hasVideo) return;
     _pause();
     var tab = 0;
-    var gen = 0;
     await showEditorSheet<void>(
       context: context,
       barrierColor: Colors.transparent,
@@ -1639,41 +1682,13 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                 ),
                 const SizedBox(height: 8),
                 if (tab == 0)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Styles', style: TextStyle(fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          for (final st in kVideoStyles)
-                            ActionChip(
-                              label: Text(st.name),
-                              onPressed: () {
-                                scene.videoFilter = st.look;
-                                scene.videoGrade = st.grade;
-                                scene.videoCurves = st.curves;
-                                gen++;
-                                setTab(() {});
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      FilterEditor(
-                        key: ValueKey('look$gen'),
-                        video: true,
-                        initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
-                        onChanged: (f) {
-                          scene.videoFilter = f.copyWith(blur: 0).encode();
-                          if (mounted) setState(() {});
-                        },
-                      ),
-                    ],
+                  FilterEditor(
+                    video: true,
+                    initial: PicFilter.parse(scene.videoFilter).copyWith(blur: 0),
+                    onChanged: (f) {
+                      scene.videoFilter = f.copyWith(blur: 0).encode();
+                      if (mounted) setState(() {});
+                    },
                   )
                 else if (tab == 3)
                   ColourKeyEditor(
@@ -2299,6 +2314,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             interactive: !playing,
             tapSelect: playing,
             previewMs: playing ? spot.localMs : null,
+            startAbsMs: player.positionMs - spot.localMs,
             ghostAtMs: playing ? null : spot.localMs,
             demoId: playing ? null : _demoId,
             demoMs: playing ? null : demoMs,

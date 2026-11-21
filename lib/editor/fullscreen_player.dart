@@ -68,6 +68,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                     SceneCanvas(
                       scene: scene,
                       previewMs: player.playing ? spot.localMs : null,
+                      startAbsMs: player.positionMs - spot.localMs,
                     ),
                     if (_controls)
                       Positioned(

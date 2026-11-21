@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
+import '../avatar.dart';
 import '../export_history.dart';
 import '../app_state.dart';
 import '../editor/track_visibility.dart';
@@ -186,7 +187,7 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   /// The box around a rotated item, with some room for shadows.
-  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip}) {
+  (double, double, Widget) _layerPicture(Layer l, {int? revealMs, double? clip, int? avatarLevel}) {
     final lw = l.w * _sw;
     final lh = l.h * _sh;
     final c = math.cos(l.rotation).abs();
@@ -209,7 +210,7 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Center(
         child: Transform.rotate(
           angle: l.rotation,
-          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip)),
+          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel)),
         ),
       ),
     );
@@ -404,7 +405,9 @@ class _ExportScreenState extends State<ExportScreen> {
             final textAnimated = !handAnimated && layer.type == 'text' && layer.textAnim != 'none';
             final firstPicture = textAnimated
                 ? _layerPicture(layer, revealMs: -1)
-                : (handAnimated ? _layerPicture(layer, clip: 0.0) : picture);
+                : (handAnimated
+                    ? _layerPicture(layer, clip: 0.0)
+                    : (layer.avatar.isNotEmpty ? _layerPicture(layer, avatarLevel: 0) : picture));
             final image = await _capture(firstPicture.$3, firstPicture.$1, firstPicture.$2, ratio);
             final path = '${work.path}/scene_${i}_layer_$k.png';
             await _savePng(image, path);
@@ -427,6 +430,33 @@ class _ExportScreenState extends State<ExportScreen> {
                 await _savePng(img, fp);
                 frames.add({'path': fp, 'atMs': t0 + reveal});
                 if (reveal >= total) break;
+              }
+            }
+            if (layer.avatar.isNotEmpty && !handAnimated && !textAnimated) {
+              // A talking picture: a few pictures with the mouth open to different amounts,
+              // switched at the moments the sound gets louder or quieter.
+              final spec = AvatarSpec.parse(layer.avatar);
+              await AvatarLevels.load(spec.audio, spec.sourceMs);
+              final levelPaths = <int, String>{0: path};
+              final avatarEnd = layerEndMs(layer, scene.durationMs);
+              var lastLevel = 0;
+              frames = [
+                {'path': path, 'atMs': layer.startMs},
+              ];
+              for (var t = layer.startMs; t < avatarEnd; t += 50) {
+                final lv = AvatarLevels.levelAt(spec, offsetMs + t);
+                if (lv == lastLevel) continue;
+                var lp = levelPaths[lv];
+                if (lp == null) {
+                  _guard();
+                  final pic = _layerPicture(layer, avatarLevel: lv);
+                  final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                  lp = '${work.path}/scene_${i}_layer_${k}_lv$lv.png';
+                  await _savePng(img, lp);
+                  levelPaths[lv] = lp;
+                }
+                frames.add({'path': lp, 'atMs': t});
+                lastLevel = lv;
               }
             }
             if (handAnimated) {

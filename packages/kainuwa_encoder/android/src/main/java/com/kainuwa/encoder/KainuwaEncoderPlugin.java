@@ -469,6 +469,10 @@ public class KainuwaEncoderPlugin
                         Boolean.TRUE.equals(call.argument("exact")),
                         Boolean.TRUE.equals(call.argument("bytes")), result);
                 break;
+            case "ttsToFile":
+                ttsToFile((String) call.argument("text"), (String) call.argument("path"),
+                        (String) call.argument("lang"), result);
+                break;
             case "audioDuration":
                 result.success((int) Math.max(readDurationMs(String.valueOf((String) call.argument("path"))), 0));
                 break;
@@ -1864,6 +1868,106 @@ public class KainuwaEncoderPlugin
         } catch (Exception ignored) {
             // keep normal speed
         }
+    }
+
+    private void ttsDone(android.speech.tts.TextToSpeech[] engine, boolean[] finished,
+                         MethodChannel.Result result, String path, String error) {
+        if (finished[0]) return;
+        finished[0] = true;
+        try {
+            if (engine[0] != null) engine[0].shutdown();
+        } catch (Exception ignored) {
+        }
+        if (error == null) {
+            result.success(path);
+        } else {
+            result.error("tts", error, null);
+        }
+    }
+
+    /** Turns text into a sound file with the phone's own text to speech engine. */
+    private void ttsToFile(final String text, final String path, final String lang,
+                           final MethodChannel.Result result) {
+        if (appContext == null || text == null || text.trim().isEmpty() || path == null) {
+            result.error("tts", "There is no text to speak.", null);
+            return;
+        }
+        final boolean[] finished = new boolean[] {false};
+        final android.speech.tts.TextToSpeech[] engine = new android.speech.tts.TextToSpeech[1];
+        try {
+            engine[0] = new android.speech.tts.TextToSpeech(appContext,
+                    new android.speech.tts.TextToSpeech.OnInitListener() {
+                        @Override
+                        public void onInit(int status) {
+                            final android.speech.tts.TextToSpeech tts = engine[0];
+                            if (status != android.speech.tts.TextToSpeech.SUCCESS || tts == null) {
+                                ttsDone(engine, finished, result, null,
+                                        "This phone has no text to speech engine ready.");
+                                return;
+                            }
+                            try {
+                                java.util.Locale loc = (lang == null || lang.isEmpty())
+                                        ? java.util.Locale.getDefault()
+                                        : java.util.Locale.forLanguageTag(lang);
+                                int lr = tts.setLanguage(loc);
+                                if (lr == android.speech.tts.TextToSpeech.LANG_MISSING_DATA
+                                        || lr == android.speech.tts.TextToSpeech.LANG_NOT_SUPPORTED) {
+                                    tts.setLanguage(java.util.Locale.US);
+                                }
+                                final File out = new File(path);
+                                File parent = out.getParentFile();
+                                if (parent != null) parent.mkdirs();
+                                tts.setOnUtteranceProgressListener(
+                                        new android.speech.tts.UtteranceProgressListener() {
+                                            @Override
+                                            public void onStart(String utteranceId) {
+                                            }
+
+                                            @Override
+                                            public void onDone(String utteranceId) {
+                                                mainHandler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        if (out.length() > 0) {
+                                                            ttsDone(engine, finished, result, path, null);
+                                                        } else {
+                                                            ttsDone(engine, finished, result, null,
+                                                                    "No sound was made.");
+                                                        }
+                                                    }
+                                                });
+                                            }
+
+                                            @Override
+                                            public void onError(String utteranceId) {
+                                                mainHandler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        ttsDone(engine, finished, result, null,
+                                                                "Text to speech failed on this phone.");
+                                                    }
+                                                });
+                                            }
+                                        });
+                                int rc = tts.synthesizeToFile(text, null, out, "kainuwa_tts");
+                                if (rc != android.speech.tts.TextToSpeech.SUCCESS) {
+                                    ttsDone(engine, finished, result, null, "Text to speech could not start.");
+                                }
+                            } catch (Exception e) {
+                                ttsDone(engine, finished, result, null, "Text to speech failed: " + e.getMessage());
+                            }
+                        }
+                    });
+        } catch (Exception e) {
+            ttsDone(engine, finished, result, null, "Text to speech failed: " + e.getMessage());
+            return;
+        }
+        mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                ttsDone(engine, finished, result, null, "Text to speech took too long.");
+            }
+        }, 90000);
     }
 
     private void playAudio(String path, double volume, final double speed, MethodChannel.Result result) {

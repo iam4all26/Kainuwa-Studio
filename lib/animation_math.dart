@@ -295,6 +295,7 @@ AnimFrame loopFrame(String kind, int timeMs, int periodMs) {
 /// True when the item needs to be animated by the video encoder instead of
 /// being part of the slide picture.
 bool layerNeedsOverlay(Layer layer) =>
+    layer.avatar.isNotEmpty ||
     layer.animIn != 'none' ||
     layer.animOut != 'none' ||
     (layer.type == 'text' && layer.textAnim != 'none') ||

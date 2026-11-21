@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'animation_math.dart';
+import 'avatar.dart';
 import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
@@ -31,6 +32,7 @@ class SceneCanvas extends StatefulWidget {
     this.interactive = false,
     this.tapSelect = false,
     this.previewMs,
+    this.startAbsMs = 0,
     this.ghostAtMs,
     this.demoId,
     this.demoMs,
@@ -54,6 +56,9 @@ class SceneCanvas extends StatefulWidget {
   /// When set, the scene is drawn as it looks at this time (in milliseconds),
   /// with entrance animations applied.
   final int? previewMs;
+
+  /// Where this slide starts in the whole video (ms). Talking pictures need it to follow their sound.
+  final int startAbsMs;
 
   /// Editor only: while paused at this time (milliseconds into the slide), items
   /// that are not on screen at that moment are drawn faded so they can still be edited.
@@ -492,7 +497,11 @@ class _SceneCanvasState extends State<SceneCanvas> {
             layer.textAnim != 'none')
         ? timing.$2 - (timing.$1.startMs + timing.$1.animStartMs)
         : null;
-    Widget content = LayerContent(layer: layer, revealMs: revealMs);
+    Widget content = LayerContent(
+      layer: layer,
+      revealMs: revealMs,
+      avatarAbsMs: (timing != null && layer.avatar.isNotEmpty) ? widget.startAbsMs + timing.$2 : null,
+    );
     if (handSpec != null && timing != null) {
       final hs = handStateAt(timing.$1, timing.$2 - (timing.$1.startMs + timing.$1.animStartMs));
       if (hs.reveal < 1) {
@@ -1182,7 +1191,7 @@ void refitLayerText(Layer layer, double keepSizePx) {
 
 /// What a single layer looks like, without any gestures.
 class LayerContent extends StatelessWidget {
-  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction});
+  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction, this.avatarAbsMs, this.avatarLevel});
 
   final Layer layer;
 
@@ -1191,6 +1200,12 @@ class LayerContent extends StatelessWidget {
 
   /// Hand reveal in the video export: show only the left part (0 to 1), null for all.
   final double? clipFraction;
+
+  /// Talking picture: the time in the whole video while playing (null when paused).
+  final int? avatarAbsMs;
+
+  /// Talking picture: force this mouth opening (video export).
+  final int? avatarLevel;
 
   bool get _needsShaping =>
       (layer.type == 'asset' || layer.type == 'image') &&
@@ -1258,6 +1273,15 @@ class LayerContent extends StatelessWidget {
         return FittedBox(fit: BoxFit.contain, child: text);
       case 'asset':
       case 'image':
+        if (layer.type == 'image' && layer.avatar.isNotEmpty) {
+          return AvatarView(
+            path: layer.path,
+            aspect: layer.srcAspect,
+            avatar: layer.avatar,
+            absMs: avatarAbsMs,
+            level: avatarLevel,
+          );
+        }
         if (_needsShaping) {
           return _ShapedPicture(layer: layer, builder: _pictureWidget);
         }

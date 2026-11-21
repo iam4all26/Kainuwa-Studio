@@ -91,6 +91,14 @@ class KainuwaEncoder {
     return (await _channel.invokeMethod<int>('audioDuration', {'path': path})) ?? 0;
   }
 
+  /// Speaks [text] with the phone's own voice into the sound file at [path] (offline).
+  /// Returns the path, or throws a PlatformException with a readable message.
+  static Future<String> ttsToFile(String text, String path, {String lang = ''}) async {
+    _init();
+    final out = await _channel.invokeMethod<String>('ttsToFile', {'text': text, 'path': path, 'lang': lang});
+    return out ?? path;
+  }
+
   static Future<void> playAudio(String path, {double volume = 1.0, double speed = 1.0}) async {
     _init();
     await _channel.invokeMethod<bool>('playAudio', {'path': path, 'volume': volume, 'speed': speed});
