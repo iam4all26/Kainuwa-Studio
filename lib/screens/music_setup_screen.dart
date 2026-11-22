@@ -8,6 +8,7 @@ import '../editor/edit_panel.dart' show fontEntries;
 import '../media/media_library.dart';
 import '../models.dart';
 import '../music_project.dart';
+import '../music_templates.dart';
 import '../scene_canvas.dart';
 import '../stage_shape.dart';
 import '../visualizer.dart';
@@ -35,6 +36,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   String _titleFont = '';
   String _artistFont = '';
   bool _playing = false;
+  String _template = '';
 
   static const List<(String, int, int)> _shapes = [
     ('Wide 16:9', 16, 9),
@@ -50,6 +52,41 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
     0xFFB9A0FF,
     0xFFFFFFFF,
   ];
+
+  void _applyTemplate(MusicTemplate t) {
+    setState(() {
+      _template = t.id;
+      _viz = t.viz;
+      _accent = t.accent;
+      _layout = t.layout;
+      _titleFont = t.titleFont;
+      _artistFont = t.artistFont;
+    });
+  }
+
+  /// Any change by hand after picking a template turns the template off, so the person sees it is now custom.
+  void _custom() => _template = '';
+
+  Widget _templateRow() {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final t in kMusicTemplates)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                avatar: CircleAvatar(backgroundColor: Color(t.accent), radius: 7),
+                label: Text(t.name),
+                selected: _template == t.id,
+                onSelected: (_) => _applyTemplate(t),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -308,6 +345,10 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
               decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Artist (optional)'),
             ),
             const SizedBox(height: 16),
+            const Text('Template', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            _templateRow(),
+            const SizedBox(height: 16),
             const Text('Video shape', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
@@ -331,7 +372,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
                   ChoiceChip(
                     label: Text(o.$2),
                     selected: (_shape == 0 ? _layout : 0) == o.$1,
-                    onSelected: _shape == 0 ? (_) => setState(() => _layout = o.$1) : null,
+                    onSelected: _shape == 0 ? (_) => setState(() { _custom(); _layout = o.$1; }) : null,
                   ),
               ],
             ),
@@ -346,7 +387,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
             OutlinedButton(
               onPressed: () async {
                 final f = await _pickFont(_titleFont);
-                if (f != null) setState(() => _titleFont = f);
+                if (f != null) setState(() { _custom(); _titleFont = f; });
               },
               child: Text('Title font: ${_fontName(_titleFont)}'),
             ),
@@ -354,7 +395,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
             OutlinedButton(
               onPressed: () async {
                 final f = await _pickFont(_artistFont);
-                if (f != null) setState(() => _artistFont = f);
+                if (f != null) setState(() { _custom(); _artistFont = f; });
               },
               child: Text('Artist font: ${_fontName(_artistFont)}'),
             ),
@@ -368,7 +409,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
                   ChoiceChip(
                     label: Text(k.name),
                     selected: _viz == k.id,
-                    onSelected: (_) => setState(() => _viz = k.id),
+                    onSelected: (_) => setState(() { _custom(); _viz = k.id; }),
                   ),
               ],
             ),
@@ -380,7 +421,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
               children: [
                 for (final c in _accents)
                   GestureDetector(
-                    onTap: () => setState(() => _accent = c),
+                    onTap: () => setState(() { _custom(); _accent = c; }),
                     child: Container(
                       width: 36,
                       height: 36,
