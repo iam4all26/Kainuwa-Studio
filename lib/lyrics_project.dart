@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/painting.dart' show Color;
+
 import 'models.dart';
 import 'scene_canvas.dart';
 import 'srt_import.dart';
@@ -24,10 +26,18 @@ class LyricsLook {
     required this.bg,
     this.fx = const [],
     this.anim = 'pop',
+    this.layout = 0,
+    this.byWord = true,
   });
 
   /// How each word comes in: an entrance from animation_math.dart.
   final String anim;
+
+  /// 0 lyrics in the middle, 1 record and cover on the left with the lyrics on the right, 2 the other way round.
+  final int layout;
+
+  /// True for one word at a time, false for one line at a time.
+  final bool byWord;
 
   final String id;
   final String name;
@@ -84,6 +94,27 @@ const List<LyricsLook> kLyricsLooks = [
     bg: 0xFF000000,
     anim: 'fade',
   ),
+  LyricsLook(
+    id: 'vinyl_left',
+    name: 'Record Left',
+    palette: [0xFFFFE0B2, 0xFFFFCC80, 0xFFFFFFFF],
+    font: 'Playfair Display',
+    bg: 0xFF120B06,
+    anim: 'rise',
+    layout: 1,
+    byWord: false,
+  ),
+  LyricsLook(
+    id: 'vinyl_right',
+    name: 'Record Right',
+    palette: [0xFFB388FF, 0xFFF48FFF, 0xFFFFFFFF],
+    font: 'Montserrat',
+    bg: 0xFF0C0618,
+    fx: ['sparkle'],
+    anim: 'jump',
+    layout: 2,
+    byWord: false,
+  ),
 ];
 
 /// The entrances offered for lyrics.
@@ -103,6 +134,9 @@ class LyricsSetup {
     required this.fx,
     required this.byWord,
     this.anim = 'pop',
+    this.cover = '',
+    this.coverAspect = 1.0,
+    this.layout = 0,
     this.title = '',
     this.form = const {},
   });
@@ -120,6 +154,11 @@ class LyricsSetup {
 
   /// How each word comes in.
   final String anim;
+
+  /// The cover art, and where the record sits (see [LyricsLook.layout]). Empty cover: a plain coloured one is drawn.
+  final String cover;
+  final double coverAspect;
+  final int layout;
   final String title;
 
   /// The choices of the setup screen, saved with the video so the setup can be opened again.
@@ -198,8 +237,82 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     l.cy = 0.5;
     layers.add(l);
   }
+  final w = Stage.w;
+  final h = Stage.h;
+  final wide = w / h >= 1.3;
+  final hasRec = s.layout != 0;
+  var textCx = 0.5;
+  var textCy = 0.5;
+  var textMaxW = 0.9;
+  if (hasRec) {
+    final recLeft = s.layout == 1;
+    final cs = wide ? math.min(0.58 * h, 0.40 * w / 1.4) : math.min(0.30 * h, 0.80 * w / 1.4);
+    final shift = 0.40 * cs;
+    final discD = 0.96 * cs;
+    final groupW = cs + shift;
+    final groupCx = wide ? (recLeft ? 0.27 * w : 0.73 * w) : w / 2;
+    final cy = wide ? 0.5 * h : 0.27 * h;
+    final coverCx = groupCx - groupW / 2 + cs / 2;
+    final discCx = coverCx + shift;
+    textCx = wide ? (recLeft ? 0.70 : 0.30) : 0.5;
+    textCy = wide ? 0.5 : 0.64;
+    textMaxW = wide ? 0.42 : 0.9;
+
+    Layer square(String type, double cx, double cyy, double side) {
+      final l = Layer(id: newId(), type: type, w: side / w, h: side / h);
+      l.cx = cx / w;
+      l.cy = cyy / h;
+      return l;
+    }
+
+    double cropSide = 0;
+    double cropTop = 0;
+    if (s.coverAspect > 1.0) {
+      cropSide = (1 - 1 / s.coverAspect) / 2;
+    } else if (s.coverAspect > 0 && s.coverAspect < 1.0) {
+      cropTop = (1 - s.coverAspect) / 2;
+    }
+    final noCover = s.cover.isEmpty;
+    final sample = Color.lerp(Color(s.palette.first), const Color(0xFF000000), 0.45)!.toARGB32();
+    layers.add(square('shape', discCx, cy, discD * 1.04)
+      ..shape = 'circle'
+      ..color = 0xFF0B0B0B);
+    layers.add(noCover
+        ? (square('shape', discCx, cy, discD)
+          ..shape = 'circle'
+          ..color = sample)
+        : (square('image', discCx, cy, discD)
+          ..path = s.cover
+          ..mask = 'circle'
+          ..srcAspect = s.coverAspect
+          ..cropL = cropSide
+          ..cropR = cropSide
+          ..cropT = cropTop
+          ..cropB = cropTop
+          ..animLoop = 'spin'
+          ..animLoopMs = 9000));
+    layers.add(square('shape', discCx, cy, discD * 0.2)
+      ..shape = 'circle'
+      ..color = 0x66FFFFFF);
+    layers.add(square('shape', discCx, cy, discD * 0.13)
+      ..shape = 'circle'
+      ..color = 0xFF0B0B0B);
+    layers.add(noCover
+        ? (square('shape', coverCx, cy, cs)
+          ..shape = 'rect'
+          ..color = sample
+          ..shadowOn = true)
+        : (square('image', coverCx, cy, cs)
+          ..path = s.cover
+          ..srcAspect = s.coverAspect
+          ..cropL = cropSide
+          ..cropR = cropSide
+          ..cropT = cropTop
+          ..cropB = cropTop
+          ..shadowOn = true));
+  }
   final cues = sampleOnly ? [s.cues.isEmpty ? const LyricCue(0, 1000, 'Lyrics') : s.cues.first] : s.cues;
-  final px = s.byWord ? 110.0 : 72.0;
+  final px = hasRec ? (s.byWord ? 90.0 : 56.0) : (s.byWord ? 110.0 : 72.0);
   for (var i = 0; i < cues.length; i++) {
     final c = cues[i];
     final colour = s.palette[i % s.palette.length];
@@ -216,13 +329,13 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     t.glowSize = 0.1;
     t.glowStrength = 0.8;
     setLayerTextSizePx(t, px);
-    if (t.w > 0.9) {
-      final f = 0.9 / t.w;
-      t.w = 0.9;
+    if (t.w > textMaxW) {
+      final f = textMaxW / t.w;
+      t.w = textMaxW;
       t.h = t.h * f;
     }
-    t.cx = 0.5;
-    t.cy = 0.5;
+    t.cx = textCx;
+    t.cy = textCy;
     if (!sampleOnly) {
       t.startMs = c.startMs;
       t.endMs = c.endMs;
@@ -231,6 +344,23 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
       t.animDurationMs = math.max(120, math.min(s.anim == 'drop' ? 600 : (s.anim == 'jump' ? 420 : 260), ((c.endMs - c.startMs) * 0.7).round()));
     }
     layers.add(t);
+    if (hasRec && !s.byWord && !sampleOnly && i + 1 < cues.length) {
+      // The next line, small and dim, under the line that is sung now.
+      final next = Layer(id: newId(), type: 'text', text: cues[i + 1].text, bold: false, fontFamily: s.font, color: 0x99FFFFFF);
+      setLayerTextSizePx(next, px * 0.55);
+      if (next.w > textMaxW) {
+        final f = textMaxW / next.w;
+        next.w = textMaxW;
+        next.h = next.h * f;
+      }
+      next.cx = textCx;
+      next.cy = math.min(0.92, textCy + 0.17);
+      next.startMs = c.startMs;
+      next.endMs = c.endMs;
+      next.animIn = 'fade';
+      next.animDurationMs = 200;
+      layers.add(next);
+    }
   }
   return Scene(
     id: newId(),

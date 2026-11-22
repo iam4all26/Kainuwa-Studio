@@ -75,27 +75,33 @@ class _TemplatesTabState extends State<TemplatesTab> {
       ));
     }
     final lyrics = <_Card>[];
-    Stage.use(9, 16);
     for (final l in kLyricsLooks) {
+      // A look with the record is drawn wide, the others tall.
+      if (l.layout != 0) {
+        Stage.use(16, 9);
+      } else {
+        Stage.use(9, 16);
+      }
       final scene = buildLyricsScene(
         LyricsSetup(
           audio: '',
           audioMs: 2000,
           cues: const [LyricCue(0, 1000, 'Feel it')],
-          aspectW: 9,
-          aspectH: 16,
+          aspectW: l.layout != 0 ? 16 : 9,
+          aspectH: l.layout != 0 ? 9 : 16,
           palette: l.palette,
           font: l.font,
           bg: l.bg,
           fx: l.fx,
-          byWord: true,
+          byWord: l.byWord,
           anim: l.anim,
+          layout: l.layout,
         ),
         sampleOnly: true,
       );
       lyrics.add(_Card(
         name: l.name,
-        note: 'One word at a time, ${animLabel(l.anim).toLowerCase()}',
+        note: '${l.byWord ? 'One word at a time' : 'One line at a time'}, ${animLabel(l.anim).toLowerCase()}',
         scene: scene,
         w: Stage.w,
         h: Stage.h,
@@ -180,7 +186,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
     );
   }
 
-  Widget _section(String title, String hint, List<_Card> cards, double width) {
+  Widget _section(String title, String hint, List<_Card> cards, double width, [double? wideWidth]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -189,7 +195,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
         const SizedBox(height: 2),
         Text(hint, style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6))),
         const SizedBox(height: 12),
-        Wrap(spacing: 12, runSpacing: 16, children: [for (final c in cards) _card(c, width)]),
+        Wrap(spacing: 12, runSpacing: 16, children: [for (final c in cards) _card(c, wideWidth != null && c.w > c.h ? wideWidth : width)]),
       ],
     );
   }
@@ -212,7 +218,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
                 style: TextStyle(color: Color(0xFFB5ABD6)),
               ),
               _section('Music videos', 'Cover art, a turning record and an audio picture', _music, half),
-              _section('Lyrics videos', 'Words in time with the song', _lyrics, half),
+              _section('Lyrics videos', 'Words in time with the song', _lyrics, half, inner),
             ],
           );
         },

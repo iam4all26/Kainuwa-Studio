@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
@@ -39,6 +40,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   List<LyricCue> _srt = [];
   String _look = 'neon';
   String _anim = 'jump';
+  String _cover = '';
+  double _coverAspect = 1.0;
+  int _layout = 0;
   String _font = 'Sacramento';
   int _bg = 0xFF03040B;
   List<int> _palette = kLyricsLooks.first.palette;
@@ -82,6 +86,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     ];
     _look = str('look', 'neon');
     _anim = str('anim', _anim);
+    _cover = str('cover', '');
+    _coverAspect = f['coverAspect'] is num ? (f['coverAspect'] as num).toDouble() : 1.0;
+    _layout = iv('layout', _layout);
     _font = str('font', _font);
     _bg = iv('bg', _bg);
     if (f['palette'] is List) {
@@ -105,6 +112,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   void _applyLook(LyricsLook l) {
     _look = l.id;
     _anim = l.anim;
+    _layout = l.layout;
+    _byWord = l.byWord;
     _font = l.font;
     _bg = l.bg;
     _palette = l.palette;
@@ -162,6 +171,41 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       _audioMs = ms;
       _message = '';
       _starts = [];
+    });
+  }
+
+  Future<double> _imageAspect(String path) async {
+    try {
+      final bytes = await File(path).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 128);
+      final frame = await codec.getNextFrame();
+      final a = frame.image.width / frame.image.height;
+      frame.image.dispose();
+      codec.dispose();
+      return a;
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
+  Future<void> _pickCover() async {
+    String? path;
+    try {
+      path = await pickMedia(context, MediaKind.image);
+    } catch (_) {
+      path = null;
+    }
+    if (path == null || !mounted) return;
+    if (path.toLowerCase().endsWith('.svg')) {
+      setState(() => _message = 'Please choose a JPG or PNG picture for the cover.');
+      return;
+    }
+    final a = await _imageAspect(path);
+    if (!mounted) return;
+    setState(() {
+      _cover = path!;
+      _coverAspect = a;
+      _message = '';
     });
   }
 
@@ -234,6 +278,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       fx: _fx,
       byWord: _byWord,
       anim: _anim,
+      cover: _cover,
+      coverAspect: _coverAspect,
+      layout: _layout,
       title: _nameOf(_audio),
       form: {
         'audio': _audio,
@@ -245,6 +292,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'srt': [for (final c in _srt) [c.startMs, c.endMs, c.text]],
         'look': _look,
         'anim': _anim,
+        'cover': _cover,
+        'coverAspect': _coverAspect,
+        'layout': _layout,
         'font': _font,
         'bg': _bg,
         'palette': _palette,
@@ -349,6 +399,44 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (_showLook) ...[
+                  const Text('Layout', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final o in const [(0, 'Lyrics in the middle'), (1, 'Record left'), (2, 'Record right')])
+                        ChoiceChip(
+                          label: Text(o.$2),
+                          selected: _layout == o.$1,
+                          onSelected: (_) => setState(() => _layout = o.$1),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (_layout != 0) ...[
+                  Row(
+                    children: [
+                      if (_cover.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(File(_cover), width: 56, height: 56, fit: BoxFit.cover),
+                          ),
+                        ),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickCover,
+                          icon: const Icon(Icons.image_outlined),
+                          label: Text(_cover.isEmpty ? 'Choose the cover art' : 'Choose another cover'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 const Text('Show', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Wrap(
@@ -425,7 +513,15 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                         avatar: CircleAvatar(backgroundColor: Color(l.palette.first), radius: 7),
                         label: Text(l.name),
                         selected: _look == l.id,
-                        onSelected: (_) => setState(() => _applyLook(l)),
+                        onSelected: (_) => setState(() {
+                          final was = _byWord;
+                          _applyLook(l);
+                          if (_byWord != was) {
+                            _starts = [];
+                            _srt = [];
+                            _timing = 0;
+                          }
+                        }),
                       ),
                   ],
                 ),
