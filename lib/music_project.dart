@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/painting.dart' show Color;
+
 import 'avatar.dart';
 import 'models.dart';
 import 'pic_filter.dart';
