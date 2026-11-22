@@ -11,6 +11,7 @@ import '../lyrics_project.dart';
 import '../media/media_library.dart';
 import '../scene_canvas.dart';
 import '../stage_shape.dart';
+import '../visualizer.dart';
 import 'lyrics_tap_screen.dart';
 
 /// Setup of a lyrics video: the song, the words, how they are timed, and the look.
@@ -43,6 +44,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   String _cover = '';
   double _coverAspect = 1.0;
   int _layout = 0;
+  String _viz = 'bars';
+  final TextEditingController _songTitle = TextEditingController();
+  final TextEditingController _artist = TextEditingController();
   String _font = 'Sacramento';
   int _bg = 0xFF03040B;
   List<int> _palette = kLyricsLooks.first.palette;
@@ -90,6 +94,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _cover = str('cover', '');
     _coverAspect = f['coverAspect'] is num ? (f['coverAspect'] as num).toDouble() : 1.0;
     _layout = iv('layout', _layout);
+    _viz = str('viz', _viz);
+    _songTitle.text = str('songTitle', '');
+    _artist.text = str('artist', '');
     _font = str('font', _font);
     _bg = iv('bg', _bg);
     if (f['palette'] is List) {
@@ -108,6 +115,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   void dispose() {
     Stage.reset();
     _lyrics.dispose();
+    _songTitle.dispose();
+    _artist.dispose();
     super.dispose();
   }
 
@@ -116,6 +125,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _anim = l.anim;
     _layout = l.layout;
     _byWord = l.byWord;
+    _viz = l.viz;
     _font = l.font;
     _bg = l.bg;
     _palette = l.palette;
@@ -175,6 +185,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       _audioMs = ms;
       _message = '';
       _starts = [];
+      if (_songTitle.text.trim().isEmpty) _songTitle.text = _nameOf(path);
     });
   }
 
@@ -285,7 +296,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       cover: _cover,
       coverAspect: _coverAspect,
       layout: _layout,
-      title: _nameOf(_audio),
+      vizKind: _viz,
+      artist: _artist.text,
+      title: _songTitle.text.trim().isEmpty ? _nameOf(_audio) : _songTitle.text.trim(),
       form: {
         'audio': _audio,
         'audioMs': _audioMs,
@@ -299,6 +312,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'cover': _cover,
         'coverAspect': _coverAspect,
         'layout': _layout,
+        'viz': _viz,
+        'songTitle': _songTitle.text,
+        'artist': _artist.text,
         'font': _font,
         'bg': _bg,
         'palette': _palette,
@@ -440,6 +456,40 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _songTitle,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Song name (shown under the cover)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _artist,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Artist (shown under the song name)'),
+                  ),
+                  if (_showLook) ...[
+                    const SizedBox(height: 12),
+                    const Text('Audio picture under the cover', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final k in kVizKinds)
+                          if (k.id != 'circle')
+                            ChoiceChip(
+                              label: Text(k.name),
+                              selected: _viz == k.id,
+                              onSelected: (_) => setState(() => _viz = k.id),
+                            ),
+                        ChoiceChip(
+                          label: const Text('None'),
+                          selected: _viz == 'none',
+                          onSelected: (_) => setState(() => _viz = 'none'),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
                 ],
                 const Text('Show', style: TextStyle(fontWeight: FontWeight.w600)),

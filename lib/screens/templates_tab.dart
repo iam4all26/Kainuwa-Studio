@@ -9,6 +9,7 @@ import '../project_templates.dart';
 import '../scene_canvas.dart';
 import '../models.dart';
 import '../stage_shape.dart';
+import '../theme.dart';
 import '../visualizer.dart';
 import 'lesson_editor_screen.dart';
 import 'lyrics_setup_screen.dart';
@@ -16,10 +17,11 @@ import 'music_setup_screen.dart';
 
 /// One ready template with its picture.
 class _Card {
-  _Card({required this.name, required this.note, required this.scene, required this.w, required this.h, required this.onUse});
+  _Card({required this.name, required this.note, required this.badge, required this.scene, required this.w, required this.h, required this.onUse});
 
   final String name;
   final String note;
+  final String badge;
   final Scene scene;
   final double w;
   final double h;
@@ -38,6 +40,7 @@ class TemplatesTab extends StatefulWidget {
 class _TemplatesTabState extends State<TemplatesTab> {
   List<_Card> _music = [];
   List<_Card> _lyrics = [];
+  List<_Card> _record = [];
 
   @override
   void initState() {
@@ -67,7 +70,8 @@ class _TemplatesTabState extends State<TemplatesTab> {
       final viz = kVizKinds.where((k) => k.id == t.viz).map((k) => k.name).join();
       music.add(_Card(
         name: t.name,
-        note: viz,
+        note: '$viz  -  ${t.titleFont.isEmpty ? 'Default font' : t.titleFont}',
+        badge: 'Music',
         scene: scene,
         w: Stage.w,
         h: Stage.h,
@@ -75,6 +79,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
       ));
     }
     final lyrics = <_Card>[];
+    final record = <_Card>[];
     for (final l in kLyricsLooks) {
       // A look with the record is drawn wide, the others tall.
       if (l.layout != 0) {
@@ -96,12 +101,16 @@ class _TemplatesTabState extends State<TemplatesTab> {
           byWord: l.byWord,
           anim: l.anim,
           layout: l.layout,
+          vizKind: l.viz,
+          title: 'Song title',
+          artist: 'Artist name',
         ),
         sampleOnly: true,
       );
-      lyrics.add(_Card(
+      (l.layout != 0 ? record : lyrics).add(_Card(
         name: l.name,
-        note: '${l.byWord ? 'One word at a time' : 'One line at a time'}, ${animLabel(l.anim).toLowerCase()}',
+        note: '${animLabel(l.anim)}  -  ${l.font}',
+        badge: l.byWord ? 'Words' : 'Lines',
         scene: scene,
         w: Stage.w,
         h: Stage.h,
@@ -111,6 +120,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
     Stage.reset();
     _music = music;
     _lyrics = lyrics;
+    _record = record;
   }
 
   Future<void> _open(Lesson? lesson, (String, String) ids) async {
@@ -159,69 +169,132 @@ class _TemplatesTabState extends State<TemplatesTab> {
   Widget _card(_Card c, double width) {
     return SizedBox(
       width: width,
-      child: GestureDetector(
-        onTap: c.onUse,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: AspectRatio(
-                aspectRatio: c.w / c.h,
-                child: IgnorePointer(
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: SizedBox(width: c.w, height: c.h, child: SceneCanvas(scene: c.scene)),
+      child: Material(
+        color: KColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: c.onUse,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0x1FFFFFFF)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: c.w / c.h,
+                      child: IgnorePointer(
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(width: c.w, height: c.h, child: SceneCanvas(scene: c.scene)),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xAA000000),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(c.badge, style: const TextStyle(fontSize: 11, color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(c.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(c.note, style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
                   ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(c.note, style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6))),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _section(String title, String hint, List<_Card> cards, double width, [double? wideWidth]) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _page(String hint, List<_Card> cards, double width) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
-        const SizedBox(height: 20),
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        Text(hint, style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6))),
-        const SizedBox(height: 12),
-        Wrap(spacing: 12, runSpacing: 16, children: [for (final c in cards) _card(c, wideWidth != null && c.w > c.h ? wideWidth : width)]),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(hint, style: const TextStyle(fontSize: 13, color: Color(0xFFB5ABD6))),
+        ),
+        Wrap(spacing: 12, runSpacing: 14, children: [for (final c in cards) _card(c, width)]),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final inner = box.maxWidth - 32;
-          final half = (inner - 12) / 2;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              const Text('Templates', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              const Text(
-                'Pick a look, then add your own cover art, song and words. Fonts, colours and animations are ready. '
-                'You can still change everything.',
-                style: TextStyle(color: Color(0xFFB5ABD6)),
-              ),
-              _section('Music videos', 'Cover art, a turning record and an audio picture', _music, half),
-              _section('Lyrics videos', 'Words in time with the song', _lyrics, half, inner),
-            ],
-          );
-        },
+    return DefaultTabController(
+      length: 3,
+      child: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final half = (box.maxWidth - 32 - 12) / 2;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Text('Templates', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text('Pick a look, add your cover, song and words. The rest is ready.', style: TextStyle(color: Color(0xFFB5ABD6))),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(color: KColors.surface, borderRadius: BorderRadius.circular(26)),
+                    child: TabBar(
+                      dividerColor: Colors.transparent,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      indicator: BoxDecoration(color: KColors.selected, borderRadius: BorderRadius.circular(22)),
+                      labelColor: Colors.white,
+                      unselectedLabelColor: const Color(0xFFB5ABD6),
+                      labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      labelPadding: EdgeInsets.zero,
+                      tabs: [
+                        Tab(height: 40, text: 'Music (${_music.length})'),
+                        Tab(height: 40, text: 'Lyrics (${_lyrics.length})'),
+                        Tab(height: 40, text: 'Record (${_record.length})'),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _page('Cover art, a turning record and an audio picture.', _music, half),
+                      _page('Words in time with the song, centred on the screen.', _lyrics, half),
+                      _page('Cover and record on one side, the lyrics on the other, with the audio picture and the song name under the cover.', _record, half),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

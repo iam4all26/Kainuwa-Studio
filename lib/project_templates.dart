@@ -27,4 +27,5 @@ Map<String, dynamic> lyricsTemplateForm(LyricsLook l) => {
       'shape': l.layout != 0 ? 0 : 1,
       'byWord': l.byWord,
       'layout': l.layout,
+      'viz': l.viz,
     };

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/painting.dart' show Color;
 
+import 'avatar.dart';
 import 'models.dart';
 import 'scene_canvas.dart';
 import 'srt_import.dart';
@@ -28,7 +29,11 @@ class LyricsLook {
     this.anim = 'pop',
     this.layout = 0,
     this.byWord = true,
+    this.viz = 'bars',
   });
+
+  /// The audio picture under the cover in the record layouts ('none' for no picture).
+  final String viz;
 
   /// How each word comes in: an entrance from animation_math.dart.
   final String anim;
@@ -103,6 +108,7 @@ const List<LyricsLook> kLyricsLooks = [
     anim: 'rise',
     layout: 1,
     byWord: false,
+    viz: 'wave',
   ),
   LyricsLook(
     id: 'vinyl_right',
@@ -114,6 +120,7 @@ const List<LyricsLook> kLyricsLooks = [
     anim: 'jump',
     layout: 2,
     byWord: false,
+    viz: 'bars',
   ),
   LyricsLook(
     id: 'gold',
@@ -209,6 +216,7 @@ const List<LyricsLook> kLyricsLooks = [
     anim: 'flipin',
     layout: 2,
     byWord: false,
+    viz: 'rise',
   ),
   LyricsLook(
     id: 'vinyl_sun',
@@ -220,6 +228,7 @@ const List<LyricsLook> kLyricsLooks = [
     anim: 'jump',
     layout: 1,
     byWord: false,
+    viz: 'pulse',
   ),
 ];
 
@@ -243,6 +252,8 @@ class LyricsSetup {
     this.cover = '',
     this.coverAspect = 1.0,
     this.layout = 0,
+    this.vizKind = 'bars',
+    this.artist = '',
     this.title = '',
     this.form = const {},
   });
@@ -265,6 +276,10 @@ class LyricsSetup {
   final String cover;
   final double coverAspect;
   final int layout;
+
+  /// With a record layout: the audio picture, and the artist shown under the cover (the title is [title]).
+  final String vizKind;
+  final String artist;
   final String title;
 
   /// The choices of the setup screen, saved with the video so the setup can be opened again.
@@ -352,16 +367,16 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
   var textMaxW = 0.9;
   if (hasRec) {
     final recLeft = s.layout == 1;
-    final cs = wide ? math.min(0.58 * h, 0.40 * w / 1.4) : math.min(0.30 * h, 0.80 * w / 1.4);
+    final cs = wide ? math.min(0.46 * h, 0.40 * w / 1.4) : math.min(0.26 * h, 0.80 * w / 1.4);
     final shift = 0.40 * cs;
     final discD = 0.96 * cs;
     final groupW = cs + shift;
     final groupCx = wide ? (recLeft ? 0.27 * w : 0.73 * w) : w / 2;
-    final cy = wide ? 0.5 * h : 0.27 * h;
+    final cy = wide ? 0.36 * h : 0.22 * h;
     final coverCx = groupCx - groupW / 2 + cs / 2;
     final discCx = coverCx + shift;
     textCx = wide ? (recLeft ? 0.70 : 0.30) : 0.5;
-    textCy = wide ? 0.5 : 0.64;
+    textCy = wide ? 0.5 : 0.75;
     textMaxW = wide ? 0.42 : 0.9;
 
     Layer square(String type, double cx, double cyy, double side) {
@@ -416,6 +431,43 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
           ..cropT = cropTop
           ..cropB = cropTop
           ..shadowOn = true));
+
+    // Under the cover: the audio picture, the song name and the artist.
+    final kind = (s.vizKind == 'circle' || s.vizKind.isEmpty) ? 'bars' : s.vizKind;
+    if (s.vizKind != 'none') {
+      final spec = AvatarSpec(audio: s.audio, startMs: 0, sourceMs: s.audioMs);
+      final tall = kind == 'rise' || kind == 'blocks' || kind == 'wave';
+      final viz = Layer(
+        id: newId(),
+        type: 'shape',
+        shape: 'viz_$kind',
+        color: s.palette.first,
+        w: math.min(0.9, groupW / w),
+        h: wide ? (tall ? 0.10 : 0.07) : (tall ? 0.05 : 0.035),
+      );
+      viz.cx = groupCx / w;
+      viz.cy = wide ? 0.67 : 0.41;
+      viz.avatar = spec.encode();
+      layers.add(viz);
+    }
+    final shownTitle = s.title.trim().isEmpty ? (sampleOnly ? 'Song title' : '') : s.title.trim();
+    final shownArtist = s.artist.trim().isEmpty ? (sampleOnly ? 'Artist name' : '') : s.artist.trim();
+    final underW = math.min(0.9, groupW * 1.2 / w);
+    void under(String text, double px, int colour, double cyFrac, bool bold) {
+      final t = Layer(id: newId(), type: 'text', text: text, color: colour, bold: bold, fontFamily: s.font);
+      setLayerTextSizePx(t, px);
+      if (t.w > underW) {
+        final f = underW / t.w;
+        t.w = underW;
+        t.h = t.h * f;
+      }
+      t.cx = groupCx / w;
+      t.cy = cyFrac;
+      layers.add(t);
+    }
+
+    if (shownTitle.isNotEmpty) under(shownTitle, wide ? 44 : 40, 0xFFFFFFFF, wide ? 0.78 : 0.48, true);
+    if (shownArtist.isNotEmpty) under(shownArtist, wide ? 28 : 26, s.palette.first, wide ? 0.86 : 0.54, false);
   }
   final cues = sampleOnly ? [s.cues.isEmpty ? const LyricCue(0, 1000, 'Lyrics') : s.cues.first] : s.cues;
   final px = hasRec ? (s.byWord ? 90.0 : 56.0) : (s.byWord ? 110.0 : 72.0);
