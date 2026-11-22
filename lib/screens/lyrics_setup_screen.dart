@@ -13,7 +13,11 @@ import 'lyrics_tap_screen.dart';
 
 /// Setup of a lyrics video: the song, the words, how they are timed, and the look.
 class LyricsSetupScreen extends StatefulWidget {
-  const LyricsSetupScreen({super.key, this.initial});
+  const LyricsSetupScreen({super.key, this.initial, this.simple = false, this.templateName});
+
+  /// True when opened from a ready template: only the song, words, timing and shape are asked; the look stays.
+  final bool simple;
+  final String? templateName;
 
   /// The saved choices of an existing video, to correct them. Null for a new video.
   final Map<String, dynamic>? initial;
@@ -49,11 +53,13 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     ('Square 1:1', 1, 1),
   ];
 
-  bool get _editing => widget.initial != null;
+  bool get _editing => widget.initial != null && !widget.simple;
+  bool _showLook = true;
 
   @override
   void initState() {
     super.initState();
+    _showLook = !widget.simple;
     _applyLook(kLyricsLooks.first);
     final f = widget.initial;
     if (f == null) return;
@@ -311,7 +317,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     final units = _units;
     final stale = _timing == 1 && _starts.isNotEmpty && _starts.length != units.length;
     return Scaffold(
-      appBar: AppBar(title: Text(_editing ? 'Lyrics video setup' : 'Lyrics video')),
+      appBar: AppBar(title: Text(_editing ? 'Lyrics video setup' : (widget.templateName ?? 'Lyrics video'))),
       body: Column(
         children: [
           _preview(),
@@ -401,6 +407,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
+                if (_showLook) ...[
                 const SizedBox(height: 16),
                 const Text('Look', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
@@ -455,6 +462,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     _toggle('Sparkles', _sparkle, (v) => _sparkle = v),
                   ],
                 ),
+                ],
                 const SizedBox(height: 16),
                 const Text('Video shape', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
@@ -469,6 +477,14 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                       ),
                   ],
                 ),
+                if (!_showLook) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () => setState(() => _showLook = true),
+                    icon: const Icon(Icons.tune),
+                    label: const Text('Customize the look'),
+                  ),
+                ],
                 if (_message.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(_message, style: TextStyle(color: Theme.of(context).colorScheme.error)),

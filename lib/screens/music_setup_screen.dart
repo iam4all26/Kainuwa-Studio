@@ -15,7 +15,11 @@ import '../visualizer.dart';
 
 /// Pick the cover art and the song, write the title, choose the audio picture. Returns a [MusicSetup].
 class MusicSetupScreen extends StatefulWidget {
-  const MusicSetupScreen({super.key, this.initial});
+  const MusicSetupScreen({super.key, this.initial, this.simple = false, this.templateName});
+
+  /// True when opened from a ready template: only the cover, song, words and shape are asked; the look stays.
+  final bool simple;
+  final String? templateName;
 
   /// The saved choices of an existing video, to correct them. Null for a new video.
   final Map<String, dynamic>? initial;
@@ -41,11 +45,13 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   bool _playing = false;
   String _template = '';
 
-  bool get _editing => widget.initial != null;
+  bool get _editing => widget.initial != null && !widget.simple;
+  bool _showLook = true;
 
   @override
   void initState() {
     super.initState();
+    _showLook = !widget.simple;
     final f = widget.initial;
     if (f == null) return;
     String str(String k, String d) => f[k] is String ? f[k] as String : d;
@@ -327,7 +333,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   Widget build(BuildContext context) {
     final ready = _cover.isNotEmpty && _audio.isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: Text(_editing ? 'Music video setup' : 'Music video')),
+      appBar: AppBar(title: Text(_editing ? 'Music video setup' : (widget.templateName ?? 'Music video'))),
       body: SafeArea(
         child: Column(
           children: [
@@ -386,10 +392,12 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
               controller: _artist,
               decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Artist (optional)'),
             ),
+            if (_showLook) ...[
             const SizedBox(height: 16),
             const Text('Template', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             _templateRow(),
+            ],
             const SizedBox(height: 16),
             const Text('Video shape', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
@@ -404,6 +412,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
                   ),
               ],
             ),
+            if (_showLook) ...[
             const SizedBox(height: 16),
             const Text('Place the record and cover', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
@@ -476,6 +485,14 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
                   ),
               ],
             ),
+            ] else ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => setState(() => _showLook = true),
+                icon: const Icon(Icons.tune),
+                label: const Text('Customize the look'),
+              ),
+            ],
             if (_message.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(_message, style: TextStyle(color: Theme.of(context).colorScheme.error)),

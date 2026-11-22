@@ -94,16 +94,23 @@ Scene buildMusicScene(MusicSetup s) {
     ..shape = 'circle'
     ..color = 0xFF0B0B0B);
 
-  layers.add(square('image', discCx, cy, discD)
-    ..path = s.cover
-    ..mask = 'circle'
-    ..srcAspect = s.coverAspect
-    ..cropL = cropSide
-    ..cropR = cropSide
-    ..cropT = cropTop
-    ..cropB = cropTop
-    ..animLoop = 'spin'
-    ..animLoopMs = 9000);
+  // Without a cover (the template previews) a plain coloured record and cover are drawn instead.
+  final noCover = s.cover.isEmpty;
+  final sample = Color.lerp(Color(s.accent), const Color(0xFF000000), 0.45)!.toARGB32();
+  layers.add(noCover
+      ? (square('shape', discCx, cy, discD)
+        ..shape = 'circle'
+        ..color = sample)
+      : (square('image', discCx, cy, discD)
+        ..path = s.cover
+        ..mask = 'circle'
+        ..srcAspect = s.coverAspect
+        ..cropL = cropSide
+        ..cropR = cropSide
+        ..cropT = cropTop
+        ..cropB = cropTop
+        ..animLoop = 'spin'
+        ..animLoopMs = 9000));
 
   layers.add(square('shape', discCx, cy, discD * 0.2)
     ..shape = 'circle'
@@ -112,14 +119,19 @@ Scene buildMusicScene(MusicSetup s) {
     ..shape = 'circle'
     ..color = 0xFF0B0B0B);
 
-  final coverLayer = square('image', coverCx, cy, cs)
-    ..path = s.cover
-    ..srcAspect = s.coverAspect
-    ..cropL = cropSide
-    ..cropR = cropSide
-    ..cropT = cropTop
-    ..cropB = cropTop
-    ..shadowOn = true;
+  final coverLayer = noCover
+      ? (square('shape', coverCx, cy, cs)
+        ..shape = 'rect'
+        ..color = sample
+        ..shadowOn = true)
+      : (square('image', coverCx, cy, cs)
+        ..path = s.cover
+        ..srcAspect = s.coverAspect
+        ..cropL = cropSide
+        ..cropR = cropSide
+        ..cropT = cropTop
+        ..cropB = cropTop
+        ..shadowOn = true);
 
   final spec = AvatarSpec(audio: s.audio, startMs: 0, sourceMs: s.audioMs);
   final viz = Layer(
