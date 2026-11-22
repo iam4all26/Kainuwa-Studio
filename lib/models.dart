@@ -646,6 +646,8 @@ class Lesson {
     List<int>? bookmarks,
     this.aspectW = 16,
     this.aspectH = 9,
+    this.setupKind = '',
+    this.setupForm = '',
   })  : scenes = scenes ?? <Scene>[],
         hiddenTracks = hiddenTracks ?? <String>{},
         audioClips = audioClips ?? <AudioClip>[],
@@ -654,6 +656,11 @@ class Lesson {
   final String id;
   String title;
   final List<Scene> scenes;
+
+  /// 'music' or 'lyrics' for a video made from a setup screen; empty for any other video.
+  /// [setupForm] is that screen's choices as JSON, so the setup can be opened again.
+  String setupKind;
+  String setupForm;
 
   /// Red markers on the timeline, in milliseconds from the start of the video.
   final List<int> bookmarks;
@@ -690,6 +697,8 @@ class Lesson {
         'musicFade': musicFade,
         'aspectW': aspectW,
         'aspectH': aspectH,
+        'setupKind': setupKind,
+        'setupForm': setupForm,
         'hiddenTracks': hiddenTracks.toList(),
         'audioClips': audioClips.map((c) => c.toJson()).toList(),
         'bookmarks': bookmarks,
@@ -713,6 +722,8 @@ class Lesson {
       musicFade: json['musicFade'] is bool ? json['musicFade'] as bool : true,
       aspectW: _int(json['aspectW'], 16).clamp(1, 99).toInt(),
       aspectH: _int(json['aspectH'], 9).clamp(1, 99).toInt(),
+      setupKind: _str(json['setupKind'], ''),
+      setupForm: _str(json['setupForm'], ''),
       hiddenTracks: json['hiddenTracks'] is List
           ? (json['hiddenTracks'] as List).whereType<String>().toSet()
           : <String>{},

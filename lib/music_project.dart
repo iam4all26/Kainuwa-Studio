@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'avatar.dart';
@@ -22,6 +23,7 @@ class MusicSetup {
     this.layout = 0,
     this.titleFont = '',
     this.artistFont = '',
+    this.form = const {},
   });
 
   final String cover;
@@ -39,6 +41,9 @@ class MusicSetup {
   final int layout;
   final String titleFont;
   final String artistFont;
+
+  /// The choices of the setup screen, saved with the video so the setup can be opened again.
+  final Map<String, dynamic> form;
 }
 
 /// The one slide of a music video: blurred cover as the background, the cover, a record turning
@@ -167,6 +172,10 @@ Scene buildMusicScene(MusicSetup s) {
 
 /// Fills a new, empty video with the music slide and the song as sound.
 void buildMusicProject(Lesson lesson, MusicSetup s) {
+  lesson.aspectW = s.aspectW;
+  lesson.aspectH = s.aspectH;
+  lesson.setupKind = 'music';
+  lesson.setupForm = jsonEncode(s.form);
   Stage.use(s.aspectW, s.aspectH);
   try {
     final scene = buildMusicScene(s);

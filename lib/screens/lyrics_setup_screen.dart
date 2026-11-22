@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,7 +13,10 @@ import 'lyrics_tap_screen.dart';
 
 /// Setup of a lyrics video: the song, the words, how they are timed, and the look.
 class LyricsSetupScreen extends StatefulWidget {
-  const LyricsSetupScreen({super.key});
+  const LyricsSetupScreen({super.key, this.initial});
+
+  /// The saved choices of an existing video, to correct them. Null for a new video.
+  final Map<String, dynamic>? initial;
 
   @override
   State<LyricsSetupScreen> createState() => _LyricsSetupScreenState();
@@ -45,10 +49,41 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     ('Square 1:1', 1, 1),
   ];
 
+  bool get _editing => widget.initial != null;
+
   @override
   void initState() {
     super.initState();
     _applyLook(kLyricsLooks.first);
+    final f = widget.initial;
+    if (f == null) return;
+    String str(String k, String d) => f[k] is String ? f[k] as String : d;
+    int iv(String k, int d) => f[k] is num ? (f[k] as num).round() : d;
+    bool flag(String k, bool d) => f[k] is bool ? f[k] as bool : d;
+    _audio = str('audio', '');
+    _audioMs = iv('audioMs', 0);
+    _lyrics.text = str('lyrics', '');
+    _byWord = flag('byWord', true);
+    _timing = iv('timing', 0);
+    _starts = [if (f['starts'] is List) for (final v in f['starts'] as List) if (v is num) v.round()];
+    _srt = [
+      if (f['srt'] is List)
+        for (final v in f['srt'] as List)
+          if (v is List && v.length == 3 && v[0] is num && v[1] is num && v[2] is String)
+            LyricCue((v[0] as num).round(), (v[1] as num).round(), v[2] as String),
+    ];
+    _look = str('look', 'neon');
+    _font = str('font', _font);
+    _bg = iv('bg', _bg);
+    if (f['palette'] is List) {
+      final p = [for (final v in f['palette'] as List) if (v is num) v.round()];
+      if (p.isNotEmpty) _palette = p;
+    }
+    _stars = flag('stars', _stars);
+    _streaks = flag('streaks', _streaks);
+    _embers = flag('embers', _embers);
+    _sparkle = flag('sparkle', _sparkle);
+    _shape = iv('shape', 1).clamp(0, _shapes.length - 1).toInt();
   }
 
   @override
@@ -189,6 +224,24 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       fx: _fx,
       byWord: _byWord,
       title: _nameOf(_audio),
+      form: {
+        'audio': _audio,
+        'audioMs': _audioMs,
+        'lyrics': _lyrics.text,
+        'byWord': _byWord,
+        'timing': _timing,
+        'starts': _starts,
+        'srt': [for (final c in _srt) [c.startMs, c.endMs, c.text]],
+        'look': _look,
+        'font': _font,
+        'bg': _bg,
+        'palette': _palette,
+        'stars': _stars,
+        'streaks': _streaks,
+        'embers': _embers,
+        'sparkle': _sparkle,
+        'shape': _shape,
+      },
     );
   }
 
@@ -258,7 +311,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     final units = _units;
     final stale = _timing == 1 && _starts.isNotEmpty && _starts.length != units.length;
     return Scaffold(
-      appBar: AppBar(title: const Text('Lyrics video')),
+      appBar: AppBar(title: Text(_editing ? 'Lyrics video setup' : 'Lyrics video')),
       body: Column(
         children: [
           _preview(),
@@ -423,7 +476,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _ready ? () => Navigator.of(context).pop(_setup()) : null,
-                  child: const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Create the video')),
+                  child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(_editing ? 'Save and rebuild the video' : 'Create the video')),
                 ),
                 const SizedBox(height: 8),
                 const Text(

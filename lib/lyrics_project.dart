@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'models.dart';
@@ -90,6 +91,7 @@ class LyricsSetup {
     required this.fx,
     required this.byWord,
     this.title = '',
+    this.form = const {},
   });
 
   final String audio;
@@ -103,6 +105,9 @@ class LyricsSetup {
   final List<String> fx;
   final bool byWord;
   final String title;
+
+  /// The choices of the setup screen, saved with the video so the setup can be opened again.
+  final Map<String, dynamic> form;
 }
 
 /// The lyrics cut into words, or into lines.
@@ -230,6 +235,10 @@ int lighten(int argb, double f) {
 
 /// Fills a new, empty video with the lyrics slide and the song as sound.
 void buildLyricsProject(Lesson lesson, LyricsSetup s) {
+  lesson.aspectW = s.aspectW;
+  lesson.aspectH = s.aspectH;
+  lesson.setupKind = 'lyrics';
+  lesson.setupForm = jsonEncode(s.form);
   Stage.use(s.aspectW, s.aspectH);
   try {
     final scene = buildLyricsScene(s);

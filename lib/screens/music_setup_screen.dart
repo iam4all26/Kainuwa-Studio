@@ -15,7 +15,10 @@ import '../visualizer.dart';
 
 /// Pick the cover art and the song, write the title, choose the audio picture. Returns a [MusicSetup].
 class MusicSetupScreen extends StatefulWidget {
-  const MusicSetupScreen({super.key});
+  const MusicSetupScreen({super.key, this.initial});
+
+  /// The saved choices of an existing video, to correct them. Null for a new video.
+  final Map<String, dynamic>? initial;
 
   @override
   State<MusicSetupScreen> createState() => _MusicSetupScreenState();
@@ -37,6 +40,30 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   String _artistFont = '';
   bool _playing = false;
   String _template = '';
+
+  bool get _editing => widget.initial != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.initial;
+    if (f == null) return;
+    String str(String k, String d) => f[k] is String ? f[k] as String : d;
+    int iv(String k, int d) => f[k] is num ? (f[k] as num).round() : d;
+    _cover = str('cover', '');
+    _aspect = f['aspect'] is num ? (f['aspect'] as num).toDouble() : 1.0;
+    _audio = str('audio', '');
+    _audioMs = iv('audioMs', 0);
+    _title.text = str('title', '');
+    _artist.text = str('artist', '');
+    _shape = iv('shape', 0).clamp(0, _shapes.length - 1).toInt();
+    _viz = str('viz', 'bars');
+    _accent = iv('accent', 0xFFFF9F1C);
+    _layout = iv('layout', 0);
+    _titleFont = str('titleFont', '');
+    _artistFont = str('artistFont', '');
+    _template = str('template', '');
+  }
 
   static const List<(String, int, int)> _shapes = [
     ('Wide 16:9', 16, 9),
@@ -182,6 +209,21 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
       layout: _shape == 0 ? _layout : 0,
       titleFont: _titleFont,
       artistFont: _artistFont,
+      form: {
+        'cover': _cover,
+        'aspect': _aspect,
+        'audio': _audio,
+        'audioMs': _audioMs,
+        'title': _title.text,
+        'artist': _artist.text,
+        'shape': _shape,
+        'viz': _viz,
+        'accent': _accent,
+        'layout': _layout,
+        'titleFont': _titleFont,
+        'artistFont': _artistFont,
+        'template': _template,
+      },
     );
   }
 
@@ -285,7 +327,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   Widget build(BuildContext context) {
     final ready = _cover.isNotEmpty && _audio.isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: const Text('Music video')),
+      appBar: AppBar(title: Text(_editing ? 'Music video setup' : 'Music video')),
       body: SafeArea(
         child: Column(
           children: [
@@ -441,7 +483,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
             const SizedBox(height: 20),
             FilledButton(
               onPressed: ready ? _create : null,
-              child: const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Create the video')),
+              child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(_editing ? 'Save and rebuild the video' : 'Create the video')),
             ),
             const SizedBox(height: 8),
             const Text(

@@ -1,6 +1,7 @@
 import '../editor/bulk_edit_sheet.dart';
 import '../editor/side_sheet.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -24,6 +25,10 @@ import '../editor/colour_key_editor.dart';
 import '../editor/avatar_setup_screen.dart';
 import '../editor/move_pad.dart';
 import '../shapes.dart';
+import '../music_project.dart';
+import '../lyrics_project.dart';
+import 'music_setup_screen.dart';
+import 'lyrics_setup_screen.dart';
 import '../phone_mockup.dart';
 import '../effects.dart';
 import '../avatar.dart';
@@ -3224,8 +3229,61 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 5:
         _toggleOrientation();
         break;
+      case 6:
+        await _editSetup();
+        break;
     }
     if (mounted) setState(() => _tab = -1);
+  }
+
+  /// True for a music or lyrics video, which can open its setup screen again.
+  bool get _hasSetup => (_lesson()?.setupKind ?? '').isNotEmpty;
+
+  /// Opens the setup screen with the earlier choices. Saving rebuilds the video from them, so changes
+  /// made by hand in the editor are replaced.
+  Future<void> _editSetup() async {
+    final lesson = _lesson();
+    if (lesson == null || lesson.setupKind.isEmpty) return;
+    Map<String, dynamic> form = {};
+    try {
+      final raw = jsonDecode(lesson.setupForm);
+      if (raw is Map<String, dynamic>) form = raw;
+    } catch (_) {}
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Go back to the setup?'),
+        content: const Text(
+          'You can correct the song, words, look and more. When you save, the video is built again from the setup, '
+          'so anything you changed by hand in the editor (moved items, added items) is replaced.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Open the setup')),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    _pause();
+    if (lesson.setupKind == 'music') {
+      final setup = await Navigator.of(context).push<MusicSetup>(
+        MaterialPageRoute<MusicSetup>(builder: (_) => MusicSetupScreen(initial: form)),
+      );
+      if (setup == null || !mounted) return;
+      buildMusicProject(lesson, setup);
+    } else {
+      final setup = await Navigator.of(context).push<LyricsSetup>(
+        MaterialPageRoute<LyricsSetup>(builder: (_) => LyricsSetupScreen(initial: form)),
+      );
+      if (setup == null || !mounted) return;
+      buildLyricsProject(lesson, setup);
+    }
+    Stage.use(lesson.aspectW, lesson.aspectH);
+    _selectedId = null;
+    _soundSel = null;
+    _sceneSelected = false;
+    await _commit();
+    _snack('The video was built again from the setup.');
   }
 
   Widget _bottomNav(double u) {
@@ -3242,6 +3300,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             : Icons.stay_current_landscape,
         'Rotate',
       ),
+      if (_hasSetup) (Icons.edit_note, 'Setup'),
     ];
     return Container(
       padding: EdgeInsets.fromLTRB(_s(u, 12, 4), _s(u, 14, 4), _s(u, 12, 4), _s(u, 12, 4) + bottom),
@@ -3313,6 +3372,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             : Icons.stay_current_landscape,
         'Rotate',
       ),
+      if (_hasSetup) (Icons.edit_note, 'Setup'),
     ];
     return Container(
       width: 64 + pad.left,
