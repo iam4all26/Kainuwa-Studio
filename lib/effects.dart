@@ -20,6 +20,8 @@ const List<FxKind> kFxKinds = [
   FxKind('leaves', 'Leaves', Icons.eco_outlined),
   FxKind('dust', 'Floating dust', Icons.grain),
   FxKind('sparkle', 'Sparkles', Icons.auto_awesome),
+  FxKind('stars', 'Starfield', Icons.star_outline),
+  FxKind('streaks', 'Light streaks', Icons.density_small),
 ];
 
 bool isFxLayerShape(String shape) => shape.startsWith('fx_');
@@ -100,6 +102,47 @@ class _FxPainter extends CustomPainter {
       case 'sparkle':
         _sparkle(canvas, size, p, u);
         break;
+      case 'stars':
+        _stars(canvas, size, p, u);
+        break;
+      case 'streaks':
+        _streaks(canvas, size, p, u);
+        break;
+    }
+  }
+
+  /// Light on a dark night sky. In the export (solid) the brightness is mixed into near-black instead of see-through.
+  Color _b(Color c, double o) =>
+      solid ? Color.lerp(const Color(0xFF05060F), c, o.clamp(0.0, 1.0).toDouble())! : c.withOpacity(o.clamp(0.0, 1.0).toDouble());
+
+  void _stars(Canvas c, Size s, double p, double u) {
+    final paint = Paint();
+    for (var i = 0; i < 120; i++) {
+      final depth = 0.3 + _rnd(i, 3) * 0.7;
+      final cyc = 1 + (_rnd(i, 4) * 2).floor();
+      final y = ((_rnd(i, 2) + cyc * p) % 1.0) * s.height;
+      final k = 1 + (_rnd(i, 8) * 3).floor();
+      final tw = 0.55 + 0.45 * math.sin(2 * math.pi * (_rnd(i, 9) + k * p));
+      final r = (0.8 + _rnd(i, 6) * 2.6) * u * depth;
+      final col = i % 5 == 0 ? const Color(0xFF9DB8FF) : Colors.white;
+      paint.color = _b(col, tw * (0.4 + 0.6 * depth));
+      c.drawCircle(Offset(_rnd(i, 1) * s.width, y), r, paint);
+    }
+  }
+
+  void _streaks(Canvas c, Size s, double p, double u) {
+    for (var i = 0; i < 7; i++) {
+      final len = (0.45 + _rnd(i, 3) * 0.5) * s.width;
+      final th = (2 + _rnd(i, 5) * 5) * u;
+      final x = ((_rnd(i, 1) + p * (1 + i % 2)) % 1.0) * (s.width + len) - len;
+      final y = _rnd(i, 2) * s.height;
+      final peak = _b(const Color(0xFFCFC8E8), 0.22 + _rnd(i, 7) * 0.12);
+      final edge = solid ? const Color(0xFF05060F) : peak.withOpacity(0.0);
+      final rect = Rect.fromLTWH(x, y, len, th);
+      c.drawRect(
+        rect,
+        Paint()..shader = LinearGradient(colors: [edge, peak, edge]).createShader(rect),
+      );
     }
   }
 

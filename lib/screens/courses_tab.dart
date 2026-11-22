@@ -12,6 +12,8 @@ import 'lesson_editor_screen.dart';
 import 'ai_import_screen.dart';
 import 'music_setup_screen.dart';
 import '../music_project.dart';
+import '../lyrics_project.dart';
+import 'lyrics_setup_screen.dart';
 import 'video_setup_dialog.dart';
 import 'lessons_screen.dart';
 
@@ -83,6 +85,8 @@ class CoursesTab extends StatelessWidget {
                   'Open the canvas and start right away', 'video'),
               _choiceTile(sheetContext, Icons.album_outlined, 'Music video',
                   'Cover art, a turning record and an audio picture', 'music'),
+              _choiceTile(sheetContext, Icons.lyrics_outlined, 'Lyrics video',
+                  'Words glowing in time with the song', 'lyrics'),
               _choiceTile(sheetContext, Icons.school_outlined, 'Course',
                   'A set of lessons, each one a video', 'course'),
             ],
@@ -91,6 +95,26 @@ class CoursesTab extends StatelessWidget {
       ),
     );
     if (choice == null || !context.mounted) return;
+    if (choice == 'lyrics') {
+      final lyrics = await Navigator.of(context).push<LyricsSetup>(
+        MaterialPageRoute<LyricsSetup>(builder: (_) => const LyricsSetupScreen()),
+      );
+      if (lyrics == null || !context.mounted) return;
+      final title = lyrics.title.trim().isEmpty ? 'Lyrics video' : lyrics.title.trim();
+      final ids = await state.addVideo(title: title, aspectW: lyrics.aspectW, aspectH: lyrics.aspectH);
+      final lesson = state.lessonById(ids.$1, ids.$2);
+      if (lesson != null) {
+        buildLyricsProject(lesson, lyrics);
+        await state.saveNow();
+      }
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LessonEditorScreen(courseId: ids.$1, lessonId: ids.$2),
+        ),
+      );
+      return;
+    }
     if (choice == 'music') {
       final music = await Navigator.of(context).push<MusicSetup>(
         MaterialPageRoute<MusicSetup>(builder: (_) => const MusicSetupScreen()),
