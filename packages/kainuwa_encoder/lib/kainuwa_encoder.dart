@@ -91,6 +91,22 @@ class KainuwaEncoder {
     return (await _channel.invokeMethod<int>('audioDuration', {'path': path})) ?? 0;
   }
 
+  /// Shows (or updates) the export progress in the notification bar and keeps the app alive.
+  /// Never throws: when it cannot be shown the export simply goes on without it.
+  static Future<void> exportNotify(String text, int pct) async {
+    try {
+      _init();
+      await _channel.invokeMethod<bool>('exportNotify', {'text': text, 'pct': pct});
+    } catch (_) {}
+  }
+
+  static Future<void> exportNotifyStop() async {
+    try {
+      _init();
+      await _channel.invokeMethod<bool>('exportNotifyStop');
+    } catch (_) {}
+  }
+
   /// Speaks [text] with the phone's own voice into the sound file at [path] (offline).
   /// Returns the path, or throws a PlatformException with a readable message.
   static Future<String> ttsToFile(String text, String path, {String lang = ''}) async {

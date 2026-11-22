@@ -113,6 +113,8 @@ class _ExportScreenState extends State<ExportScreen> {
     super.dispose();
   }
 
+  int _lastNotifiedPct = -1;
+
   void _set(String message, {bool failed = false}) {
     if (!mounted) return;
     setState(() {
@@ -131,6 +133,11 @@ class _ExportScreenState extends State<ExportScreen> {
       // The bar only ever moves forward.
       if (value > _progress) _progress = value;
     });
+    final pct = (_progress * 100).round();
+    if (pct != _lastNotifiedPct) {
+      _lastNotifiedPct = pct;
+      KainuwaEncoder.exportNotify(_status, pct);
+    }
   }
 
   void _guard() {
@@ -275,6 +282,8 @@ class _ExportScreenState extends State<ExportScreen> {
       _startedAt = DateTime.now();
       _status = 'Drawing slides. Keep this screen open.';
     });
+    _lastNotifiedPct = 0;
+    KainuwaEncoder.exportNotify('Preparing the video', 0);
 
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -468,22 +477,43 @@ class _ExportScreenState extends State<ExportScreen> {
               final sigPaths = <String, String>{};
               var lastSig = '';
               frames = [];
-              // Every picture costs time, so a long song gets fewer pictures (at most about 900).
-              final vStep = math.max(100, (((vEnd - layer.startMs) / 900) / 50).ceil() * 50);
+              // A long song gets fewer pictures (at most about 1800).
+              final vStep = math.max(100, (((vEnd - layer.startMs) / 1800) / 50).ceil() * 50);
+              final vTotal = math.max(1, vEnd - layer.startMs);
+              var vCount = 0;
               for (var t = layer.startMs; t < vEnd; t += vStep) {
                 final sig = vizSignature(vspec, offsetMs + t);
                 if (sig == lastSig) continue;
                 var vp = sigPaths[sig];
                 if (vp == null) {
                   _guard();
-                  final pic = _layerPicture(layer, absMs: offsetMs + t);
-                  final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                  final img = layer.rotation == 0
+                      ? await renderVizImage(
+                          kind: layer.shape.substring(4),
+                          avatar: layer.avatar,
+                          color: Color(layer.color),
+                          absMs: offsetMs + t,
+                          boxW: picture.$1,
+                          boxH: picture.$2,
+                          layerW: layer.w * _sw,
+                          layerH: layer.h * _sh,
+                          ratio: ratio,
+                        )
+                      : await (() {
+                          final pic = _layerPicture(layer, absMs: offsetMs + t);
+                          return _capture(pic.$3, pic.$1, pic.$2, ratio);
+                        })();
                   vp = '${work.path}/scene_${i}_layer_${k}_viz${sigPaths.length}.png';
                   await _savePng(img, vp);
                   sigPaths[sig] = vp;
                 }
                 frames.add({'path': vp, 'atMs': t});
                 lastSig = sig;
+                if (++vCount % 25 == 0) {
+                  _setProgress(0, 0.9 * (t - layer.startMs) / vTotal);
+                  _set('Drawing the audio picture ${(100 * (t - layer.startMs) / vTotal).round()}%. Keep this screen open.');
+                  await Future<void>.delayed(Duration.zero);
+                }
               }
             }
             if (layer.type == 'image' && layer.avatar.isNotEmpty && !handAnimated && !textAnimated) {
@@ -730,6 +760,7 @@ class _ExportScreenState extends State<ExportScreen> {
     } catch (e) {
       _set('Export stopped: $e', failed: true);
     } finally {
+      KainuwaEncoder.exportNotifyStop();
       _ticker?.cancel();
       _ticker = null;
       for (final s in subs) {

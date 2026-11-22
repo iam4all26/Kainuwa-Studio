@@ -469,6 +469,31 @@ public class KainuwaEncoderPlugin
                         Boolean.TRUE.equals(call.argument("exact")),
                         Boolean.TRUE.equals(call.argument("bytes")), result);
                 break;
+            case "exportNotify": {
+                try {
+                    android.content.Intent svc = new android.content.Intent(appContext, ExportService.class);
+                    svc.putExtra("text", (String) call.argument("text"));
+                    Integer pct = call.argument("pct");
+                    svc.putExtra("pct", pct == null ? 0 : pct);
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        appContext.startForegroundService(svc);
+                    } else {
+                        appContext.startService(svc);
+                    }
+                    result.success(true);
+                } catch (Exception e) {
+                    result.success(false);
+                }
+                break;
+            }
+            case "exportNotifyStop": {
+                try {
+                    appContext.stopService(new android.content.Intent(appContext, ExportService.class));
+                } catch (Exception ignored) {
+                }
+                result.success(true);
+                break;
+            }
             case "ttsToFile":
                 ttsToFile((String) call.argument("text"), (String) call.argument("path"),
                         (String) call.argument("lang"), result);

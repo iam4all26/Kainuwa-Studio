@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -39,6 +40,32 @@ List<int> vizValues(AvatarSpec spec, int absMs) {
 
 /// Two moments with the same signature look exactly the same.
 String vizSignature(AvatarSpec spec, int absMs) => vizValues(spec, absMs).join(',');
+
+/// Draws one audio picture straight into an image, without building any widgets. It is many
+/// times faster than drawing the widget, which matters for a video export that needs thousands.
+/// [boxW] and [boxH] are the whole picture (with its edge room), [layerW] and [layerH] the item.
+Future<ui.Image> renderVizImage({
+  required String kind,
+  required String avatar,
+  required Color color,
+  required int absMs,
+  required double boxW,
+  required double boxH,
+  required double layerW,
+  required double layerH,
+  required double ratio,
+}) {
+  final spec = AvatarSpec.parse(avatar);
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.scale(ratio);
+  canvas.translate((boxW - layerW) / 2, (boxH - layerH) / 2);
+  _VizPainter(kind, vizValues(spec, absMs), color).paint(canvas, Size(layerW, layerH));
+  final picture = recorder.endRecording();
+  final image = picture.toImage((boxW * ratio).ceil(), (boxH * ratio).ceil());
+  picture.dispose();
+  return image;
+}
 
 /// The audio picture of a sound. [absMs] is the time in the whole video (null when paused,
 /// then a moment inside the song is shown).
