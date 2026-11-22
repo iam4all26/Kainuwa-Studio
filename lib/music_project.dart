@@ -4,6 +4,7 @@ import 'avatar.dart';
 import 'models.dart';
 import 'pic_filter.dart';
 import 'scene_canvas.dart';
+import 'stage_shape.dart';
 
 /// What the person chose for a music video.
 class MusicSetup {
@@ -18,6 +19,9 @@ class MusicSetup {
     required this.aspectH,
     required this.vizKind,
     required this.accent,
+    this.layout = 0,
+    this.titleFont = '',
+    this.artistFont = '',
   });
 
   final String cover;
@@ -30,22 +34,34 @@ class MusicSetup {
   final int aspectH;
   final String vizKind;
   final int accent;
+
+  /// Where the cover and record go on a wide video: 0 centre, 1 left, 2 right.
+  final int layout;
+  final String titleFont;
+  final String artistFont;
 }
 
-/// Fills a new, empty video with one slide: blurred cover as the background, the cover, a record
-/// turning behind it, the audio picture, the title and the song as sound.
-void buildMusicProject(Lesson lesson, MusicSetup s) {
-  final size = lesson.stageSize;
-  final w = size.$1;
-  final h = size.$2;
-  final portrait = h > w;
+/// The one slide of a music video: blurred cover as the background, the cover, a record turning
+/// behind it, the audio picture, the title and the artist. Call [Stage.use] with the video shape
+/// first (the text sizes depend on it). Used for the preview and for the real project.
+Scene buildMusicScene(MusicSetup s) {
+  final w = Stage.w;
+  final h = Stage.h;
+  final wide = w / h >= 1.3;
+  final side = wide && s.layout != 0;
+  final left = s.layout == 1;
 
   final cs = math.min(0.58 * h, 0.62 * w);
   final shift = 0.34 * cs;
   final groupW = cs + shift;
-  final coverCx = (w - groupW) / 2 + cs / 2;
+  final groupCx = side ? (left ? 0.30 * w : 0.70 * w) : w / 2;
+  final coverCx = groupCx - groupW / 2 + cs / 2;
   final discCx = coverCx + shift;
-  final cy = (portrait ? 0.34 : 0.38) * h;
+  final portrait = h > w;
+  final cy = side ? 0.5 * h : (portrait ? 0.34 : 0.38) * h;
+
+  final textCx = side ? (left ? 0.72 * w : 0.28 * w) : w / 2;
+  final textMaxW = side ? 0.42 : 0.9;
 
   // The cover cut to a square, so it fills a round record.
   double cropSide = 0;
@@ -56,8 +72,8 @@ void buildMusicProject(Lesson lesson, MusicSetup s) {
     cropTop = (1 - s.coverAspect) / 2;
   }
 
-  Layer square(String type, double centerX, double centerY, double side) {
-    final l = Layer(id: newId(), type: type, w: side / w, h: side / h);
+  Layer square(String type, double centerX, double centerY, double sideLen) {
+    final l = Layer(id: newId(), type: type, w: sideLen / w, h: sideLen / h);
     l.cx = centerX / w;
     l.cy = centerY / h;
     return l;
@@ -65,12 +81,11 @@ void buildMusicProject(Lesson lesson, MusicSetup s) {
 
   final layers = <Layer>[];
 
-  final rim = square('shape', discCx, cy, cs * 1.05)
+  layers.add(square('shape', discCx, cy, cs * 1.05)
     ..shape = 'circle'
-    ..color = 0xFF0B0B0B;
-  layers.add(rim);
+    ..color = 0xFF0B0B0B);
 
-  final disc = square('image', discCx, cy, cs)
+  layers.add(square('image', discCx, cy, cs)
     ..path = s.cover
     ..mask = 'circle'
     ..srcAspect = s.coverAspect
@@ -79,8 +94,7 @@ void buildMusicProject(Lesson lesson, MusicSetup s) {
     ..cropT = cropTop
     ..cropB = cropTop
     ..animLoop = 'spin'
-    ..animLoopMs = 9000;
-  layers.add(disc);
+    ..animLoopMs = 9000);
 
   layers.add(square('shape', discCx, cy, cs * 0.2)
     ..shape = 'circle'
@@ -89,49 +103,52 @@ void buildMusicProject(Lesson lesson, MusicSetup s) {
     ..shape = 'circle'
     ..color = 0xFF0B0B0B);
 
-  final cover = square('image', coverCx, cy, cs)
+  layers.add(square('image', coverCx, cy, cs)
     ..path = s.cover
     ..srcAspect = s.coverAspect
     ..cropL = cropSide
     ..cropR = cropSide
     ..cropT = cropTop
     ..cropB = cropTop
-    ..shadowOn = true;
-  layers.add(cover);
+    ..shadowOn = true);
 
   final spec = AvatarSpec(audio: s.audio, startMs: 0, sourceMs: s.audioMs);
-  final viz = Layer(id: newId(), type: 'shape', shape: 'viz_${s.vizKind}', color: s.accent, w: 0.78, h: 0.1);
-  viz.cx = 0.5;
-  viz.cy = 0.7;
+  final viz = Layer(
+    id: newId(),
+    type: 'shape',
+    shape: 'viz_${s.vizKind}',
+    color: s.accent,
+    w: side ? 0.40 : 0.78,
+    h: side ? 0.12 : 0.1,
+  );
+  viz.cx = side ? textCx / w : 0.5;
+  viz.cy = side ? 0.64 : 0.7;
   viz.avatar = spec.encode();
   layers.add(viz);
 
-  if (s.title.trim().isNotEmpty) {
-    final t = Layer(id: newId(), type: 'text', text: s.title.trim(), color: 0xFFFFFFFF);
-    setLayerTextSizePx(t, 64);
-    if (t.w > 0.9) {
-      final f = 0.9 / t.w;
-      t.w = 0.9;
+  Layer fitted(Layer t, double px) {
+    setLayerTextSizePx(t, px);
+    if (t.w > textMaxW) {
+      final f = textMaxW / t.w;
+      t.w = textMaxW;
       t.h = t.h * f;
     }
-    t.cx = 0.5;
-    t.cy = 0.8;
+    t.cx = textCx / w;
+    return t;
+  }
+
+  if (s.title.trim().isNotEmpty) {
+    final t = Layer(id: newId(), type: 'text', text: s.title.trim(), color: 0xFFFFFFFF, fontFamily: s.titleFont);
+    fitted(t, side ? 56 : 64).cy = side ? 0.38 : 0.8;
     layers.add(t);
   }
   if (s.artist.trim().isNotEmpty) {
-    final a = Layer(id: newId(), type: 'text', text: s.artist.trim(), color: s.accent, bold: false);
-    setLayerTextSizePx(a, 36);
-    if (a.w > 0.9) {
-      final f = 0.9 / a.w;
-      a.w = 0.9;
-      a.h = a.h * f;
-    }
-    a.cx = 0.5;
-    a.cy = 0.88;
+    final a = Layer(id: newId(), type: 'text', text: s.artist.trim(), color: s.accent, bold: false, fontFamily: s.artistFont);
+    fitted(a, side ? 34 : 36).cy = side ? 0.50 : 0.88;
     layers.add(a);
   }
 
-  final scene = Scene(
+  return Scene(
     id: newId(),
     durationMs: math.max(1000, s.audioMs),
     bgType: 'file',
@@ -139,10 +156,19 @@ void buildMusicProject(Lesson lesson, MusicSetup s) {
     bgFilter: const PicFilter(blur: 0.04, dim: 0.5).encode(),
     layers: layers,
   );
-  lesson.scenes
-    ..clear()
-    ..add(scene);
+}
 
+/// Fills a new, empty video with the music slide and the song as sound.
+void buildMusicProject(Lesson lesson, MusicSetup s) {
+  Stage.use(s.aspectW, s.aspectH);
+  try {
+    final scene = buildMusicScene(s);
+    lesson.scenes
+      ..clear()
+      ..add(scene);
+  } finally {
+    Stage.reset();
+  }
   lesson.audioClips
     ..clear()
     ..add(AudioClip(

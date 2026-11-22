@@ -4,8 +4,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
+import '../editor/edit_panel.dart' show fontEntries;
 import '../media/media_library.dart';
+import '../models.dart';
 import '../music_project.dart';
+import '../scene_canvas.dart';
+import '../stage_shape.dart';
 import '../visualizer.dart';
 
 /// Pick the cover art and the song, write the title, choose the audio picture. Returns a [MusicSetup].
@@ -27,6 +31,10 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   String _viz = 'bars';
   int _accent = 0xFFFF9F1C;
   String _message = '';
+  int _layout = 0;
+  String _titleFont = '';
+  String _artistFont = '';
+  bool _playing = false;
 
   static const List<(String, int, int)> _shapes = [
     ('Wide 16:9', 16, 9),
@@ -45,6 +53,8 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
 
   @override
   void dispose() {
+    if (_playing) KainuwaEncoder.stopAudio();
+    Stage.reset();
     _title.dispose();
     _artist.dispose();
     super.dispose();
@@ -119,22 +129,114 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
     });
   }
 
-  void _create() {
+  MusicSetup _setup() {
     final s = _shapes[_shape];
-    Navigator.of(context).pop(
-      MusicSetup(
-        cover: _cover,
-        coverAspect: _aspect,
-        audio: _audio,
-        audioMs: _audioMs,
-        title: _title.text,
-        artist: _artist.text,
-        aspectW: s.$2,
-        aspectH: s.$3,
-        vizKind: _viz,
-        accent: _accent,
+    return MusicSetup(
+      cover: _cover,
+      coverAspect: _aspect,
+      audio: _audio,
+      audioMs: _audioMs,
+      title: _title.text,
+      artist: _artist.text,
+      aspectW: s.$2,
+      aspectH: s.$3,
+      vizKind: _viz,
+      accent: _accent,
+      layout: _shape == 0 ? _layout : 0,
+      titleFont: _titleFont,
+      artistFont: _artistFont,
+    );
+  }
+
+  void _create() => Navigator.of(context).pop(_setup());
+
+  Future<void> _togglePlay() async {
+    if (_audio.isEmpty) return;
+    if (_playing) {
+      await KainuwaEncoder.stopAudio();
+      if (mounted) setState(() => _playing = false);
+      return;
+    }
+    setState(() => _playing = true);
+    try {
+      await KainuwaEncoder.playAudio(_audio);
+    } catch (_) {}
+    Future<void>.delayed(Duration(milliseconds: _audioMs + 300), () {
+      if (mounted) setState(() => _playing = false);
+    });
+  }
+
+  /// How the video will look, drawn with the same code as the real video.
+  Widget _preview() {
+    if (_cover.isEmpty) {
+      return Container(
+        height: 120,
+        alignment: Alignment.center,
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        decoration: BoxDecoration(color: const Color(0x22808080), borderRadius: BorderRadius.circular(12)),
+        child: const Text('Choose the cover art to see the preview'),
+      );
+    }
+    final shape = _shapes[_shape];
+    Stage.use(shape.$2, shape.$3);
+    final scene = buildMusicScene(_setup());
+    final w = Stage.w;
+    final h = Stage.h;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 230),
+          child: AspectRatio(
+            aspectRatio: w / h,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(width: w, height: h, child: SceneCanvas(scene: scene)),
+              ),
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  /// A list of fonts, each name written in its own font. Returns the family, or null when closed.
+  Future<String?> _pickFont(String current) {
+    final entries = fontEntries();
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (c) => SizedBox(
+        height: MediaQuery.of(c).size.height * 0.7,
+        child: ListView.builder(
+          itemCount: entries.length,
+          itemBuilder: (c, i) {
+            final e = entries[i];
+            return ListTile(
+              dense: true,
+              title: Text(
+                _title.text.trim().isEmpty ? e.$2 : '${_title.text.trim()}  -  ${e.$2}',
+                style: TextStyle(fontFamily: e.$1.isEmpty ? null : e.$1, fontSize: 20),
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(e.$3, style: const TextStyle(fontSize: 11)),
+              trailing: e.$1 == current ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.of(c).pop(e.$1),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String _fontName(String family) {
+    for (final e in fontEntries()) {
+      if (e.$1 == family) return e.$2;
+    }
+    return family.isEmpty ? 'Default' : family;
   }
 
   String _seconds(int ms) {
@@ -148,7 +250,11 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Music video')),
       body: SafeArea(
-        child: ListView(
+        child: Column(
+          children: [
+            _preview(),
+            Expanded(
+              child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Row(
@@ -179,7 +285,17 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
             if (_audio.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('${_audio.split('/').last}  (${_seconds(_audioMs)})', overflow: TextOverflow.ellipsis),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: _togglePlay,
+                      icon: Icon(_playing ? Icons.stop_circle_outlined : Icons.play_circle_outline),
+                    ),
+                    Expanded(
+                      child: Text('${_audio.split('/').last}  (${_seconds(_audioMs)})', overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
             const SizedBox(height: 16),
             TextField(
@@ -204,6 +320,43 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
                     onSelected: (_) => setState(() => _shape = i),
                   ),
               ],
+            ),
+            const SizedBox(height: 16),
+            const Text('Place the record and cover', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final o in const [(0, 'Centre'), (1, 'Left'), (2, 'Right')])
+                  ChoiceChip(
+                    label: Text(o.$2),
+                    selected: (_shape == 0 ? _layout : 0) == o.$1,
+                    onSelected: _shape == 0 ? (_) => setState(() => _layout = o.$1) : null,
+                  ),
+              ],
+            ),
+            if (_shape != 0)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Left and right need the wide video shape. The other shapes have no room.', style: TextStyle(fontSize: 12)),
+              ),
+            const SizedBox(height: 16),
+            const Text('Fonts', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () async {
+                final f = await _pickFont(_titleFont);
+                if (f != null) setState(() => _titleFont = f);
+              },
+              child: Text('Title font: ${_fontName(_titleFont)}'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () async {
+                final f = await _pickFont(_artistFont);
+                if (f != null) setState(() => _artistFont = f);
+              },
+              child: Text('Artist font: ${_fontName(_artistFont)}'),
             ),
             const SizedBox(height: 16),
             const Text('Audio picture', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -254,6 +407,9 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
               'The cover is added with a record turning behind it, and the audio picture moves with the real sound. '
               'Only use music and pictures you have the right to use.',
               style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
             ),
           ],
         ),
