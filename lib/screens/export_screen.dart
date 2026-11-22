@@ -468,7 +468,9 @@ class _ExportScreenState extends State<ExportScreen> {
               final sigPaths = <String, String>{};
               var lastSig = '';
               frames = [];
-              for (var t = layer.startMs; t < vEnd; t += 100) {
+              // Every picture costs time, so a long song gets fewer pictures (at most about 900).
+              final vStep = math.max(100, (((vEnd - layer.startMs) / 900) / 50).ceil() * 50);
+              for (var t = layer.startMs; t < vEnd; t += vStep) {
                 final sig = vizSignature(vspec, offsetMs + t);
                 if (sig == lastSig) continue;
                 var vp = sigPaths[sig];

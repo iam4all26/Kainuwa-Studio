@@ -55,6 +55,27 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   List<AssetPathEntity> _albums = [];
   AssetPathEntity? _album;
   final List<AssetEntity> _assets = [];
+  bool _searching = false;
+  String _query = '';
+  final TextEditingController _searchCtl = TextEditingController();
+
+  /// The loaded files whose name contains the search text (all of them when nothing is typed).
+  List<AssetEntity> get _visible {
+    final q = _query.toLowerCase();
+    if (q.isEmpty) return _assets;
+    return _assets.where((a) => (a.title ?? '').toLowerCase().contains(q)).toList();
+  }
+
+  /// While searching, load every page of the folder so the whole folder is searched.
+  Future<void> _loadAllForSearch() async {
+    while (_query.isNotEmpty && _hasMore && _album != null && mounted) {
+      if (_loading) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        continue;
+      }
+      await _loadMore();
+    }
+  }
   int _page = 0;
   String? _listenId;
   StreamSubscription<void>? _doneSub;
@@ -95,6 +116,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
+    _searchCtl.dispose();
     _doneSub?.cancel();
     if (_listenId != null) {
       KainuwaEncoder.stopAudio().then((_) {}, onError: (_) {});
@@ -179,7 +201,18 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
       _allowed = true;
       _albums = albums;
     });
-    if (albums.isNotEmpty) await _selectAlbum(albums.first);
+    // The folders are listed A to Z; the folder that opens first stays the same as before.
+    final firstAlbum = albums.isNotEmpty ? albums.first : null;
+    if (albums.length > 1) {
+      setState(() {
+        _albums = List<AssetPathEntity>.of(albums)
+          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      });
+    }
+    if (firstAlbum != null) {
+      await _selectAlbum(firstAlbum);
+      if (_query.isNotEmpty) _loadAllForSearch();
+    }
   }
 
   Future<void> _selectAlbum(AssetPathEntity album) async {
@@ -379,13 +412,14 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
   }
 
   Widget _grid() {
+    final items = _visible;
     final audio = widget.kind == MediaKind.audio;
     if (audio) {
       return ListView.builder(
         controller: _scroll,
-        itemCount: _assets.length,
+        itemCount: items.length,
         itemBuilder: (context, i) {
-          final a = _assets[i];
+          final a = items[i];
           return ListTile(
             leading: InkWell(
               borderRadius: BorderRadius.circular(12),
@@ -429,9 +463,9 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
         mainAxisSpacing: 4,
         crossAxisSpacing: 4,
       ),
-      itemCount: _assets.length,
+      itemCount: items.length,
       itemBuilder: (context, i) {
-        final a = _assets[i];
+        final a = items[i];
         final order = _picked.indexWhere((x) => x.id == a.id);
         return InkWell(
           onTap: () => _tapAsset(a),
@@ -489,6 +523,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
         'Allow access to your media so Kainuwa Studio can show your files here.',
         settings: true,
       );
+    } else if (_query.isNotEmpty && _visible.isEmpty && !_loading && !_hasMore) {
+      body = _message('No file in this folder matches "$_query".');
     } else if (_assets.isEmpty && !_loading && !_hasMore) {
       body = _message(_problem.isEmpty ? 'Nothing found here.' : 'Nothing found here.\n\n$_problem');
     } else {
@@ -496,8 +532,30 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> with WidgetsBin
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(_picked.isEmpty ? _title : '${_picked.length} selected'),
+        title: _searching
+            ? TextField(
+                controller: _searchCtl,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'Search by name', border: InputBorder.none),
+                onChanged: (v) {
+                  setState(() => _query = v.trim());
+                  _loadAllForSearch();
+                },
+              )
+            : Text(_picked.isEmpty ? _title : '${_picked.length} selected'),
         actions: [
+          if (_allowed)
+            IconButton(
+              tooltip: _searching ? 'Close search' : 'Search',
+              icon: Icon(_searching ? Icons.close : Icons.search),
+              onPressed: () => setState(() {
+                _searching = !_searching;
+                if (!_searching) {
+                  _query = '';
+                  _searchCtl.clear();
+                }
+              }),
+            ),
           if (widget.multi)
             IconButton(
               tooltip: 'Select several',
