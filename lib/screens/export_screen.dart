@@ -411,6 +411,13 @@ class _ExportScreenState extends State<ExportScreen> {
           for (var k = firstAnimated; k < scene.layers.length; k++) {
             _guard();
             final layer = scene.layers[k];
+            if ((k - firstAnimated) % 8 == 7) {
+              // Many items on one slide (for example the words of a lyrics video): keep the bar moving.
+              final n = scene.layers.length - firstAnimated;
+              _setProgress(0, (i + (k - firstAnimated) / math.max(1, n)) / scenes.length);
+              _set('Preparing item ${k - firstAnimated + 1} of $n. Keep this screen open.');
+              await Future<void>.delayed(Duration.zero);
+            }
             final picture = _layerPicture(layer);
             final isFxLayer = layer.type == 'shape' && isFxLayerShape(layer.shape);
             final isVizLayer = layer.type == 'shape' && isVizLayerShape(layer.shape) && layer.avatar.isNotEmpty;
@@ -454,14 +461,42 @@ class _ExportScreenState extends State<ExportScreen> {
               // A floating effect repeats every few seconds: draw one loop of pictures and
               // show them again and again.
               final loop = <String>[];
+              final direct = layer.rotation == 0 && layer.opacity >= 0.999;
+              final pending = <Future<void>>[];
+              final layerCount = math.max(1, scene.layers.length - firstAnimated);
               for (var j = 0; j < kFxFrames; j++) {
                 _guard();
-                final pic = _layerPicture(layer, fxMs: (j * kFxPeriodMs / kFxFrames).round());
-                final img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                final fxAt = (j * kFxPeriodMs / kFxFrames).round();
+                final ui.Image img;
+                if (direct) {
+                  img = await renderFxImage(
+                    kind: layer.shape.substring(3),
+                    timeMs: fxAt,
+                    boxW: picture.$1,
+                    boxH: picture.$2,
+                    layerW: layer.w * _sw,
+                    layerH: layer.h * _sh,
+                    ratio: ratio,
+                  );
+                } else {
+                  final pic = _layerPicture(layer, fxMs: fxAt);
+                  img = await _capture(pic.$3, pic.$1, pic.$2, ratio);
+                }
                 final fp = '${work.path}/scene_${i}_layer_${k}_fx$j.png';
-                await _savePng(img, fp);
+                // Saving a picture runs beside drawing the next one.
+                pending.add(_savePng(img, fp));
+                if (pending.length >= 4) {
+                  await Future.wait(pending);
+                  pending.clear();
+                }
                 loop.add(fp);
+                if (j % 6 == 5) {
+                  _setProgress(0, (i + ((k - firstAnimated) + (j + 1) / kFxFrames) / layerCount) / scenes.length);
+                  _set('Drawing the effect ${(100 * (j + 1) / kFxFrames).round()}%. Keep this screen open.');
+                  await Future<void>.delayed(Duration.zero);
+                }
               }
+              await Future.wait(pending);
               final fxEnd = layerEndMs(layer, scene.durationMs);
               frames = [];
               for (var j = 0;; j++) {

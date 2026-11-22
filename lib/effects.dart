@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -54,6 +55,29 @@ class EffectView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Draws one picture of an effect straight into an image, without building widgets (much faster
+/// than a widget capture, which matters for the export that needs dozens of pictures per effect).
+/// [boxW] and [boxH] are the whole picture (with its edge room), [layerW] and [layerH] the item.
+Future<ui.Image> renderFxImage({
+  required String kind,
+  required int timeMs,
+  required double boxW,
+  required double boxH,
+  required double layerW,
+  required double layerH,
+  required double ratio,
+}) {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.scale(ratio);
+  canvas.translate((boxW - layerW) / 2, (boxH - layerH) / 2);
+  _FxPainter(kind, timeMs, true).paint(canvas, Size(layerW, layerH));
+  final picture = recorder.endRecording();
+  final image = picture.toImage((boxW * ratio).ceil(), (boxH * ratio).ceil());
+  picture.dispose();
+  return image;
 }
 
 double _rnd(int i, int salt) {
