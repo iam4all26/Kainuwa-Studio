@@ -51,8 +51,12 @@ Scene buildMusicScene(MusicSetup s) {
   final side = wide && s.layout != 0;
   final left = s.layout == 1;
 
-  final cs = math.min(0.58 * h, 0.62 * w);
-  final shift = 0.34 * cs;
+  final ring = s.vizKind == 'circle';
+  // The record is never taller than the cover. With the ring style the ring (not the record)
+  // fills the cover's height, so the record is smaller and the ring grows around it.
+  final cs = math.min(0.58 * h, 0.86 * w / (ring ? 1.5 : 1.4));
+  final shift = (ring ? 0.5 : 0.40) * cs;
+  final discD = (ring ? 0.66 : 0.96) * cs;
   final groupW = cs + shift;
   final groupCx = side ? (left ? 0.30 * w : 0.70 * w) : w / 2;
   final coverCx = groupCx - groupW / 2 + cs / 2;
@@ -81,11 +85,11 @@ Scene buildMusicScene(MusicSetup s) {
 
   final layers = <Layer>[];
 
-  layers.add(square('shape', discCx, cy, cs * 1.05)
+  layers.add(square('shape', discCx, cy, discD * (ring ? 1.06 : 1.04))
     ..shape = 'circle'
     ..color = 0xFF0B0B0B);
 
-  layers.add(square('image', discCx, cy, cs)
+  layers.add(square('image', discCx, cy, discD)
     ..path = s.cover
     ..mask = 'circle'
     ..srcAspect = s.coverAspect
@@ -96,21 +100,21 @@ Scene buildMusicScene(MusicSetup s) {
     ..animLoop = 'spin'
     ..animLoopMs = 9000);
 
-  layers.add(square('shape', discCx, cy, cs * 0.2)
+  layers.add(square('shape', discCx, cy, discD * 0.2)
     ..shape = 'circle'
     ..color = 0x66FFFFFF);
-  layers.add(square('shape', discCx, cy, cs * 0.13)
+  layers.add(square('shape', discCx, cy, discD * 0.13)
     ..shape = 'circle'
     ..color = 0xFF0B0B0B);
 
-  layers.add(square('image', coverCx, cy, cs)
+  final coverLayer = square('image', coverCx, cy, cs)
     ..path = s.cover
     ..srcAspect = s.coverAspect
     ..cropL = cropSide
     ..cropR = cropSide
     ..cropT = cropTop
     ..cropB = cropTop
-    ..shadowOn = true);
+    ..shadowOn = true;
 
   final spec = AvatarSpec(audio: s.audio, startMs: 0, sourceMs: s.audioMs);
   final viz = Layer(
@@ -118,13 +122,16 @@ Scene buildMusicScene(MusicSetup s) {
     type: 'shape',
     shape: 'viz_${s.vizKind}',
     color: s.accent,
-    w: side ? 0.40 : 0.78,
-    h: side ? 0.12 : ((s.vizKind == 'rise' || s.vizKind == 'blocks') ? 0.15 : (s.vizKind == 'wave' ? 0.13 : 0.1)),
+    w: ring ? cs / w : (side ? 0.40 : 0.78),
+    h: ring ? cs / h : side ? 0.12 : ((s.vizKind == 'rise' || s.vizKind == 'blocks') ? 0.15 : (s.vizKind == 'wave' ? 0.13 : 0.1)),
   );
-  viz.cx = side ? textCx / w : 0.5;
-  viz.cy = side ? 0.64 : 0.7;
+  viz.cx = ring ? discCx / w : (side ? textCx / w : 0.5);
+  viz.cy = ring ? cy / h : (side ? 0.64 : 0.7);
   viz.avatar = spec.encode();
-  layers.add(viz);
+  // The ring goes behind the cover, so only the part beside the cover shows.
+  if (ring) layers.add(viz);
+  layers.add(coverLayer);
+  if (!ring) layers.add(viz);
 
   Layer fitted(Layer t, double px) {
     setLayerTextSizePx(t, px);

@@ -20,6 +20,7 @@ const List<VizKind> kVizKinds = [
   VizKind('pulse', 'Pulse'),
   VizKind('rise', 'Spectrum'),
   VizKind('blocks', 'Blocks'),
+  VizKind('circle', 'Ring around the record'),
 ];
 
 bool isVizLayerShape(String shape) => shape.startsWith('viz_');
@@ -162,6 +163,25 @@ class _VizPainter extends CustomPainter {
             ..strokeWidth = math.max(1.5, h * 0.03 * wv.$5)
             ..color = Color.lerp(color, Colors.white, 1.0 - wv.$4)!;
           canvas.drawPath(path, paint);
+        }
+        break;
+      case 'circle':
+        // Short bars all around a ring. The top shows the sound now, and both sides trail down.
+        final centre = Offset(w / 2, h / 2);
+        final side = math.min(w, h);
+        final r0 = side * 0.35;
+        final maxLen = side * 0.15;
+        paint
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = math.max(2.0, 2 * math.pi * r0 / 48 * 0.55)
+          ..color = color;
+        for (var j = 0; j < 48; j++) {
+          final m = j < 24 ? j : 47 - j;
+          final len = math.max(side * 0.012, values[24 + m] / _kLevels * maxLen);
+          final a = 2 * math.pi * j / 48 - math.pi / 2;
+          final dir = Offset(math.cos(a), math.sin(a));
+          canvas.drawLine(centre + dir * r0, centre + dir * (r0 + len), paint);
         }
         break;
       case 'pulse':
