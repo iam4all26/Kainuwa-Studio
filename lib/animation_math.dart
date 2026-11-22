@@ -23,7 +23,7 @@ class AnimFrame {
   final double dy;
 }
 
-const List<String> kAnimKinds = ['none', 'appear', 'fade', 'slide', 'pop', 'zoom', 'draw'];
+const List<String> kAnimKinds = ['none', 'appear', 'fade', 'slide', 'pop', 'zoom', 'draw', 'jump', 'drop', 'rise', 'flipin'];
 const List<String> kExitKinds = ['none', 'fade', 'slide', 'pop', 'zoom', 'draw'];
 
 String animLabel(String kind) {
@@ -40,6 +40,14 @@ String animLabel(String kind) {
       return 'Zoom';
     case 'draw':
       return 'Draw';
+    case 'jump':
+      return 'Jump up';
+    case 'drop':
+      return 'Drop in';
+    case 'rise':
+      return 'Rise';
+    case 'flipin':
+      return 'Flip in';
     default:
       return 'None';
   }
@@ -68,6 +76,29 @@ String slideDirLabel(String dir) {
 
 /// The kind as sent to the video encoder: a slide carries its direction, for example slide:up.
 String kindWithDir(String kind, String dir) => kind == 'slide' ? 'slide:$dir' : kind;
+
+/// Overshoot easing: goes a little past 1 and settles back (the same curve as Pop).
+double _back(double p) {
+  final q = p - 1;
+  return 1 + 2.70158 * q * q * q + 1.70158 * q * q;
+}
+
+/// A ball dropped on the floor: 0 to 1 with small bounces at the end.
+double _bounceOut(double t) {
+  const n1 = 7.5625;
+  const d1 = 2.75;
+  if (t < 1 / d1) return n1 * t * t;
+  if (t < 2 / d1) {
+    final u = t - 1.5 / d1;
+    return n1 * u * u + 0.75;
+  }
+  if (t < 2.5 / d1) {
+    final u = t - 2.25 / d1;
+    return n1 * u * u + 0.9375;
+  }
+  final u = t - 2.625 / d1;
+  return n1 * u * u + 0.984375;
+}
 
 AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs, [String dir = 'right']) {
   if (kind == 'none') return const AnimFrame(1, 0, 1);
@@ -111,6 +142,25 @@ AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs, [
     case 'draw':
       alpha = 1;
       scaleX = math.max(0.01, eased);
+      break;
+    case 'jump':
+      // Starts below, jumps a little past its place and settles.
+      dy = 0.14 * (1 - _back(progress));
+      alpha = math.min(1.0, progress * 6);
+      break;
+    case 'drop':
+      // Falls from above and bounces.
+      dy = -0.22 * (1 - _bounceOut(progress));
+      alpha = math.min(1.0, progress * 8);
+      break;
+    case 'rise':
+      // A gentle slide up while fading in.
+      dy = 0.06 * (1 - eased);
+      break;
+    case 'flipin':
+      // Turns in from the side, a little past full width, then settles.
+      scaleX = math.max(0.01, _back(progress));
+      alpha = math.min(1.0, progress * 5);
       break;
   }
   if (progress <= 0) alpha = 0;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../animation_math.dart' show animLabel;
 import '../app_state.dart';
 import '../lyrics_project.dart';
 import '../music_project.dart';
@@ -88,12 +89,13 @@ class _TemplatesTabState extends State<TemplatesTab> {
           bg: l.bg,
           fx: l.fx,
           byWord: true,
+          anim: l.anim,
         ),
         sampleOnly: true,
       );
       lyrics.add(_Card(
         name: l.name,
-        note: 'One word at a time',
+        note: 'One word at a time, ${animLabel(l.anim).toLowerCase()}',
         scene: scene,
         w: Stage.w,
         h: Stage.h,

@@ -15,6 +15,7 @@ Map<String, dynamic> musicTemplateForm(MusicTemplate t) => {
 
 Map<String, dynamic> lyricsTemplateForm(LyricsLook l) => {
       'look': l.id,
+      'anim': l.anim,
       'font': l.font,
       'bg': l.bg,
       'palette': l.palette,

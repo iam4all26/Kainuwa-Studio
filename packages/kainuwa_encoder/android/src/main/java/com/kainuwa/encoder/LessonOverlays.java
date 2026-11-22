@@ -266,6 +266,31 @@ final class LessonOverlays {
         return i < 0 ? kind : kind.substring(0, i);
     }
 
+    /** Overshoot easing, the same curve as Pop. */
+    private static double back(double p) {
+        double q = p - 1;
+        return 1 + 2.70158 * q * q * q + 1.70158 * q * q;
+    }
+
+    /** A ball dropped on the floor. Same as _bounceOut in animation_math.dart. */
+    private static double bounceOut(double t) {
+        final double n1 = 7.5625;
+        final double d1 = 2.75;
+        if (t < 1 / d1) {
+            return n1 * t * t;
+        }
+        if (t < 2 / d1) {
+            double u = t - 1.5 / d1;
+            return n1 * u * u + 0.75;
+        }
+        if (t < 2.5 / d1) {
+            double u = t - 2.25 / d1;
+            return n1 * u * u + 0.9375;
+        }
+        double u = t - 2.625 / d1;
+        return n1 * u * u + 0.984375;
+    }
+
     private static final double SLIDE_X = 0.175;
     private static final double SLIDE_Y = 0.31;
 
@@ -315,6 +340,21 @@ final class LessonOverlays {
             case "draw":
                 alpha = 1;
                 scaleX = Math.max(0.01, eased);
+                break;
+            case "jump":
+                dy = 0.14 * (1 - back(progress));
+                alpha = Math.min(1.0, progress * 6);
+                break;
+            case "drop":
+                dy = -0.22 * (1 - bounceOut(progress));
+                alpha = Math.min(1.0, progress * 8);
+                break;
+            case "rise":
+                dy = 0.06 * (1 - eased);
+                break;
+            case "flipin":
+                scaleX = Math.max(0.01, back(progress));
+                alpha = Math.min(1.0, progress * 5);
                 break;
             default:
                 break;

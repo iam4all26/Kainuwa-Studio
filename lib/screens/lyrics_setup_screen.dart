@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
+import '../animation_math.dart' show animLabel;
 import '../editor/edit_panel.dart' show fontEntries;
 import '../lyrics_project.dart';
 import '../media/media_library.dart';
@@ -37,6 +38,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   List<int> _starts = [];
   List<LyricCue> _srt = [];
   String _look = 'neon';
+  String _anim = 'jump';
   String _font = 'Sacramento';
   int _bg = 0xFF03040B;
   List<int> _palette = kLyricsLooks.first.palette;
@@ -79,6 +81,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
             LyricCue((v[0] as num).round(), (v[1] as num).round(), v[2] as String),
     ];
     _look = str('look', 'neon');
+    _anim = str('anim', _anim);
     _font = str('font', _font);
     _bg = iv('bg', _bg);
     if (f['palette'] is List) {
@@ -101,6 +104,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
 
   void _applyLook(LyricsLook l) {
     _look = l.id;
+    _anim = l.anim;
     _font = l.font;
     _bg = l.bg;
     _palette = l.palette;
@@ -229,6 +233,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       bg: _bg,
       fx: _fx,
       byWord: _byWord,
+      anim: _anim,
       title: _nameOf(_audio),
       form: {
         'audio': _audio,
@@ -239,6 +244,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'starts': _starts,
         'srt': [for (final c in _srt) [c.startMs, c.endMs, c.text]],
         'look': _look,
+        'anim': _anim,
         'font': _font,
         'bg': _bg,
         'palette': _palette,
@@ -430,6 +436,20 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     if (f != null) setState(() => _font = f);
                   },
                   child: Text('Font: ${_fontName(_font)}'),
+                ),
+                const SizedBox(height: 12),
+                const Text('Word animation', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final a in kLyricAnims)
+                      ChoiceChip(
+                        label: Text(animLabel(a)),
+                        selected: _anim == a,
+                        onSelected: (_) => setState(() => _anim = a),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 const Text('Background', style: TextStyle(fontWeight: FontWeight.w600)),

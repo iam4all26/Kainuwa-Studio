@@ -23,7 +23,11 @@ class LyricsLook {
     required this.font,
     required this.bg,
     this.fx = const [],
+    this.anim = 'pop',
   });
+
+  /// How each word comes in: an entrance from animation_math.dart.
+  final String anim;
 
   final String id;
   final String name;
@@ -43,6 +47,7 @@ const List<LyricsLook> kLyricsLooks = [
     font: 'Sacramento',
     bg: 0xFF03040B,
     fx: ['stars', 'streaks'],
+    anim: 'jump',
   ),
   LyricsLook(
     id: 'fire',
@@ -51,6 +56,7 @@ const List<LyricsLook> kLyricsLooks = [
     font: 'Bebas Neue',
     bg: 0xFF110404,
     fx: ['embers'],
+    anim: 'drop',
   ),
   LyricsLook(
     id: 'ocean',
@@ -59,6 +65,7 @@ const List<LyricsLook> kLyricsLooks = [
     font: 'Quicksand',
     bg: 0xFF02091A,
     fx: ['stars'],
+    anim: 'rise',
   ),
   LyricsLook(
     id: 'candy',
@@ -67,6 +74,7 @@ const List<LyricsLook> kLyricsLooks = [
     font: 'Pacifico',
     bg: 0xFF12051C,
     fx: ['sparkle'],
+    anim: 'flipin',
   ),
   LyricsLook(
     id: 'clean',
@@ -74,8 +82,12 @@ const List<LyricsLook> kLyricsLooks = [
     palette: [0xFFFFFFFF],
     font: 'Montserrat',
     bg: 0xFF000000,
+    anim: 'fade',
   ),
 ];
+
+/// The entrances offered for lyrics.
+const List<String> kLyricAnims = ['pop', 'jump', 'drop', 'rise', 'flipin', 'zoom', 'fade', 'slide', 'appear'];
 
 /// What the person chose for a lyrics video.
 class LyricsSetup {
@@ -90,6 +102,7 @@ class LyricsSetup {
     required this.bg,
     required this.fx,
     required this.byWord,
+    this.anim = 'pop',
     this.title = '',
     this.form = const {},
   });
@@ -104,6 +117,9 @@ class LyricsSetup {
   final int bg;
   final List<String> fx;
   final bool byWord;
+
+  /// How each word comes in.
+  final String anim;
   final String title;
 
   /// The choices of the setup screen, saved with the video so the setup can be opened again.
@@ -210,8 +226,9 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     if (!sampleOnly) {
       t.startMs = c.startMs;
       t.endMs = c.endMs;
-      t.animIn = 'pop';
-      t.animDurationMs = 220;
+      t.animIn = s.anim;
+      t.animInDir = 'up';
+      t.animDurationMs = math.max(120, math.min(s.anim == 'drop' ? 600 : (s.anim == 'jump' ? 420 : 260), ((c.endMs - c.startMs) * 0.7).round()));
     }
     layers.add(t);
   }
