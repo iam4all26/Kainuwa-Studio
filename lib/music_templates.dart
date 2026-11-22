@@ -1,5 +1,5 @@
 /// A ready-made look for a music video: visualizer style, colour, record place and fonts.
-/// Only fonts every Android phone has are used, so a template always looks the same.
+/// Fonts are names from the app's built-in font list (lib/data/font_catalog.dart), so they are always available.
 class MusicTemplate {
   const MusicTemplate({
     required this.id,
@@ -23,12 +23,15 @@ class MusicTemplate {
 }
 
 const List<MusicTemplate> kMusicTemplates = [
-  MusicTemplate(id: 'vinyl', name: 'Vinyl Night', viz: 'circle', accent: 0xFFFF9F1C, layout: 1, titleFont: 'sans-serif-black', artistFont: 'sans-serif-medium'),
-  MusicTemplate(id: 'neon', name: 'Neon Club', viz: 'bars', accent: 0xFFFF4D6D, titleFont: 'sans-serif-black', artistFont: 'sans-serif-condensed'),
-  MusicTemplate(id: 'lofi', name: 'Lo-fi Warm', viz: 'blocks', accent: 0xFFFFD54F, layout: 2, titleFont: 'casual', artistFont: 'casual'),
-  MusicTemplate(id: 'clean', name: 'Clean White', viz: 'wave', accent: 0xFFFFFFFF, titleFont: 'sans-serif-medium', artistFont: ''),
-  MusicTemplate(id: 'gold', name: 'Gospel Gold', viz: 'pulse', accent: 0xFFFFD54F, titleFont: 'serif', artistFont: 'serif'),
-  MusicTemplate(id: 'radio', name: 'Radio Classic', viz: 'rise', accent: 0xFF4DD0E1, layout: 2, titleFont: 'monospace', artistFont: 'monospace'),
-  MusicTemplate(id: 'mint', name: 'Fresh Mint', viz: 'dots', accent: 0xFF69F0AE, titleFont: 'sans-serif-condensed', artistFont: 'sans-serif-condensed'),
-  MusicTemplate(id: 'dream', name: 'Dreamy', viz: 'circle', accent: 0xFFB9A0FF, layout: 2, titleFont: 'cursive', artistFont: 'sans-serif-medium'),
+  MusicTemplate(id: 'vinyl', name: 'Vinyl Night', viz: 'circle', accent: 0xFFFF9F1C, layout: 1, titleFont: 'Bebas Neue', artistFont: 'Montserrat'),
+  MusicTemplate(id: 'neon', name: 'Neon Club', viz: 'bars', accent: 0xFFFF4D6D, titleFont: 'Orbitron', artistFont: 'Exo 2'),
+  MusicTemplate(id: 'lofi', name: 'Lo-fi Warm', viz: 'blocks', accent: 0xFFFFD54F, layout: 2, titleFont: 'Caveat', artistFont: 'Quicksand'),
+  MusicTemplate(id: 'clean', name: 'Clean White', viz: 'wave', accent: 0xFFFFFFFF, titleFont: 'Montserrat', artistFont: 'Lato'),
+  MusicTemplate(id: 'gold', name: 'Gospel Gold', viz: 'pulse', accent: 0xFFFFD54F, titleFont: 'Playfair Display', artistFont: 'Cormorant Garamond'),
+  MusicTemplate(id: 'radio', name: 'Radio Classic', viz: 'rise', accent: 0xFF4DD0E1, layout: 2, titleFont: 'Space Mono', artistFont: 'Space Mono'),
+  MusicTemplate(id: 'mint', name: 'Fresh Mint', viz: 'dots', accent: 0xFF69F0AE, titleFont: 'Poppins', artistFont: 'Nunito'),
+  MusicTemplate(id: 'dream', name: 'Dreamy', viz: 'circle', accent: 0xFFB9A0FF, layout: 2, titleFont: 'Great Vibes', artistFont: 'Raleway'),
+  MusicTemplate(id: 'arcade', name: 'Retro Arcade', viz: 'blocks', accent: 0xFF69F0AE, titleFont: 'Press Start 2P', artistFont: 'VT323'),
+  MusicTemplate(id: 'party', name: 'Party', viz: 'bars', accent: 0xFFFF4D6D, layout: 1, titleFont: 'Bungee', artistFont: 'Righteous'),
+  MusicTemplate(id: 'script', name: 'Soft Script', viz: 'wave', accent: 0xFFFFFFFF, titleFont: 'Dancing Script', artistFont: 'Lato'),
 ];
