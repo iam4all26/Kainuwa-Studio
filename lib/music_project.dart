@@ -119,7 +119,7 @@ Scene buildMusicScene(MusicSetup s) {
     shape: 'viz_${s.vizKind}',
     color: s.accent,
     w: side ? 0.40 : 0.78,
-    h: side ? 0.12 : 0.1,
+    h: side ? 0.12 : ((s.vizKind == 'rise' || s.vizKind == 'blocks') ? 0.15 : (s.vizKind == 'wave' ? 0.13 : 0.1)),
   );
   viz.cx = side ? textCx / w : 0.5;
   viz.cy = side ? 0.64 : 0.7;
