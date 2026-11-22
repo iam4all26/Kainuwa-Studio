@@ -3443,6 +3443,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   @override
   Widget build(BuildContext context) {
+    // The setup screens and the template previews also use the shared stage size; always set this video's
+    // own size before drawing, so a late reset by another screen cannot break the layout.
+    final stageLesson = _lesson();
+    if (stageLesson != null) Stage.use(stageLesson.aspectW, stageLesson.aspectH);
     final landscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final state = AppScope.of(context);
     final lesson = state.lessonById(widget.courseId, widget.lessonId);

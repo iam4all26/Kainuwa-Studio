@@ -124,7 +124,8 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   @override
   void dispose() {
     if (_playing) KainuwaEncoder.stopAudio();
-    Stage.reset();
+    // No Stage.reset() here: this screen closes after the editor may already have opened, and a reset then
+    // would break the editor's layout. The editor sets its own stage size on every build.
     _title.dispose();
     _artist.dispose();
     super.dispose();
