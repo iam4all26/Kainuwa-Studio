@@ -33,5 +33,11 @@ const List<MusicTemplate> kMusicTemplates = [
   MusicTemplate(id: 'dream', name: 'Dreamy', viz: 'circle', accent: 0xFFB9A0FF, layout: 2, titleFont: 'Great Vibes', artistFont: 'Raleway'),
   MusicTemplate(id: 'arcade', name: 'Retro Arcade', viz: 'blocks', accent: 0xFF69F0AE, titleFont: 'Press Start 2P', artistFont: 'VT323'),
   MusicTemplate(id: 'party', name: 'Party', viz: 'bars', accent: 0xFFFF4D6D, layout: 1, titleFont: 'Bungee', artistFont: 'Righteous'),
+  MusicTemplate(id: 'sunset', name: 'Sunset Drive', viz: 'wave', accent: 0xFFFF7043, layout: 1, titleFont: 'Pacifico', artistFont: 'Quicksand'),
+  MusicTemplate(id: 'midnight', name: 'Midnight Blue', viz: 'rise', accent: 0xFF82B1FF, layout: 2, titleFont: 'Raleway', artistFont: 'Raleway'),
+  MusicTemplate(id: 'rose', name: 'Rose Gold', viz: 'circle', accent: 0xFFFF80AB, layout: 1, titleFont: 'Great Vibes', artistFont: 'Lato'),
+  MusicTemplate(id: 'bold', name: 'Bold Beat', viz: 'bars', accent: 0xFFFFEB3B, titleFont: 'Bebas Neue', artistFont: 'Bebas Neue'),
+  MusicTemplate(id: 'forest', name: 'Forest', viz: 'pulse', accent: 0xFF81C784, layout: 2, titleFont: 'Playfair Display', artistFont: 'Lato'),
+  MusicTemplate(id: 'cyber', name: 'Cyber', viz: 'blocks', accent: 0xFF00E5FF, layout: 1, titleFont: 'Orbitron', artistFont: 'Space Mono'),
   MusicTemplate(id: 'script', name: 'Soft Script', viz: 'wave', accent: 0xFFFFFFFF, titleFont: 'Dancing Script', artistFont: 'Lato'),
 ];

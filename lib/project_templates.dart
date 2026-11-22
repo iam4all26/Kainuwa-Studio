@@ -23,6 +23,7 @@ Map<String, dynamic> lyricsTemplateForm(LyricsLook l) => {
       'streaks': l.fx.contains('streaks'),
       'embers': l.fx.contains('embers'),
       'sparkle': l.fx.contains('sparkle'),
+      'snow': l.fx.contains('snow'),
       'shape': l.layout != 0 ? 0 : 1,
       'byWord': l.byWord,
       'layout': l.layout,

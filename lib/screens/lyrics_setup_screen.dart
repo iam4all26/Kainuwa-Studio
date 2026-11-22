@@ -50,6 +50,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   bool _streaks = true;
   bool _embers = false;
   bool _sparkle = false;
+  bool _snow = false;
   int _shape = 1;
   String _message = '';
 
@@ -99,6 +100,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _streaks = flag('streaks', _streaks);
     _embers = flag('embers', _embers);
     _sparkle = flag('sparkle', _sparkle);
+    _snow = flag('snow', _snow);
     _shape = iv('shape', 1).clamp(0, _shapes.length - 1).toInt();
   }
 
@@ -121,6 +123,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _streaks = l.fx.contains('streaks');
     _embers = l.fx.contains('embers');
     _sparkle = l.fx.contains('sparkle');
+    _snow = l.fx.contains('snow');
   }
 
   List<String> get _fx => [
@@ -128,6 +131,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         if (_streaks) 'streaks',
         if (_embers) 'embers',
         if (_sparkle) 'sparkle',
+        if (_snow) 'snow',
       ];
 
   List<String> get _units => lyricUnits(_lyrics.text, _byWord);
@@ -302,6 +306,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'streaks': _streaks,
         'embers': _embers,
         'sparkle': _sparkle,
+        'snow': _snow,
         'shape': _shape,
       },
     );
@@ -576,6 +581,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     _toggle('Light streaks', _streaks, (v) => _streaks = v),
                     _toggle('Fire sparks', _embers, (v) => _embers = v),
                     _toggle('Sparkles', _sparkle, (v) => _sparkle = v),
+                    _toggle('Snow', _snow, (v) => _snow = v),
                   ],
                 ),
                 ],
