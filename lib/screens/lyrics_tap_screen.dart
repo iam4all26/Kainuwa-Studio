@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 /// Play the song and tap once for every word (or line) as it is sung. Returns the start time of each
-/// tapped unit in milliseconds, or null when closed without finishing.
+/// tapped unit in milliseconds, or null when closed without finishing. The result is two lists: the
+/// start of every unit, and the moment its words end for a music-only part (-1 when they just run into the next one).
 class LyricsTapScreen extends StatefulWidget {
   const LyricsTapScreen({super.key, required this.audio, required this.audioMs, required this.units});
 
@@ -17,6 +20,7 @@ class LyricsTapScreen extends StatefulWidget {
 class _LyricsTapScreenState extends State<LyricsTapScreen> {
   final Stopwatch _clock = Stopwatch();
   final List<int> _starts = [];
+  final Map<int, int> _ends = {};
   bool _running = false;
 
   @override
@@ -27,6 +31,7 @@ class _LyricsTapScreenState extends State<LyricsTapScreen> {
 
   Future<void> _begin() async {
     _starts.clear();
+    _ends.clear();
     _clock
       ..reset()
       ..start();
@@ -49,14 +54,28 @@ class _LyricsTapScreenState extends State<LyricsTapScreen> {
 
   void _tap() {
     if (_starts.length >= widget.units.length) return;
-    setState(() => _starts.add(_clock.elapsedMilliseconds));
+    setState(() => _starts.add(_now()));
     if (_starts.length >= widget.units.length) _stop();
+  }
+
+  /// People tap a little after they hear the word, so every tap is moved a bit earlier.
+  int _now() => math.max(0, _clock.elapsedMilliseconds - 150);
+
+  /// The words stop here (a music-only part): the last word leaves the screen now.
+  void _gap() {
+    if (_starts.isEmpty) return;
+    setState(() => _ends[_starts.length - 1] = _now());
   }
 
   void _undo() {
     if (_starts.isEmpty) return;
-    setState(() => _starts.removeLast());
+    setState(() {
+      _ends.remove(_starts.length - 1);
+      _starts.removeLast();
+    });
   }
+
+  List<int> _endList() => [for (var i = 0; i < _starts.length; i++) _ends[i] ?? -1];
 
   String _unit(int i) => i >= 0 && i < widget.units.length ? widget.units[i] : '';
 
@@ -106,6 +125,14 @@ class _LyricsTapScreenState extends State<LyricsTapScreen> {
                     child: const Text('TAP', style: TextStyle(fontSize: 34)),
                   ),
                 ),
+              if (_running) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _starts.isEmpty || _ends.containsKey(_starts.length - 1) ? null : _gap,
+                  icon: const Icon(Icons.music_note_outlined),
+                  label: Text(_ends.containsKey(_starts.length - 1) ? 'Words hidden. Tap when singing starts again' : 'Music only: hide the words now'),
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -117,7 +144,10 @@ class _LyricsTapScreenState extends State<LyricsTapScreen> {
                     child: OutlinedButton(
                       onPressed: _running || _starts.isNotEmpty ? () async {
                         await _stop();
-                        if (mounted) setState(_starts.clear);
+                        if (mounted) setState(() {
+                          _starts.clear();
+                          _ends.clear();
+                        });
                       } : null,
                       child: const Text('Start again'),
                     ),
@@ -130,7 +160,7 @@ class _LyricsTapScreenState extends State<LyricsTapScreen> {
                     ? null
                     : () async {
                         await _stop();
-                        if (mounted) Navigator.of(context).pop(List<int>.of(_starts));
+                        if (mounted) Navigator.of(context).pop(<List<int>>[List<int>.of(_starts), _endList()]);
                       },
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),

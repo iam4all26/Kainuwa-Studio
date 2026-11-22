@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -39,6 +40,10 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   /// 0 spread evenly, 1 tapped by the person, 2 from an .srt file
   int _timing = 0;
   List<int> _starts = [];
+  List<int> _ends = [];
+  // Where the singing starts and how much music-only time is left at the end (spread evenly).
+  int _leadMs = 0;
+  int _tailMs = 0;
   List<LyricCue> _srt = [];
   String _look = 'neon';
   String _anim = 'jump';
@@ -86,6 +91,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _byWord = flag('byWord', true);
     _timing = iv('timing', 0);
     _starts = [if (f['starts'] is List) for (final v in f['starts'] as List) if (v is num) v.round()];
+    _ends = [if (f['ends'] is List) for (final v in f['ends'] as List) if (v is num) v.round()];
+    _leadMs = iv('lead', 0);
+    _tailMs = iv('tail', 0);
     _srt = [
       if (f['srt'] is List)
         for (final v in f['srt'] as List)
@@ -194,8 +202,11 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     setState(() {
       _audio = path!;
       _audioMs = ms;
+      _leadMs = 0;
+      _tailMs = 0;
       _message = '';
       _starts = [];
+      _ends = [];
       if (_songTitle.text.trim().isEmpty) _songTitle.text = _nameOf(path);
     });
   }
@@ -270,24 +281,29 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       setState(() => _message = 'Choose the song and type the words first.');
       return;
     }
-    final starts = await Navigator.of(context).push<List<int>>(
-      MaterialPageRoute<List<int>>(
+    final result = await Navigator.of(context).push<List<List<int>>>(
+      MaterialPageRoute<List<List<int>>>(
         builder: (_) => LyricsTapScreen(audio: _audio, audioMs: _audioMs, units: units),
       ),
     );
-    if (starts == null || !mounted) return;
+    if (result == null || result.length < 2 || !mounted) return;
     setState(() {
-      _starts = starts;
+      _starts = result[0];
+      _ends = result[1];
       _timing = 1;
       _message = '';
     });
   }
 
+  String _clock(int ms) => '${ms ~/ 60000}:${((ms ~/ 1000) % 60).toString().padLeft(2, '0')}';
+
   List<LyricCue> _cues() {
     if (_timing == 2 && _srt.isNotEmpty) return _srt;
     final units = _units;
-    if (_timing == 1 && _starts.isNotEmpty) return cuesFromStarts(units, _starts, _audioMs);
-    return spreadCues(units, 0, _audioMs);
+    if (_timing == 1 && _starts.isNotEmpty) return cuesFromStarts(units, _starts, _audioMs, _ends);
+    final lead = _leadMs.clamp(0, math.max(0, _audioMs - 1000)).toInt();
+    final end = (_audioMs - _tailMs).clamp(lead + 1000, math.max(lead + 1000, _audioMs)).toInt();
+    return spreadCues(units, lead, end);
   }
 
   LyricsSetup _setup() {
@@ -318,6 +334,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'byWord': _byWord,
         'timing': _timing,
         'starts': _starts,
+        'ends': _ends,
+        'lead': _leadMs,
+        'tail': _tailMs,
         'srt': [for (final c in _srt) [c.startMs, c.endMs, c.text]],
         'look': _look,
         'anim': _anim,
@@ -517,6 +536,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                       onSelected: (_) => setState(() {
                         _byWord = true;
                         _starts = [];
+                        _ends = [];
                         _srt = [];
                         if (_timing != 0) _timing = 0;
                       }),
@@ -527,6 +547,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                       onSelected: (_) => setState(() {
                         _byWord = false;
                         _starts = [];
+                        _ends = [];
                         _srt = [];
                         if (_timing != 0) _timing = 0;
                       }),
@@ -557,11 +578,28 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     ),
                   ],
                 ),
+                if (_timing == 0 && _audio.isNotEmpty && _audioMs > 4000) ...[
+                  const SizedBox(height: 8),
+                  Text('Lyrics start at ${_clock(_leadMs)}'),
+                  Slider(
+                    value: _leadMs.clamp(0, _audioMs ~/ 2).toDouble(),
+                    min: 0,
+                    max: (_audioMs ~/ 2).toDouble(),
+                    onChanged: (v) => setState(() => _leadMs = (v / 500).round() * 500),
+                  ),
+                  Text('Music only at the end: ${_clock(_tailMs)}'),
+                  Slider(
+                    value: _tailMs.clamp(0, _audioMs ~/ 2).toDouble(),
+                    min: 0,
+                    max: (_audioMs ~/ 2).toDouble(),
+                    onChanged: (v) => setState(() => _tailMs = (v / 500).round() * 500),
+                  ),
+                ],
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     _timing == 0
-                        ? 'The words are spread over the whole song, a longer word a little longer. Quick, but rough.'
+                        ? 'The words are spread between the two times above, a longer word a little longer. For music-only parts in the middle, use Tap along.'
                         : _timing == 1
                             ? (stale
                                 ? 'The words changed after you tapped. Tap along again for exact timing. Until then the rest is spread evenly.'
@@ -587,6 +625,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                           _applyLook(l);
                           if (_byWord != was) {
                             _starts = [];
+                            _ends = [];
                             _srt = [];
                             _timing = 0;
                           }

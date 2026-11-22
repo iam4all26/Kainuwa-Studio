@@ -343,12 +343,14 @@ List<LyricCue> spreadCues(List<String> units, int fromMs, int toMs) {
 
 /// Cues from the times the person tapped (one start per unit, in order). A unit that was not tapped
 /// shares the time that is left after the last tap.
-List<LyricCue> cuesFromStarts(List<String> units, List<int> starts, int totalMs) {
+List<LyricCue> cuesFromStarts(List<String> units, List<int> starts, int totalMs, [List<int> ends = const []]) {
   if (units.isEmpty) return const [];
   final n = math.min(units.length, starts.length);
   final cues = <LyricCue>[];
   for (var i = 0; i < n; i++) {
-    final end = i + 1 < starts.length ? starts[i + 1] : totalMs;
+    var end = i + 1 < starts.length ? starts[i + 1] : totalMs;
+    // A music-only part: the words leave the screen at the marked moment.
+    if (i < ends.length && ends[i] > starts[i] + 200 && ends[i] < end) end = ends[i];
     cues.add(LyricCue(starts[i], math.max(starts[i] + 200, math.min(end, totalMs)), units[i]));
   }
   if (n < units.length) {
