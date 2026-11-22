@@ -16,6 +16,8 @@ import '../lyrics_project.dart';
 import 'lyrics_setup_screen.dart';
 import 'video_setup_dialog.dart';
 import 'lessons_screen.dart';
+import 'project_export.dart';
+import 'projects_screen.dart';
 
 class CoursesTab extends StatelessWidget {
   const CoursesTab({
@@ -26,6 +28,15 @@ class CoursesTab extends StatelessWidget {
 
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenTemplates;
+
+  /// How many projects the home tab shows before "See all".
+  static const int _homeLimit = 5;
+
+  void _openAll(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ProjectsScreen()),
+    );
+  }
 
   Widget _choiceTile(BuildContext context, IconData icon, String title, String subtitle, String value) {
     return Padding(
@@ -182,44 +193,7 @@ class CoursesTab extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _export(BuildContext context, Course course) async {
-    final nav = Navigator.of(context, rootNavigator: true);
-    _busy(context, 'Packing "${course.title}" with all its media...');
-    var closed = false;
-    void close() {
-      if (!closed) {
-        closed = true;
-        nav.pop();
-      }
-    }
-
-    String? temp;
-    try {
-      final base = await KainuwaEncoder.filesDir();
-      final dir = Directory('$base/export_tmp');
-      await dir.create(recursive: true);
-      final safe = course.title.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
-      final name = '${safe.isEmpty ? 'course' : safe}.kainuwa';
-      temp = '${dir.path}/$name';
-      await ProjectPackage.exportTo(course, temp);
-      close();
-      final where = await KainuwaEncoder.saveFile(path: temp, name: name);
-      if (context.mounted) _say(context, 'Saved to $where');
-    } catch (e) {
-      close();
-      if (context.mounted) {
-        final text = e.toString();
-        _say(context, text.contains('save_cancelled') ? 'Export cancelled.' : 'Could not export: $text');
-      }
-    } finally {
-      close();
-      if (temp != null) {
-        try {
-          await File(temp).delete();
-        } catch (_) {}
-      }
-    }
-  }
+  Future<void> _export(BuildContext context, Course course) => exportProjectFile(context, course);
 
   Future<void> _import(BuildContext context) async {
     final state = AppScope.read(context);
@@ -531,9 +505,20 @@ class CoursesTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          Text(
-            'My projects  (${courses.length})',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'My projects  (${courses.length})',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (courses.length > _homeLimit)
+                TextButton(
+                  onPressed: () => _openAll(context),
+                  child: Text('See all (${courses.length})'),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           if (courses.isEmpty)
@@ -552,7 +537,15 @@ class CoursesTab extends StatelessWidget {
               ),
             )
           else
-            for (final course in courses) _projectCard(context, course),
+            for (final course in courses.take(_homeLimit)) _projectCard(context, course),
+          if (courses.length > _homeLimit)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: OutlinedButton(
+                onPressed: () => _openAll(context),
+                child: Text('See all ${courses.length} projects'),
+              ),
+            ),
         ],
       ),
     )),

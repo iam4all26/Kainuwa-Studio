@@ -150,6 +150,12 @@ class AppState extends ChangeNotifier {
     return _saveCourses();
   }
 
+  /// Deletes several projects and saves once.
+  Future<void> deleteCourses(Set<String> ids) {
+    courses.removeWhere((c) => ids.contains(c.id));
+    return _saveCourses();
+  }
+
   Future<void> addLesson(String courseId, String title) {
     final course = courseById(courseId);
     if (course != null) {
