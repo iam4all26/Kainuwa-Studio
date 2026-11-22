@@ -1195,7 +1195,7 @@ void refitLayerText(Layer layer, double keepSizePx) {
 
 /// What a single layer looks like, without any gestures.
 class LayerContent extends StatelessWidget {
-  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction, this.avatarAbsMs, this.avatarLevel, this.fxMs});
+  const LayerContent({super.key, required this.layer, this.revealMs, this.clipFraction, this.avatarAbsMs, this.avatarLevel, this.fxMs, this.fxSolid = false});
 
   final Layer layer;
 
@@ -1213,6 +1213,9 @@ class LayerContent extends StatelessWidget {
 
   /// Floating effect: milliseconds since it started (null when paused, then a still moment is shown).
   final int? fxMs;
+
+  /// Floating effect for the video export: no see-through particles (they come out dark).
+  final bool fxSolid;
 
   bool get _needsShaping =>
       (layer.type == 'asset' || layer.type == 'image') &&
@@ -1298,7 +1301,7 @@ class LayerContent extends StatelessWidget {
           return VizView(kind: layer.shape.substring(4), avatar: layer.avatar, color: color, absMs: avatarAbsMs);
         }
         if (isFxLayerShape(layer.shape)) {
-          return EffectView(kind: layer.shape.substring(3), timeMs: fxMs ?? 1500);
+          return EffectView(kind: layer.shape.substring(3), timeMs: fxMs ?? 1500, solid: fxSolid);
         }
         switch (layer.shape) {
           case 'circle':

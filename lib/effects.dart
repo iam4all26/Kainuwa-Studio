@@ -33,7 +33,7 @@ const int kFxFrames = 60;
 /// Particles falling, rising or floating over the slide. Everything depends only on the time,
 /// so the preview and the export show the same thing.
 class EffectView extends StatelessWidget {
-  const EffectView({super.key, required this.kind, required this.timeMs});
+  const EffectView({super.key, required this.kind, required this.timeMs, this.solid = false});
 
   /// The effect name without the "fx_" start.
   final String kind;
@@ -41,11 +41,14 @@ class EffectView extends StatelessWidget {
   /// Milliseconds since the effect started.
   final int timeMs;
 
+  /// True for the video export: particles are fully solid (the exporter darkens see-through pixels).
+  final bool solid;
+
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: SizedBox.expand(
-        child: CustomPaint(painter: _FxPainter(kind, timeMs)),
+        child: CustomPaint(painter: _FxPainter(kind, timeMs, solid)),
       ),
     );
   }
@@ -59,10 +62,13 @@ double _rnd(int i, int salt) {
 }
 
 class _FxPainter extends CustomPainter {
-  _FxPainter(this.kind, this.timeMs);
+  _FxPainter(this.kind, this.timeMs, this.solid);
 
   final String kind;
   final int timeMs;
+  final bool solid;
+
+  Color _a(Color c, double o) => solid ? c : c.withOpacity(o.clamp(0.0, 1.0).toDouble());
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -108,7 +114,7 @@ class _FxPainter extends CustomPainter {
       final cyc = 1 + (_rnd(i, 3) * 2).floor();
       final y = ((_rnd(i, 2) + cyc * p) % 1.0) * (s.height + 20 * u) - 10 * u;
       final r = (1.2 + _rnd(i, 6) * 3.2) * u;
-      paint.color = Colors.white.withOpacity(0.45 + _rnd(i, 7) * 0.5);
+      paint.color = _a(Colors.white, 0.45 + _rnd(i, 7) * 0.5);
       c.drawCircle(Offset(_x(i, p, 0.03, s), y), r, paint);
     }
   }
@@ -122,7 +128,7 @@ class _FxPainter extends CustomPainter {
       final fy = (_rnd(i, 2) + cyc * p) % 1.0;
       final x = _rnd(i, 1) * s.width * 1.2 - s.width * 0.1 - fy * 20 * u;
       final y = fy * (s.height + 60 * u) - 30 * u;
-      paint.color = const Color(0xFFCFE4FF).withOpacity(0.25 + _rnd(i, 7) * 0.4);
+      paint.color = _a(const Color(0xFFCFE4FF), 0.25 + _rnd(i, 7) * 0.4);
       final len = (10 + _rnd(i, 6) * 14) * u;
       c.drawLine(Offset(x, y), Offset(x - len * 0.18, y + len), paint);
     }
@@ -136,13 +142,15 @@ class _FxPainter extends CustomPainter {
       final life = (_rnd(i, 2) + cyc * p) % 1.0;
       final y = (1.0 - life) * (s.height + 20 * u) - 10 * u;
       final fade = math.sin(math.pi * life).clamp(0.0, 1.0);
-      final r = (1.0 + _rnd(i, 6) * 2.4) * u * (1.1 - life * 0.5);
+      final r = (1.0 + _rnd(i, 6) * 2.4) * u * (1.1 - life * 0.5) * (solid ? math.sqrt(fade) : 1.0);
       final hot = _rnd(i, 8) > 0.5;
       final base = hot ? const Color(0xFFFFC04D) : const Color(0xFFFF6A1A);
       final pos = Offset(_x(i, p, 0.05, s), y);
-      glow.color = base.withOpacity(0.55 * fade);
-      c.drawCircle(pos, r * 2.2, glow);
-      core.color = const Color(0xFFFFE9A8).withOpacity(0.95 * fade);
+      if (!solid) {
+        glow.color = base.withOpacity(0.55 * fade);
+        c.drawCircle(pos, r * 2.2, glow);
+      }
+      core.color = _a(solid ? base : const Color(0xFFFFE9A8), 0.95 * fade);
       c.drawCircle(pos, r, core);
     }
   }
@@ -184,12 +192,12 @@ class _FxPainter extends CustomPainter {
       final r = (5 + _rnd(i, 6) * 16) * u;
       final fade = math.sin(math.pi * life).clamp(0.0, 1.0);
       final pos = Offset(_x(i, p, 0.04, s), y);
-      fill.color = Colors.white.withOpacity(0.07 * fade);
-      ring.color = Colors.white.withOpacity(0.7 * fade);
+      fill.color = _a(Colors.white, 0.07 * fade);
+      ring.color = _a(Colors.white, 0.7 * fade);
       ring.strokeWidth = math.max(1.0, 1.4 * u);
-      c.drawCircle(pos, r, fill);
+      if (!solid) c.drawCircle(pos, r, fill);
       c.drawCircle(pos, r, ring);
-      fill.color = Colors.white.withOpacity(0.55 * fade);
+      fill.color = _a(Colors.white, 0.55 * fade);
       c.drawCircle(pos + Offset(-r * 0.35, -r * 0.35), r * 0.16, fill);
     }
   }
@@ -206,7 +214,8 @@ class _FxPainter extends CustomPainter {
     for (var i = 0; i < 28; i++) {
       final y = ((_rnd(i, 2) + p) % 1.0) * (s.height + 40 * u) - 20 * u;
       final angle = 2 * math.pi * (_rnd(i, 10) + (1 + (_rnd(i, 9) * 2).floor()) * p);
-      paint.color = colors[(_rnd(i, 12) * colors.length).floor() % colors.length].withOpacity(0.92);
+      paint.color = colors[(_rnd(i, 12) * colors.length).floor() % colors.length];
+      paint.color = _a(paint.color, 0.92);
       c.save();
       c.translate(_x(i, p, 0.08, s), y);
       c.rotate(angle);
@@ -217,14 +226,15 @@ class _FxPainter extends CustomPainter {
   }
 
   void _dust(Canvas c, Size s, double p, double u) {
-    final paint = Paint()..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.2 * u);
+    final paint = Paint();
+    if (!solid) paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 1.2 * u);
     for (var i = 0; i < 55; i++) {
       final m = 1 + (_rnd(i, 4) * 2).floor();
       final x = (_rnd(i, 1) + math.sin(2 * math.pi * (_rnd(i, 5) + m * p)) * 0.05) * s.width;
       final y = (_rnd(i, 2) + math.cos(2 * math.pi * (_rnd(i, 14) + p)) * 0.04) * s.height;
       final tw = 0.5 + 0.5 * math.sin(2 * math.pi * (_rnd(i, 15) + 2 * p));
-      paint.color = const Color(0xFFFFF3D6).withOpacity(0.15 + 0.5 * tw * _rnd(i, 7));
-      c.drawCircle(Offset(x, y), (0.8 + _rnd(i, 6) * 2.2) * u, paint);
+      paint.color = _a(const Color(0xFFFFF3D6), 0.15 + 0.5 * tw * _rnd(i, 7));
+      c.drawCircle(Offset(x, y), (0.8 + _rnd(i, 6) * 2.2) * u * (solid ? (0.4 + 0.6 * tw) : 1.0), paint);
     }
   }
 
@@ -236,7 +246,7 @@ class _FxPainter extends CustomPainter {
       final cx = _rnd(i, 1) * s.width;
       final cy = _rnd(i, 2) * s.height;
       final r = (3 + _rnd(i, 6) * 8) * u * tw;
-      paint.color = Colors.white.withOpacity(0.9 * tw);
+      paint.color = _a(Colors.white, 0.9 * tw);
       final path = Path()
         ..moveTo(cx, cy - r)
         ..quadraticBezierTo(cx, cy, cx + r, cy)

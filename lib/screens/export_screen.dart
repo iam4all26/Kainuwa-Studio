@@ -219,7 +219,7 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Center(
         child: Transform.rotate(
           angle: l.rotation,
-          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel, fxMs: fxMs, avatarAbsMs: absMs)),
+          child: SizedBox(width: lw, height: lh, child: LayerContent(layer: l, revealMs: revealMs, clipFraction: clip, avatarLevel: avatarLevel, fxMs: fxMs, fxSolid: fxMs != null, avatarAbsMs: absMs)),
         ),
       ),
     );
@@ -340,6 +340,7 @@ class _ExportScreenState extends State<ExportScreen> {
           durationMs: scene.durationMs,
           bgType: scene.hasVideo ? 'color' : scene.bgType,
           bgValue: scene.hasVideo ? '0' : scene.bgValue,
+          bgFilter: scene.hasVideo ? '' : scene.bgFilter,
           layers: List<Layer>.of(staticLayers),
         );
         final wm = AppScope.read(context).settings.wm;
