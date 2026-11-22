@@ -15,6 +15,7 @@ import 'visualizer.dart';
 import 'demo_plan.dart';
 import 'hands.dart';
 import 'models.dart';
+import 'shapes.dart';
 import 'stage_shape.dart';
 import 'video_curves.dart';
 import 'video_grade.dart';
@@ -233,7 +234,48 @@ class _SceneCanvasState extends State<SceneCanvas> {
     );
   }
 
+  /// A locked item shows only an outline and a lock button: no handles, so it cannot be moved by accident.
+  Widget _buildLockedFrame(Layer layer, double width, double height) {
+    final k = width / 885.0;
+    final btn = math.max(28.0, 46 * k);
+    final center = _centerOf(layer, width, height);
+    final boxW = layer.w * width;
+    final boxH = layer.h * height;
+    return Positioned(
+      left: center.dx - boxW / 2,
+      top: center.dy - boxH / 2,
+      width: boxW,
+      height: boxH,
+      child: Transform.rotate(
+        angle: layer.rotation,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(border: Border.all(color: const Color(0xFFFFC107), width: 2)),
+                ),
+              ),
+            ),
+            Positioned(
+              right: -btn / 2,
+              top: -btn / 2,
+              width: btn,
+              height: btn,
+              child: _roundButton(btn, Icons.lock, () {
+                setState(() => layer.locked = false);
+                widget.onCommit?.call();
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSelection(Layer layer, double width, double height) {
+    if (layer.locked) return _buildLockedFrame(layer, width, height);
     final k = width / 885.0;
     final btn = math.max(28.0, 52 * k);
     final dot = math.max(10.0, 18 * k);
@@ -513,7 +555,13 @@ class _SceneCanvasState extends State<SceneCanvas> {
       }
     }
 
-    if (widget.interactive && !isFx) {
+    if (widget.interactive && !isFx && layer.locked) {
+      content = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => widget.onSelect?.call(layer.id),
+        child: content,
+      );
+    } else if (widget.interactive && !isFx) {
       content = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onSelect?.call(layer.id),
@@ -1314,6 +1362,7 @@ class LayerContent extends StatelessWidget {
               ),
             );
           default:
+            if (isPathShape(layer.shape)) return ShapeFill(kind: layer.shape, color: color);
             return ColoredBox(color: color);
         }
       default:

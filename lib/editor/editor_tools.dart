@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models.dart';
+import '../shapes.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -27,7 +28,7 @@ String layerLabel(Layer layer) {
         case 'round':
           return 'Rounded box';
         default:
-          return 'Box';
+          return isPathShape(layer.shape) ? shapeLabel(layer.shape) : 'Box';
       }
     default:
       return 'Item';

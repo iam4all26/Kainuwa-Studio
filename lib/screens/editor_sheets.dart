@@ -12,6 +12,7 @@ import '../editor/hand_picker.dart';
 import '../data/asset_catalog.dart';
 import '../media/media_library.dart';
 import '../models.dart';
+import '../shapes.dart';
 import '../store/store_service.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -390,9 +391,23 @@ Future<String?> showShapeSheet(BuildContext context) {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            const Text('More shapes', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              children: [
+                for (final k in kShapeKinds)
+                  _ShapeOption(
+                    label: k.label,
+                    child: SizedBox(width: 46, height: 46, child: ShapeFill(kind: k.id, color: KColors.purple)),
+                    onTap: () => Navigator.of(sheetContext).pop(k.id),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
             if (storeShapes().isNotEmpty) ...[
-              const Text('More shapes', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('From the store', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 10,

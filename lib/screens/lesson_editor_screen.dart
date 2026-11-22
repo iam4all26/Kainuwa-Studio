@@ -22,6 +22,8 @@ import '../editor/editor_tools.dart';
 import '../editor/filter_editor.dart';
 import '../editor/colour_key_editor.dart';
 import '../editor/avatar_setup_screen.dart';
+import '../editor/move_pad.dart';
+import '../shapes.dart';
 import '../phone_mockup.dart';
 import '../effects.dart';
 import '../avatar.dart';
@@ -1075,7 +1077,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       }
       return;
     }
-    final box = kind == 'circle'
+    final box = (kind == 'circle' || (isPathShape(kind) && kind != 'arrow' && kind != 'chevron' && kind != 'parallelogram' && kind != 'trapezoid'))
         ? fitBox(1.0, maxW: 0.25, maxH: 0.45)
         : fitBox(1.6, maxW: 0.4, maxH: 0.4);
     _addLayer(
@@ -1253,6 +1255,31 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _selectedId = second.id;
     _sceneSelected = false;
     _commit();
+  }
+
+  void _toggleLock() {
+    final layer = _selectedLayer(_currentScene());
+    if (layer == null) {
+      _needItem();
+      return;
+    }
+    layer.locked = !layer.locked;
+    _commit();
+    _snack(layer.locked ? 'Locked. It cannot be moved until you unlock it.' : 'Unlocked.');
+  }
+
+  /// Four arrows to move the selected item in small steps.
+  Future<void> _movePad() async {
+    final layer = _selectedLayer(_currentScene());
+    if (layer == null) {
+      _needItem();
+      return;
+    }
+    await showMovePad(context, layer: layer, onChanged: () {
+      if (mounted) setState(() {});
+    });
+    if (!mounted) return;
+    await _commit();
   }
 
   void _copyLayer() {
@@ -1839,7 +1866,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final at = scene.layers.indexOf(layer);
     if (at < 0) return;
     Layer next;
-    if (kind == 'circle' || kind == 'round' || kind == 'rect') {
+    if (kind == 'circle' || kind == 'round' || kind == 'rect' || isPathShape(kind)) {
       next = Layer.fromJson({...layer.toJson(), 'type': 'shape', 'shape': kind, 'path': ''});
     } else {
       String? svg;
@@ -3101,6 +3128,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.content_copy, 'Copy', _copyLayer),
         if (_clipLayer != null) (Icons.content_paste, 'Paste', _pasteLayer),
+        (Icons.control_camera, 'Arrows', _movePad),
+        (layer.locked ? Icons.lock : Icons.lock_open_outlined, layer.locked ? 'Unlock' : 'Lock', _toggleLock),
         (Icons.open_with, 'Pos & size', _positionSheet),
         (Icons.layers_outlined, 'Layer', _openLayers),
         (Icons.drive_file_move_outlined, 'Move', _moveLayerToSlide),

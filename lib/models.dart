@@ -83,6 +83,7 @@ class Layer {
     this.cropB = 0,
     this.mask = 'none',
     this.srcAspect = 0,
+    this.locked = false,
   });
 
   final String id;
@@ -205,6 +206,9 @@ class Layer {
   /// Width divided by height of the source picture. 0 until it is known.
   double srcAspect;
 
+  /// A locked item cannot be moved, resized or turned on the slide until it is unlocked.
+  bool locked;
+
   Layer copy() => Layer.fromJson({...toJson(), 'id': newId()});
 
   Map<String, dynamic> toJson() => {
@@ -272,6 +276,7 @@ class Layer {
         'cropB': cropB,
         'mask': mask,
         'srcAspect': srcAspect,
+        'locked': locked,
       };
 
   factory Layer.fromJson(Map<String, dynamic> json) => Layer(
@@ -344,6 +349,7 @@ class Layer {
         cropB: _num(json['cropB'], 0),
         mask: _str(json['mask'], 'none'),
         srcAspect: _num(json['srcAspect'], 0),
+        locked: json['locked'] is bool ? json['locked'] as bool : false,
       );
 }
 
