@@ -8,6 +8,7 @@ import 'models.dart';
 import 'scene_canvas.dart';
 import 'srt_import.dart';
 import 'stage_shape.dart';
+import 'visualizer.dart' show kPlayerKind;
 
 /// One word or line of the lyrics, with the time it shows.
 class LyricCue {
@@ -230,6 +231,25 @@ const List<LyricsLook> kLyricsLooks = [
     byWord: false,
     viz: 'pulse',
   ),
+  LyricsLook(
+    id: 'fairy_garden',
+    name: 'Fairy Garden',
+    palette: [0xFFFFC2F0, 0xFFC7F5FF, 0xFFFFF4B0, 0xFFE2CCFF],
+    font: 'Great Vibes',
+    bg: 0xFF0B0716,
+    fx: ['fairies', 'sparkle'],
+    anim: 'rise',
+    byWord: false,
+  ),
+  LyricsLook(
+    id: 'stage_lights',
+    name: 'Stage Lights',
+    palette: [0xFFFFFFFF, 0xFFFFE08A, 0xFF9FD8FF, 0xFFFFA8E0],
+    font: 'Bebas Neue',
+    bg: 0xFF06060C,
+    fx: ['spotlight', 'smoke'],
+    anim: 'jump',
+  ),
 ];
 
 /// The entrances offered for lyrics.
@@ -253,6 +273,7 @@ class LyricsSetup {
     this.coverAspect = 1.0,
     this.layout = 0,
     this.vizKind = 'bars',
+    this.player = false,
     this.artist = '',
     this.title = '',
     this.form = const {},
@@ -279,6 +300,9 @@ class LyricsSetup {
 
   /// With a record layout: the audio picture, and the artist shown under the cover (the title is [title]).
   final String vizKind;
+
+  /// Add the player look: back, pause and forward buttons with a moving bar.
+  final bool player;
   final String artist;
   final String title;
 
@@ -363,6 +387,8 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
   final wide = w / h >= 1.3;
   final hasRec = s.layout != 0;
   var textCx = 0.5;
+  var groupWFrac = 0.4;
+  var groupCxFrac = 0.5;
   var textCy = 0.5;
   var textMaxW = 0.9;
   if (hasRec) {
@@ -374,6 +400,8 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     final groupCx = wide ? (recLeft ? 0.27 * w : 0.73 * w) : w / 2;
     final cy = wide ? 0.36 * h : 0.22 * h;
     final coverCx = groupCx - groupW / 2 + cs / 2;
+    groupWFrac = groupW / w;
+    groupCxFrac = groupCx / w;
     final discCx = coverCx + shift;
     textCx = wide ? (recLeft ? 0.70 : 0.30) : 0.5;
     textCy = wide ? 0.5 : 0.75;
@@ -468,6 +496,21 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
 
     if (shownTitle.isNotEmpty) under(shownTitle, wide ? 44 : 40, 0xFFFFFFFF, wide ? 0.78 : 0.48, true);
     if (shownArtist.isNotEmpty) under(shownArtist, wide ? 28 : 26, s.palette.first, wide ? 0.86 : 0.54, false);
+  }
+  if (s.player) {
+    final pw = hasRec ? math.min(0.9, groupWFrac) : (wide ? 0.5 : 0.8);
+    final player = Layer(
+      id: newId(),
+      type: 'shape',
+      shape: 'viz_$kPlayerKind',
+      color: s.palette.first,
+      w: pw,
+      h: pw * w / (5.0 * h),
+    );
+    player.cx = hasRec ? groupCxFrac : 0.5;
+    player.cy = hasRec ? (wide ? 0.94 : 0.62) : 0.93;
+    player.avatar = AvatarSpec(audio: s.audio, startMs: 0, sourceMs: s.audioMs).encode();
+    layers.add(player);
   }
   final cues = sampleOnly ? [s.cues.isEmpty ? const LyricCue(0, 1000, 'Lyrics') : s.cues.first] : s.cues;
   final px = hasRec ? (s.byWord ? 90.0 : 56.0) : (s.byWord ? 110.0 : 72.0);

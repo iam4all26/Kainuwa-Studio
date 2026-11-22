@@ -514,11 +514,11 @@ class _ExportScreenState extends State<ExportScreen> {
               var lastSig = '';
               frames = [];
               // A long song gets fewer pictures (at most about 1800).
-              final vStep = math.max(100, (((vEnd - layer.startMs) / (layer.shape == 'viz_circle' ? 800 : 1800)) / 50).ceil() * 50);
+              final vStep = math.max(100, (((vEnd - layer.startMs) / (layer.shape == 'viz_circle' ? 800 : (layer.shape == 'viz_player' ? 400 : 1800))) / 50).ceil() * 50);
               final vTotal = math.max(1, vEnd - layer.startMs);
               var vCount = 0;
               for (var t = layer.startMs; t < vEnd; t += vStep) {
-                final sig = vizSignature(vspec, offsetMs + t);
+                final sig = vizSignature(vspec, offsetMs + t, layer.shape.substring(4));
                 if (sig == lastSig) continue;
                 var vp = sigPaths[sig];
                 if (vp == null) {

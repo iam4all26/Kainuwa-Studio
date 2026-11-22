@@ -25,6 +25,26 @@ const List<VizKind> kVizKinds = [
 
 bool isVizLayerShape(String shape) => shape.startsWith('viz_');
 
+/// The music player look (back, pause and forward buttons with a moving bar). It is stored as
+/// "viz_player" so it travels the same way as the audio pictures, but it is not in [kVizKinds].
+const String kPlayerKind = 'player';
+
+/// How far the song has played: [progress in thousandths, seconds played, seconds in all].
+List<int> playerValues(AvatarSpec spec, int absMs) {
+  final dur = math.max(1, spec.sourceMs - spec.trimMs);
+  final pos = (absMs - spec.startMs).clamp(0, dur).toInt();
+  return [(pos / dur * 1000).round(), pos ~/ 1000, dur ~/ 1000];
+}
+
+List<int> vizValuesFor(String kind, AvatarSpec spec, int absMs) =>
+    kind == kPlayerKind ? playerValues(spec, absMs) : vizValues(spec, absMs);
+
+String _clock(int sec) {
+  final m = sec ~/ 60;
+  final r = sec % 60;
+  return '$m:${r.toString().padLeft(2, '0')}';
+}
+
 const int _kCols = 48;
 const int _kStepMs = 45;
 const int _kLevels = 20;
@@ -43,7 +63,7 @@ List<int> vizValues(AvatarSpec spec, int absMs) {
 }
 
 /// Two moments with the same signature look exactly the same.
-String vizSignature(AvatarSpec spec, int absMs) => vizValues(spec, absMs).join(',');
+String vizSignature(AvatarSpec spec, int absMs, [String kind = '']) => vizValuesFor(kind, spec, absMs).join(',');
 
 /// Draws one audio picture straight into an image, without building any widgets. It is many
 /// times faster than drawing the widget, which matters for a video export that needs thousands.
@@ -64,7 +84,7 @@ Future<ui.Image> renderVizImage({
   final canvas = Canvas(recorder);
   canvas.scale(ratio);
   canvas.translate((boxW - layerW) / 2, (boxH - layerH) / 2);
-  _VizPainter(kind, vizValues(spec, absMs), color).paint(canvas, Size(layerW, layerH));
+  _VizPainter(kind, vizValuesFor(kind, spec, absMs), color).paint(canvas, Size(layerW, layerH));
   final picture = recorder.endRecording();
   final image = picture.toImage((boxW * ratio).ceil(), (boxH * ratio).ceil());
   picture.dispose();
@@ -91,9 +111,9 @@ class VizView extends StatelessWidget {
       child: ValueListenableBuilder<int>(
         valueListenable: AvatarLevels.changed,
         builder: (context, _, __) {
-          final t = absMs ?? (spec.startMs + math.min(8000, spec.sourceMs ~/ 3));
+          final t = absMs ?? (spec.startMs + (kind == kPlayerKind ? spec.sourceMs ~/ 3 : math.min(8000, spec.sourceMs ~/ 3)));
           return SizedBox.expand(
-            child: CustomPaint(painter: _VizPainter(kind, vizValues(spec, t), color)),
+            child: CustomPaint(painter: _VizPainter(kind, vizValuesFor(kind, spec, t), color)),
           );
         },
       ),
@@ -117,6 +137,9 @@ class _VizPainter extends CustomPainter {
     final mid = h / 2;
     final paint = Paint()..color = color;
     switch (kind) {
+      case 'player':
+        _player(canvas, size);
+        break;
       case 'dots':
         final r = math.min(colW * 0.24, h * 0.06);
         final gap = r * 2.7;
@@ -256,6 +279,73 @@ class _VizPainter extends CustomPainter {
             paint,
           );
         }
+    }
+  }
+
+  /// Back, pause and forward buttons, a moving bar and the time played and in all.
+  void _player(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final progress = (values.isNotEmpty ? values[0] : 0) / 1000.0;
+    final played = values.length > 1 ? values[1] : 0;
+    final total = values.length > 2 ? values[2] : 0;
+    final paint = Paint();
+    // The bar.
+    final th = math.max(3.0, h * 0.07);
+    final knob = th * 1.25;
+    final by = h * 0.16;
+    final x0 = knob;
+    final x1 = w - knob;
+    paint.color = const Color(0x55FFFFFF);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(x0, by - th / 2, x1, by + th / 2), Radius.circular(th / 2)), paint);
+    final xp = x0 + (x1 - x0) * progress.clamp(0.0, 1.0);
+    paint.color = color;
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(x0, by - th / 2, math.max(x0 + th, xp), by + th / 2), Radius.circular(th / 2)), paint);
+    paint.color = Colors.white;
+    canvas.drawCircle(Offset(xp, by), knob, paint);
+    // The times under the bar.
+    final fs = math.max(8.0, h * 0.14);
+    for (final side in const [0, 1]) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: _clock(side == 0 ? played : total),
+          style: TextStyle(color: const Color(0xCCFFFFFF), fontSize: fs, fontWeight: FontWeight.w600),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(side == 0 ? x0 - knob * 0.5 : x1 + knob * 0.5 - tp.width, h * 0.27));
+    }
+    // The three buttons.
+    final cy = h * 0.74;
+    final s = h * 0.24;
+    final gap = math.min(w * 0.2, s * 3.6);
+    paint.color = Colors.white;
+    for (final dir in const [-1.0, 1.0]) {
+      final cx = w / 2 + dir * gap;
+      final tip = Offset(cx + dir * s * 0.4, cy);
+      final top = Offset(cx - dir * s * 0.5, cy - s * 0.5);
+      final bottom = Offset(cx - dir * s * 0.5, cy + s * 0.5);
+      canvas.drawPath(
+        Path()
+          ..moveTo(tip.dx, tip.dy)
+          ..lineTo(top.dx, top.dy)
+          ..lineTo(bottom.dx, bottom.dy)
+          ..close(),
+        paint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(cx + dir * s * 0.55, cy), width: s * 0.17, height: s), Radius.circular(s * 0.05)),
+        paint,
+      );
+    }
+    paint.color = color;
+    canvas.drawCircle(Offset(w / 2, cy), s * 1.05, paint);
+    paint.color = const Color(0xFF14141C);
+    for (final dx in const [-1.0, 1.0]) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(w / 2 + dx * s * 0.27, cy), width: s * 0.26, height: s * 0.95), Radius.circular(s * 0.06)),
+        paint,
+      );
     }
   }
 

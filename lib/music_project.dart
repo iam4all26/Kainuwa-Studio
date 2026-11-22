@@ -8,6 +8,7 @@ import 'models.dart';
 import 'pic_filter.dart';
 import 'scene_canvas.dart';
 import 'stage_shape.dart';
+import 'visualizer.dart' show kPlayerKind;
 
 /// What the person chose for a music video.
 class MusicSetup {
@@ -23,6 +24,7 @@ class MusicSetup {
     required this.vizKind,
     required this.accent,
     this.layout = 0,
+    this.player = false,
     this.titleFont = '',
     this.artistFont = '',
     this.form = const {},
@@ -41,6 +43,9 @@ class MusicSetup {
 
   /// Where the cover and record go on a wide video: 0 centre, 1 left, 2 right.
   final int layout;
+
+  /// Add the player look: back, pause and forward buttons with a moving bar.
+  final bool player;
   final String titleFont;
   final String artistFont;
 
@@ -172,6 +177,22 @@ Scene buildMusicScene(MusicSetup s) {
     final a = Layer(id: newId(), type: 'text', text: s.artist.trim(), color: s.accent, bold: false, fontFamily: s.artistFont);
     fitted(a, side ? 34 : 36).cy = side ? 0.50 : 0.88;
     layers.add(a);
+  }
+
+  if (s.player) {
+    final pw = side ? 0.40 : 0.78;
+    final player = Layer(
+      id: newId(),
+      type: 'shape',
+      shape: 'viz_$kPlayerKind',
+      color: s.accent,
+      w: pw,
+      h: pw * w / (5.0 * h),
+    );
+    player.cx = side ? textCx / w : 0.5;
+    player.cy = side ? 0.80 : 0.955;
+    player.avatar = spec.encode();
+    layers.add(player);
   }
 
   return Scene(

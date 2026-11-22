@@ -37,6 +37,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   final TextEditingController _artist = TextEditingController();
   int _shape = 0;
   String _viz = 'bars';
+  bool _player = false;
   int _accent = 0xFFFF9F1C;
   String _message = '';
   int _layout = 0;
@@ -64,6 +65,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
     _artist.text = str('artist', '');
     _shape = iv('shape', 0).clamp(0, _shapes.length - 1).toInt();
     _viz = str('viz', 'bars');
+    _player = f['player'] == true;
     _accent = iv('accent', 0xFFFF9F1C);
     _layout = iv('layout', 0);
     _titleFont = str('titleFont', '');
@@ -212,6 +214,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
       aspectW: s.$2,
       aspectH: s.$3,
       vizKind: _viz,
+      player: _player,
       accent: _accent,
       layout: _shape == 0 ? _layout : 0,
       titleFont: _titleFont,
@@ -225,6 +228,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
         'artist': _artist.text,
         'shape': _shape,
         'viz': _viz,
+        'player': _player,
         'accent': _accent,
         'layout': _layout,
         'titleFont': _titleFont,
@@ -465,7 +469,15 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Player buttons and moving bar'),
+              subtitle: const Text('Back, pause and forward icons with the song time'),
+              value: _player,
+              onChanged: (v) => setState(() => _player = v),
+            ),
+            const SizedBox(height: 4),
             const Text('Colour', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(

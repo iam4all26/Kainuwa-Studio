@@ -11,6 +11,7 @@ import '../lyrics_project.dart';
 import '../media/media_library.dart';
 import '../scene_canvas.dart';
 import '../stage_shape.dart';
+import '../effects.dart' show kFxKinds;
 import '../visualizer.dart';
 import 'lyrics_tap_screen.dart';
 
@@ -55,6 +56,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   bool _embers = false;
   bool _sparkle = false;
   bool _snow = false;
+  bool _player = false;
+  Set<String> _more = {};
   int _shape = 1;
   String _message = '';
 
@@ -108,6 +111,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _embers = flag('embers', _embers);
     _sparkle = flag('sparkle', _sparkle);
     _snow = flag('snow', _snow);
+    _player = flag('player', _player);
+    if (f['more'] is List) _more = {for (final v in f['more'] as List) if (v is String) v};
     _shape = iv('shape', 1).clamp(0, _shapes.length - 1).toInt();
   }
 
@@ -135,6 +140,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _embers = l.fx.contains('embers');
     _sparkle = l.fx.contains('sparkle');
     _snow = l.fx.contains('snow');
+    _more = l.fx.where(_extraFx.contains).toSet();
   }
 
   List<String> get _fx => [
@@ -143,7 +149,11 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         if (_embers) 'embers',
         if (_sparkle) 'sparkle',
         if (_snow) 'snow',
+        ..._more,
       ];
+
+  /// The effects that are not one of the five switches above.
+  static const Set<String> _extraFx = {'spotlight', 'smoke', 'fairies', 'fireflies', 'bokeh', 'hearts', 'meteors'};
 
   List<String> get _units => lyricUnits(_lyrics.text, _byWord);
 
@@ -298,6 +308,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       coverAspect: _coverAspect,
       layout: _layout,
       vizKind: _viz,
+      player: _player,
       artist: _artist.text,
       title: _songTitle.text.trim().isEmpty ? _nameOf(_audio) : _songTitle.text.trim(),
       form: {
@@ -324,6 +335,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'embers': _embers,
         'sparkle': _sparkle,
         'snow': _snow,
+        'more': _more.toList(),
+        'player': _player,
         'shape': _shape,
       },
     );
@@ -633,10 +646,27 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     _toggle('Fire sparks', _embers, (v) => _embers = v),
                     _toggle('Sparkles', _sparkle, (v) => _sparkle = v),
                     _toggle('Snow', _snow, (v) => _snow = v),
+                    for (final k in kFxKinds)
+                      if (_extraFx.contains(k.id))
+                        _toggle(k.name, _more.contains(k.id), (v) {
+                          if (v) {
+                            _more.add(k.id);
+                          } else {
+                            _more.remove(k.id);
+                          }
+                        }),
                   ],
                 ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Player buttons and moving bar'),
+                  subtitle: const Text('Back, pause and forward icons with the song time'),
+                  value: _player,
+                  onChanged: (v) => setState(() => _player = v),
+                ),
+                const SizedBox(height: 8),
                 const Text('Video shape', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Wrap(

@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'shapes.dart';
+
 /// One floating effect: [id] is stored in Layer.shape as "fx_<id>".
 class FxKind {
   const FxKind(this.id, this.name, this.icon);
@@ -23,6 +25,13 @@ const List<FxKind> kFxKinds = [
   FxKind('sparkle', 'Sparkles', Icons.auto_awesome),
   FxKind('stars', 'Starfield', Icons.star_outline),
   FxKind('streaks', 'Light streaks', Icons.density_small),
+  FxKind('spotlight', 'Moving spotlights', Icons.flashlight_on_outlined),
+  FxKind('smoke', 'Smoke', Icons.cloud_outlined),
+  FxKind('fairies', 'Fairies', Icons.auto_fix_high),
+  FxKind('fireflies', 'Fireflies', Icons.emoji_objects_outlined),
+  FxKind('bokeh', 'Bokeh lights', Icons.blur_on),
+  FxKind('hearts', 'Floating hearts', Icons.favorite_border),
+  FxKind('meteors', 'Shooting stars', Icons.nights_stay_outlined),
 ];
 
 bool isFxLayerShape(String shape) => shape.startsWith('fx_');
@@ -132,6 +141,27 @@ class _FxPainter extends CustomPainter {
       case 'streaks':
         _streaks(canvas, size, p, u);
         break;
+      case 'spotlight':
+        _spotlight(canvas, size, p, u);
+        break;
+      case 'smoke':
+        _smoke(canvas, size, p, u);
+        break;
+      case 'fairies':
+        _fairies(canvas, size, p, u);
+        break;
+      case 'fireflies':
+        _fireflies(canvas, size, p, u);
+        break;
+      case 'bokeh':
+        _bokeh(canvas, size, p, u);
+        break;
+      case 'hearts':
+        _hearts(canvas, size, p, u);
+        break;
+      case 'meteors':
+        _meteors(canvas, size, p, u);
+        break;
     }
   }
 
@@ -151,6 +181,167 @@ class _FxPainter extends CustomPainter {
       final col = i % 5 == 0 ? const Color(0xFF9DB8FF) : Colors.white;
       paint.color = _b(col, tw * (0.4 + 0.6 * depth));
       c.drawCircle(Offset(_rnd(i, 1) * s.width, y), r, paint);
+    }
+  }
+
+  /// The see-through end of a soft glow (near-black in the export, where nothing is see-through).
+  Color _edge(Color c) => solid ? const Color(0xFF05060F) : c.withOpacity(0.0);
+
+  void _glow(Canvas c, Offset at, double r, Color col, double o) {
+    if (r <= 0 || o <= 0) return;
+    c.drawCircle(
+      at,
+      r,
+      Paint()..shader = ui.Gradient.radial(at, r, [_b(col, o), _edge(col)]),
+    );
+  }
+
+  void _spotlight(Canvas c, Size s, double p, double u) {
+    const cols = [0xFFFFF3C4, 0xFF9FD8FF, 0xFFFFA8E0, 0xFFFFE08A];
+    for (var i = 0; i < 4; i++) {
+      final sx = s.width * (0.12 + 0.253 * i);
+      final k = 1 + i % 2;
+      final ang = math.sin(2 * math.pi * (p * k + i * 0.27)) * 0.55 - (i - 1.5) * 0.12;
+      final len = s.height * 1.25;
+      final half = 0.11 + 0.03 * (i % 2);
+      final src = Offset(sx, -s.height * 0.02);
+      Offset pt(double a) => Offset(src.dx + math.sin(a) * len, src.dy + math.cos(a) * len);
+      final a1 = pt(ang - half);
+      final a2 = pt(ang + half);
+      final end = pt(ang);
+      final col = Color(cols[i]);
+      final path = Path()
+        ..moveTo(src.dx, src.dy)
+        ..lineTo(a1.dx, a1.dy)
+        ..lineTo(a2.dx, a2.dy)
+        ..close();
+      c.drawPath(
+        path,
+        Paint()..shader = ui.Gradient.linear(src, end, [_b(col, 0.55), _edge(col)]),
+      );
+      _glow(c, src, 22 * u, col, 0.9);
+    }
+  }
+
+  void _smoke(Canvas c, Size s, double p, double u) {
+    const grey = Color(0xFFC9CCD6);
+    for (var i = 0; i < 14; i++) {
+      final t = (_rnd(i, 2) + p) % 1.0;
+      final x = s.width * _rnd(i, 1) + math.sin(2 * math.pi * (_rnd(i, 5) + p)) * 0.05 * s.width;
+      final y = s.height * (1.1 - 1.25 * t);
+      final r = (40 + 90 * t + _rnd(i, 6) * 40) * u;
+      _glow(c, Offset(x, y), r, grey, math.sin(math.pi * t) * 0.26);
+    }
+  }
+
+  Offset _wander(int i, double q, Size s, double amp) {
+    final m = 1 + (_rnd(i, 4) * 2).floor();
+    final x = s.width * (0.08 + 0.84 * _rnd(i, 1)) + math.sin(2 * math.pi * (_rnd(i, 5) + m * q)) * amp * s.width;
+    final y = s.height * (0.12 + 0.76 * _rnd(i, 2)) + math.sin(2 * math.pi * (_rnd(i, 7) + (m + 1) * q)) * amp * 0.8 * s.height;
+    return Offset(x, y);
+  }
+
+  void _fairies(Canvas c, Size s, double p, double u) {
+    const cols = [0xFFFFB3F0, 0xFFB9F2FF, 0xFFFFF2A8, 0xFFC9B6FF, 0xFFB6FFCB];
+    final paint = Paint();
+    for (var i = 0; i < 18; i++) {
+      final col = Color(cols[i % cols.length]);
+      final pos = _wander(i, p, s, 0.07);
+      final tw = 0.65 + 0.35 * math.sin(2 * math.pi * (_rnd(i, 9) + 3 * p));
+      final size = (5 + _rnd(i, 6) * 5) * u;
+      // A short trail of sparkles where the fairy just was.
+      for (var j = 1; j <= 5; j++) {
+        final q = p - j * 0.01;
+        final tp = _wander(i, q < 0 ? q + 1 : q, s, 0.07);
+        paint.color = _b(col, 0.55 * (1 - j / 6) * tw);
+        c.drawCircle(tp, size * 0.28 * (1 - j / 7), paint);
+      }
+      _glow(c, pos, size * 3.2, col, 0.6 * tw);
+      // Two little wings that flap.
+      final flap = 0.55 + 0.45 * math.sin(2 * math.pi * (_rnd(i, 3) + 8 * p));
+      paint.color = _b(Colors.white, 0.5 * tw);
+      for (final side in const [-1.0, 1.0]) {
+        c.save();
+        c.translate(pos.dx, pos.dy);
+        c.rotate(side * 0.7);
+        c.drawOval(Rect.fromCenter(center: Offset(side * size * 0.9, -size * 0.2), width: size * 1.5 * flap, height: size * 0.8), paint);
+        c.restore();
+      }
+      paint.color = _b(Colors.white, 0.95);
+      c.drawCircle(pos, size * 0.38, paint);
+    }
+  }
+
+  void _fireflies(Canvas c, Size s, double p, double u) {
+    const col = Color(0xFFE6F27A);
+    final paint = Paint();
+    for (var i = 0; i < 26; i++) {
+      final pos = _wander(i, p, s, 0.04);
+      final k = 1 + (_rnd(i, 8) * 2).floor();
+      final raw = math.sin(2 * math.pi * (_rnd(i, 9) + k * p));
+      final blink = raw <= 0 ? 0.0 : raw * raw;
+      final r = (3 + _rnd(i, 6) * 3) * u;
+      _glow(c, pos, r * 4.5, col, 0.55 * blink);
+      paint.color = _b(const Color(0xFFFFFBD0), 0.2 + 0.8 * blink);
+      c.drawCircle(pos, r * 0.6, paint);
+    }
+  }
+
+  void _bokeh(Canvas c, Size s, double p, double u) {
+    const cols = [0xFFFFD27A, 0xFFFF9EC7, 0xFF9ED8FF, 0xFFFFFFFF, 0xFFC7A6FF];
+    final fill = Paint();
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5 * u;
+    for (var i = 0; i < 16; i++) {
+      final col = Color(cols[i % cols.length]);
+      final r = (18 + _rnd(i, 3) * 40) * u;
+      final x = s.width * _rnd(i, 1) + math.sin(2 * math.pi * (_rnd(i, 5) + p)) * 0.04 * s.width;
+      final y = s.height * _rnd(i, 2) + math.sin(2 * math.pi * (_rnd(i, 6) + p)) * 0.05 * s.height;
+      final pulse = 0.6 + 0.4 * math.sin(2 * math.pi * (_rnd(i, 9) + p));
+      fill.color = _b(col, 0.16 * pulse);
+      ring.color = _b(col, 0.3 * pulse);
+      c.drawCircle(Offset(x, y), r, fill);
+      c.drawCircle(Offset(x, y), r, ring);
+    }
+  }
+
+  void _hearts(Canvas c, Size s, double p, double u) {
+    const cols = [0xFFFF4D6D, 0xFFFF8FA3, 0xFFFFB3C6, 0xFFE63970];
+    final paint = Paint();
+    for (var i = 0; i < 14; i++) {
+      final t = (_rnd(i, 2) + p) % 1.0;
+      final m = 1 + (_rnd(i, 4) * 2).floor();
+      final x = s.width * _rnd(i, 1) + math.sin(2 * math.pi * (_rnd(i, 5) + m * p)) * 0.04 * s.width;
+      final y = s.height * (1.1 - 1.2 * t);
+      final size = (14 + _rnd(i, 6) * 22) * u;
+      paint.color = _b(Color(cols[i % cols.length]), math.sin(math.pi * t) * 0.9);
+      c.drawPath(shapePath('heart', Rect.fromCenter(center: Offset(x, y), width: size, height: size)), paint);
+    }
+  }
+
+  void _meteors(Canvas c, Size s, double p, double u) {
+    const dx = -0.62;
+    const dy = 0.78;
+    for (var i = 0; i < 4; i++) {
+      final t = (p + _rnd(i, 1)) % 1.0;
+      if (t > 0.38) continue;
+      final f = t / 0.38;
+      final fade = math.sin(math.pi * f);
+      final sx = s.width * (0.35 + 0.65 * _rnd(i, 2));
+      final sy = -s.height * 0.05;
+      final head = Offset(sx + dx * s.height * 1.0 * f, sy + dy * s.height * 1.0 * f);
+      final tail = Offset(head.dx - dx * s.height * 0.22, head.dy - dy * s.height * 0.22);
+      const col = Color(0xFFDDE8FF);
+      c.drawLine(
+        head,
+        tail,
+        Paint()
+          ..strokeWidth = (2.2 + _rnd(i, 3) * 1.6) * u
+          ..strokeCap = StrokeCap.round
+          ..shader = ui.Gradient.linear(head, tail, [_b(col, 0.95 * fade), _edge(col)]),
+      );
+      _glow(c, head, 9 * u, col, 0.9 * fade);
     }
   }
 
