@@ -23,7 +23,7 @@ class AnimFrame {
   final double dy;
 }
 
-const List<String> kAnimKinds = ['none', 'appear', 'fade', 'slide', 'pop', 'zoom', 'draw', 'jump', 'drop', 'rise', 'flipin'];
+const List<String> kAnimKinds = ['none', 'appear', 'fade', 'slide', 'pop', 'zoom', 'draw', 'jump', 'drop', 'rise', 'flipin', 'spinin', 'twistin'];
 const List<String> kExitKinds = ['none', 'fade', 'slide', 'pop', 'zoom', 'draw'];
 
 String animLabel(String kind) {
@@ -48,6 +48,10 @@ String animLabel(String kind) {
       return 'Rise';
     case 'flipin':
       return 'Flip in';
+    case 'spinin':
+      return 'Spin in';
+    case 'twistin':
+      return 'Twist in';
     default:
       return 'None';
   }
@@ -113,6 +117,7 @@ AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs, [
   var scale = 1.0;
   var scaleX = 1.0;
   var dy = 0.0;
+  var rot = 0.0;
   switch (kind) {
     case 'slide':
       switch (dir) {
@@ -162,9 +167,20 @@ AnimFrame animationFrame(String kind, int timeMs, int startMs, int durationMs, [
       scaleX = math.max(0.01, _back(progress));
       alpha = math.min(1.0, progress * 5);
       break;
+    case 'spinin':
+      // Turns a half circle while growing into place.
+      rot = -180 * (1 - eased);
+      scale = 0.4 + 0.6 * eased;
+      alpha = math.min(1.0, progress * 4);
+      break;
+    case 'twistin':
+      // Tilts in, swings a little past upright and settles.
+      rot = 28 * (1 - _back(progress));
+      alpha = math.min(1.0, progress * 5);
+      break;
   }
   if (progress <= 0) alpha = 0;
-  return AnimFrame(alpha, dx, math.max(0.01, scale), scaleX, 0, dy);
+  return AnimFrame(alpha, dx, math.max(0.01, scale), scaleX, rot, dy);
 }
 
 /// Exit, played during the last [outDurMs] before the item leaves.

@@ -103,6 +103,8 @@ public class KainuwaEncoderPlugin
     private static final int REQUEST_SAVE = 4102;
     private static final int REQUEST_AUDIO_PERMISSION = 4103;
     private static final int REQUEST_STORAGE_PERMISSION = 4104;
+    private static final int REQUEST_NOTIFY_PERMISSION = 4105;
+    private MethodChannel.Result pendingNotifyResult;
     private MethodChannel.Result pendingLegacyResult;
     private String pendingLegacyPath;
     private String pendingLegacyName;
@@ -469,6 +471,21 @@ public class KainuwaEncoderPlugin
                         Boolean.TRUE.equals(call.argument("exact")),
                         Boolean.TRUE.equals(call.argument("bytes")), result);
                 break;
+            case "requestNotifications": {
+                // Android 13 and newer must be asked before a notification can be shown.
+                if (Build.VERSION.SDK_INT < 33
+                        || appContext.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        == PackageManager.PERMISSION_GRANTED) {
+                    result.success(true);
+                } else if (activity == null || pendingNotifyResult != null) {
+                    result.success(false);
+                } else {
+                    pendingNotifyResult = result;
+                    activity.requestPermissions(
+                            new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_NOTIFY_PERMISSION);
+                }
+                break;
+            }
             case "exportNotify": {
                 try {
                     android.content.Intent svc = new android.content.Intent(appContext, ExportService.class);
@@ -1745,6 +1762,15 @@ public class KainuwaEncoderPlugin
 
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQUEST_NOTIFY_PERMISSION) {
+            MethodChannel.Result nr = pendingNotifyResult;
+            pendingNotifyResult = null;
+            if (nr != null) {
+                nr.success(grantResults != null && grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED);
+            }
+            return true;
+        }
         if (requestCode == REQUEST_STORAGE_PERMISSION) {
             MethodChannel.Result lr = pendingLegacyResult;
             String lp = pendingLegacyPath;

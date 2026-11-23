@@ -1400,6 +1400,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final scene = _currentScene();
     final layer = _selectedLayer(scene);
     if (layer == null) return;
+    if (layer.locked) {
+      _snack('Locked. Unlock it first to change its position or size.');
+      return;
+    }
     _pause();
     String fmt(double v) => (v * 100).toStringAsFixed(1);
     final xc = TextEditingController(text: fmt(layer.cx));

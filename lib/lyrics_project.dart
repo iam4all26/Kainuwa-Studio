@@ -31,7 +31,11 @@ class LyricsLook {
     this.layout = 0,
     this.byWord = true,
     this.viz = 'bars',
+    this.karaoke = false,
   });
+
+  /// Each line fills with colour word by word while it is sung (only for lines, not single words).
+  final bool karaoke;
 
   /// The audio picture under the cover in the record layouts ('none' for no picture).
   final String viz;
@@ -242,6 +246,17 @@ const List<LyricsLook> kLyricsLooks = [
     byWord: false,
   ),
   LyricsLook(
+    id: 'karaoke_night',
+    name: 'Karaoke Night',
+    palette: [0xFFFFE066, 0xFFFF8FD8, 0xFF8FE3FF],
+    font: 'Bebas Neue',
+    bg: 0xFF0A0614,
+    fx: ['spotlight', 'bokeh'],
+    anim: 'rise',
+    byWord: false,
+    karaoke: true,
+  ),
+  LyricsLook(
     id: 'stage_lights',
     name: 'Stage Lights',
     palette: [0xFFFFFFFF, 0xFFFFE08A, 0xFF9FD8FF, 0xFFFFA8E0],
@@ -253,7 +268,7 @@ const List<LyricsLook> kLyricsLooks = [
 ];
 
 /// The entrances offered for lyrics.
-const List<String> kLyricAnims = ['pop', 'jump', 'drop', 'rise', 'flipin', 'zoom', 'fade', 'slide', 'appear'];
+const List<String> kLyricAnims = ['pop', 'jump', 'drop', 'rise', 'flipin', 'zoom', 'fade', 'slide', 'appear', 'spinin', 'twistin'];
 
 /// What the person chose for a lyrics video.
 class LyricsSetup {
@@ -275,6 +290,7 @@ class LyricsSetup {
     this.vizKind = 'bars',
     this.player = false,
     this.centerViz = false,
+    this.karaoke = false,
     this.artist = '',
     this.title = '',
     this.form = const {},
@@ -307,6 +323,9 @@ class LyricsSetup {
 
   /// An audio picture under the words (for the centred looks; the record looks have their own).
   final bool centerViz;
+
+  /// Each line fills with colour word by word while it is sung (lines only).
+  final bool karaoke;
   final String artist;
   final String title;
 
@@ -639,6 +658,14 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
       t.animIn = s.anim;
       t.animInDir = 'up';
       t.animDurationMs = math.max(120, math.min(s.anim == 'drop' ? 600 : (s.anim == 'jump' ? 420 : 260), ((c.endMs - c.startMs) * 0.7).round()));
+      if (s.karaoke && !s.byWord) {
+        final words = RegExp(r'\S+').allMatches(c.text).length;
+        if (words > 0) {
+          t.textAnim = 'karaoke';
+          // The sweep reaches the last word a little before the line ends.
+          t.textAnimMs = math.max(60, ((c.endMs - c.startMs) * 0.9 / words).round());
+        }
+      }
     }
     layers.add(t);
     if (hasRec && !s.byWord && !sampleOnly && i + 1 < cues.length) {

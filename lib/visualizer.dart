@@ -341,6 +341,18 @@ class _VizPainter extends CustomPainter {
     paint.color = color;
     canvas.drawCircle(Offset(w / 2, cy), s * 1.05, paint);
     paint.color = const Color(0xFF14141C);
+    if (progress >= 0.999) {
+      // The song is over: the round button shows play instead of pause.
+      canvas.drawPath(
+        Path()
+          ..moveTo(w / 2 - s * 0.3, cy - s * 0.5)
+          ..lineTo(w / 2 + s * 0.55, cy)
+          ..lineTo(w / 2 - s * 0.3, cy + s * 0.5)
+          ..close(),
+        paint,
+      );
+      return;
+    }
     for (final dx in const [-1.0, 1.0]) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(w / 2 + dx * s * 0.27, cy), width: s * 0.26, height: s * 0.95), Radius.circular(s * 0.06)),

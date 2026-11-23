@@ -283,6 +283,7 @@ class _ExportScreenState extends State<ExportScreen> {
       _status = 'Drawing slides. Keep this screen open.';
     });
     _lastNotifiedPct = 0;
+    await KainuwaEncoder.requestNotificationPermission();
     KainuwaEncoder.exportNotify('Preparing the video', 0);
 
     _ticker?.cancel();

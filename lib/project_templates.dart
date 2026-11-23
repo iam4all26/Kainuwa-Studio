@@ -24,6 +24,12 @@ Map<String, dynamic> lyricsTemplateForm(LyricsLook l) => {
       'embers': l.fx.contains('embers'),
       'sparkle': l.fx.contains('sparkle'),
       'snow': l.fx.contains('snow'),
+      // Every other effect of the look (spotlights, fairies and so on).
+      'more': [
+        for (final f in l.fx)
+          if (!const ['stars', 'streaks', 'embers', 'sparkle', 'snow'].contains(f)) f,
+      ],
+      'karaoke': l.karaoke,
       'shape': l.layout != 0 ? 0 : 1,
       'byWord': l.byWord,
       'layout': l.layout,

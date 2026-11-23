@@ -6,7 +6,7 @@ import 'models.dart';
 import 'scene_canvas.dart';
 
 /// Text-only animations: the text shows up piece by piece.
-const List<String> kTextAnimKinds = ['none', 'letter', 'word', 'line', 'wordpop', 'wordslide'];
+const List<String> kTextAnimKinds = ['none', 'letter', 'word', 'line', 'wordpop', 'wordslide', 'karaoke'];
 
 String textAnimLabel(String kind) {
   switch (kind) {
@@ -20,6 +20,8 @@ String textAnimLabel(String kind) {
       return 'Word pop';
     case 'wordslide':
       return 'Word slide';
+    case 'karaoke':
+      return 'Karaoke sweep';
     default:
       return 'None';
   }
@@ -43,6 +45,8 @@ int defaultUnitMs(String kind) {
       return 45;
     case 'line':
       return 700;
+    case 'karaoke':
+      return 400;
     default:
       return 280;
   }
@@ -102,6 +106,8 @@ List<TextRange> textUnits(String text, String kind) {
 int textRevealTotalMs(Layer layer) {
   final n = textUnits(layer.text, layer.textAnim).length;
   if (n == 0) return 0;
+  // Karaoke: each word takes the whole time of its piece to fill with colour.
+  if (layer.textAnim == 'karaoke') return n * textUnitMs(layer);
   return (n - 1) * textUnitMs(layer) + _unitDurMs(layer.textAnim);
 }
 
@@ -159,7 +165,7 @@ class _TextRevealViewState extends State<TextRevealView> {
         units: _units,
         kind: l.textAnim,
         unitMs: textUnitMs(l),
-        durMs: _unitDurMs(l.textAnim),
+        durMs: l.textAnim == 'karaoke' ? textUnitMs(l) : _unitDurMs(l.textAnim),
         timeMs: widget.timeMs,
       ),
     );
@@ -195,8 +201,34 @@ class _RevealPainter extends CustomPainter {
     return out;
   }
 
+  /// Karaoke: the whole text is dim, and each word fills with full colour from left to right
+  /// during its own piece of time.
+  void _paintKaraoke(Canvas canvas, Size size) {
+    canvas.saveLayer(
+      Rect.fromLTWH(-24, -24, size.width + 48, size.height + 48),
+      Paint()..color = const Color.fromRGBO(0, 0, 0, 0.4),
+    );
+    painter.paint(canvas, Offset.zero);
+    canvas.restore();
+    for (var i = 0; i < units.length; i++) {
+      final p = ((timeMs - i * unitMs) / math.max(1, unitMs)).clamp(0.0, 1.0).toDouble();
+      if (p <= 0) break;
+      final rect = _rectOf(units[i]);
+      if (rect == null) continue;
+      final right = p >= 1 ? rect.right + 6 : rect.left + rect.width * p;
+      canvas.save();
+      canvas.clipRect(Rect.fromLTRB(rect.left - 4, rect.top - 8, right, rect.bottom + 8));
+      painter.paint(canvas, Offset.zero);
+      canvas.restore();
+    }
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (kind == 'karaoke') {
+      _paintKaraoke(canvas, size);
+      return;
+    }
     final done = Path();
     var anyDone = false;
     for (var i = 0; i < units.length; i++) {

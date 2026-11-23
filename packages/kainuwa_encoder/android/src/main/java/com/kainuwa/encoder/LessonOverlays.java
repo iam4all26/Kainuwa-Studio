@@ -192,7 +192,7 @@ final class LessonOverlays {
         double dx = in[1];
         double sc = in[2];
         double sx = in[3];
-        double rot = 0;
+        double rot = in[5];
         double dy = in[4];
         if (item.outKind != null && !item.outKind.equals("none")) {
             double[] out = exitFrame(item.outKind, timeMs, item.outStartMs, item.outDurMs);
@@ -294,16 +294,16 @@ final class LessonOverlays {
     private static final double SLIDE_X = 0.175;
     private static final double SLIDE_Y = 0.31;
 
-    /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale, scaleX, dy. */
+    /** Same formulas as lib/animation_math.dart. Returns alpha, dx (slide width fraction), scale, scaleX, dy, rot (degrees clockwise). */
     static double[] frame(String fullKind, double timeMs, long startMs, long durMs) {
         String kind = baseOf(fullKind);
         if (kind == null || kind.equals("none")) {
-            return new double[]{1, 0, 1, 1, 0};
+            return new double[]{1, 0, 1, 1, 0, 0};
         }
         double duration = Math.max(1, durMs);
         double progress = timeMs <= startMs ? 0.0 : Math.min(1.0, (timeMs - startMs) / duration);
         if (kind.equals("appear")) {
-            return new double[]{progress > 0 ? 1 : 0, 0, 1, 1, 0};
+            return new double[]{progress > 0 ? 1 : 0, 0, 1, 1, 0, 0};
         }
         double eased = 1 - Math.pow(1 - progress, 3);
         double alpha = eased;
@@ -311,6 +311,7 @@ final class LessonOverlays {
         double dy = 0;
         double scale = 1;
         double scaleX = 1;
+        double rot = 0;
         switch (kind) {
             case "slide":
                 switch (dirOf(fullKind)) {
@@ -356,13 +357,22 @@ final class LessonOverlays {
                 scaleX = Math.max(0.01, back(progress));
                 alpha = Math.min(1.0, progress * 5);
                 break;
+            case "spinin":
+                rot = -180 * (1 - eased);
+                scale = 0.4 + 0.6 * eased;
+                alpha = Math.min(1.0, progress * 4);
+                break;
+            case "twistin":
+                rot = 28 * (1 - back(progress));
+                alpha = Math.min(1.0, progress * 5);
+                break;
             default:
                 break;
         }
         if (progress <= 0) {
             alpha = 0;
         }
-        return new double[]{alpha, dx, Math.max(0.01, scale), scaleX, dy};
+        return new double[]{alpha, dx, Math.max(0.01, scale), scaleX, dy, rot};
     }
 
     /** Exit animation. Returns alpha, dx, scale, scaleX, dy (same formulas as the editor). */

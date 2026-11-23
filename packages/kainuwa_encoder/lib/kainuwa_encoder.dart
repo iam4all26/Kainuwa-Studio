@@ -100,6 +100,20 @@ class KainuwaEncoder {
     } catch (_) {}
   }
 
+  /// Asks for the notification permission (Android 13 and newer; older phones say yes at once).
+  /// Never throws and never waits long: the export goes on whatever the answer is.
+  static Future<bool> requestNotificationPermission() async {
+    try {
+      _init();
+      final ok = await _channel
+          .invokeMethod<bool>('requestNotifications')
+          .timeout(const Duration(seconds: 30), onTimeout: () => false);
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> exportNotifyStop() async {
     try {
       _init();
