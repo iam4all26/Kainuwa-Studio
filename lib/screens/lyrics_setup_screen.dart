@@ -9,12 +9,14 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import '../animation_math.dart' show animLabel;
 import '../editor/edit_panel.dart' show fontEntries;
 import '../lyrics_project.dart';
+import '../lyrics_search.dart';
 import '../media/media_library.dart';
 import '../scene_canvas.dart';
 import '../stage_shape.dart';
 import '../effects.dart' show kFxKinds;
 import '../visualizer.dart';
 import 'lyrics_replay_screen.dart';
+import 'lyrics_search_screen.dart';
 import 'lyrics_tap_screen.dart';
 
 /// Setup of a lyrics video: the song, the words, how they are timed, and the look.
@@ -377,6 +379,54 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     });
   }
 
+  /// Searches the lyrics service, then fills the words box (and the timing when the song has timed lyrics).
+  Future<void> _findLyrics() async {
+    final title = _songTitle.text.trim().isNotEmpty ? _songTitle.text.trim() : (_audio.isEmpty ? '' : _nameOf(_audio));
+    final query = [_artist.text.trim(), title].where((e) => e.isNotEmpty).join(' ');
+    final hit = await Navigator.of(context).push<LyricsHit>(
+      MaterialPageRoute<LyricsHit>(
+        builder: (_) => LyricsSearchScreen(initialQuery: query, audioMs: _audioMs),
+      ),
+    );
+    if (hit == null || !mounted) return;
+    final canTime = hit.hasSynced && _audioMs > 0;
+    final choice = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Use these lyrics?'),
+        content: Text(
+          '${hit.title}  -  ${hit.artist}\n\nThe words replace what is in the lyrics box.'
+          '${canTime ? '' : '\n\nThis song has no timing, so use Spread evenly or Tap along.'}',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(0), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(1), child: const Text('Words only')),
+          if (canTime)
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(2), child: const Text('Words and timing')),
+        ],
+      ),
+    );
+    if (choice == null || choice == 0 || !mounted) return;
+    setState(() {
+      _lyrics.text = hit.words;
+      _message = '';
+      _starts = [];
+      _ends = [];
+      _srt = [];
+      _timing = 0;
+      if (choice == 2) {
+        final cues = cuesFromLrc(hit.synced, _audioMs, _byWord);
+        if (cues.isEmpty) {
+          _message = 'The timing could not be read. The words were added without it.';
+        } else {
+          _srt = cues;
+          _timing = 2;
+          _shiftMs = 0;
+        }
+      }
+    });
+  }
+
   Future<void> _replay() async {
     final cues = _audio.isEmpty ? <LyricCue>[] : _cues();
     if (cues.isEmpty) {
@@ -527,6 +577,12 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                   onPressed: _pickSong,
                   icon: const Icon(Icons.library_music_outlined),
                   label: Text(_audio.isEmpty ? 'Choose the song' : 'Song: ${_nameOf(_audio)}'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _findLyrics,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Find lyrics online'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -742,7 +798,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                             ? (stale
                                 ? 'The words changed after you tapped. Tap along again for exact timing. Until then the rest is spread evenly.'
                                 : 'Your tapped times are used.')
-                            : 'The times from the SRT file are used. The lyrics box is not needed.',
+                            : 'The times from the SRT file or the found lyrics are used. Shift them with the slider if they are early or late.',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
