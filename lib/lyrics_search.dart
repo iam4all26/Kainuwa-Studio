@@ -47,6 +47,29 @@ String stripLrc(String raw) {
   return lines.join('\n');
 }
 
+/// The first and the last timed line of an LRC text (time in milliseconds), or null when it has none.
+/// Used to show the person where the words start and end, so they can tell at once if the timing fits.
+({int ms, String text})? _edge(String raw, bool last) {
+  final stamps = <(int, String)>[];
+  for (final line in raw.replaceAll('\r', '').split('\n')) {
+    final tags = _lrcTag.allMatches(line).toList();
+    if (tags.isEmpty) continue;
+    final text = line.replaceAll(_lrcTag, '').trim();
+    if (text.isEmpty) continue;
+    final m = tags.first;
+    final minutes = int.tryParse(m.group(1) ?? '') ?? 0;
+    final seconds = int.tryParse(m.group(2) ?? '') ?? 0;
+    stamps.add((minutes * 60000 + seconds * 1000, text));
+  }
+  if (stamps.isEmpty) return null;
+  stamps.sort((a, b) => a.$1.compareTo(b.$1));
+  final pick = last ? stamps.last : stamps.first;
+  return (ms: pick.$1, text: pick.$2);
+}
+
+({int ms, String text})? firstLrcLine(String raw) => _edge(raw, false);
+({int ms, String text})? lastLrcLine(String raw) => _edge(raw, true);
+
 /// Cues from LRC text: each line starts at its time and runs to the next line. A line is kept at most
 /// 8 seconds, so a long music-only part is left empty. By word, a line's time is shared between its words.
 List<LyricCue> cuesFromLrc(String raw, int totalMs, bool byWord) {
@@ -86,12 +109,46 @@ List<LyricCue> cuesFromLrc(String raw, int totalMs, bool byWord) {
 
 /// Searches the LRCLIB community lyrics service. Songs with timed lyrics come first, then the ones
 /// whose length is closest to the song ([audioMs]). Throws when the service cannot be reached.
-Future<List<LyricsHit>> searchLyrics(String query, {int audioMs = 0}) async {
+Future<List<LyricsHit>> searchLyrics(String query, {int audioMs = 0, String title = '', String artist = ''}) async {
   final q = query.trim();
-  if (q.isEmpty) return const [];
+  final t = title.trim();
+  final a = artist.trim();
+  if (q.isEmpty && t.isEmpty) return const [];
+  final found = <LyricsHit>[];
+  // With the song name (and the artist) the service can match exactly. That comes first; the
+  // loose search on all the words follows, and the same song is only listed once.
+  if (t.isNotEmpty) {
+    try {
+      found.addAll(await _fetch({'track_name': t, if (a.isNotEmpty) 'artist_name': a}));
+    } catch (_) {}
+  }
+  final loose = q.isNotEmpty ? q : [a, t].where((e) => e.isNotEmpty).join(' ');
+  if (found.length < 3 && loose.isNotEmpty) {
+    try {
+      final more = await _fetch({'q': loose});
+      for (final h in more) {
+        final same = found.any((f) => f.title == h.title && f.artist == h.artist && f.durationSec == h.durationSec);
+        if (!same) found.add(h);
+      }
+    } catch (_) {
+      // The exact search already found something: show that. Otherwise say it could not be reached.
+      if (found.isEmpty) rethrow;
+    }
+  }
+  final hits = found;
+  final songSec = audioMs / 1000;
+  int gap(LyricsHit h) => audioMs > 0 && h.durationSec > 0 ? (h.durationSec - songSec).abs().round() : 0;
+  hits.sort((x, y) {
+    if (x.hasSynced != y.hasSynced) return x.hasSynced ? -1 : 1;
+    return gap(x).compareTo(gap(y));
+  });
+  return hits.take(25).toList();
+}
+
+Future<List<LyricsHit>> _fetch(Map<String, String> params) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
   try {
-    final request = await client.getUrl(Uri.https('lrclib.net', '/api/search', {'q': q}));
+    final request = await client.getUrl(Uri.https('lrclib.net', '/api/search', params));
     request.headers.set(HttpHeaders.userAgentHeader, 'KainuwaStudio/1.0');
     final response = await request.close().timeout(const Duration(seconds: 25));
     if (response.statusCode != 200) {
@@ -117,13 +174,7 @@ Future<List<LyricsHit>> searchLyrics(String query, {int audioMs = 0}) async {
         hits.add(hit);
       }
     }
-    final songSec = audioMs / 1000;
-    int gap(LyricsHit h) => audioMs > 0 && h.durationSec > 0 ? (h.durationSec - songSec).abs().round() : 0;
-    hits.sort((a, b) {
-      if (a.hasSynced != b.hasSynced) return a.hasSynced ? -1 : 1;
-      return gap(a).compareTo(gap(b));
-    });
-    return hits.take(25).toList();
+    return hits;
   } finally {
     client.close(force: true);
   }

@@ -386,10 +386,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   /// Searches the lyrics service, then fills the words box (and the timing when the song has timed lyrics).
   Future<void> _findLyrics() async {
     final title = _songTitle.text.trim().isNotEmpty ? _songTitle.text.trim() : (_audio.isEmpty ? '' : _nameOf(_audio));
-    final query = [_artist.text.trim(), title].where((e) => e.isNotEmpty).join(' ');
     final hit = await Navigator.of(context).push<LyricsHit>(
       MaterialPageRoute<LyricsHit>(
-        builder: (_) => LyricsSearchScreen(initialQuery: query, audioMs: _audioMs),
+        builder: (_) => LyricsSearchScreen(initialTitle: title, initialArtist: _artist.text.trim(), audioMs: _audioMs),
       ),
     );
     if (hit == null || !mounted) return;
@@ -401,6 +400,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         title: const Text('Use these lyrics?'),
         content: Text(
           '${hit.title}  -  ${hit.artist}\n\nThe words replace what is in the lyrics box.'
+          '${_syncCheck(hit)}'
           '${canTime ? '' : '\n\nThis song has no timing, so use Spread evenly or Tap along.'}',
         ),
         actions: [
@@ -430,6 +430,20 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         }
       }
     });
+  }
+
+  /// A few lines for the "Use these lyrics?" box: when the words start and end against the song.
+  String _syncCheck(LyricsHit hit) {
+    if (!hit.hasSynced || _audioMs <= 0) return '';
+    final first = firstLrcLine(hit.synced);
+    final last = lastLrcLine(hit.synced);
+    if (first == null || last == null) return '';
+    String clock(int ms) => _clock(ms);
+    final lines = StringBuffer('\n\nFirst line at ${clock(first.ms)}: "${first.text}"');
+    lines.write('\nLast line at ${clock(last.ms)}: "${last.text}"');
+    lines.write('\nYour song is ${clock(_audioMs)} long.');
+    if (last.ms > _audioMs) lines.write('\nThe last line is after the end of your song, so this may be another version.');
+    return lines.toString();
   }
 
   Future<void> _replay() async {

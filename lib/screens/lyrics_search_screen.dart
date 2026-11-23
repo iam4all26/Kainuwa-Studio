@@ -1,14 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../lyrics_search.dart';
 
 /// Search for the words of a song online. Returns the song the person taps, or null.
 class LyricsSearchScreen extends StatefulWidget {
-  const LyricsSearchScreen({super.key, required this.initialQuery, required this.audioMs});
+  const LyricsSearchScreen({
+    super.key,
+    required this.initialTitle,
+    required this.initialArtist,
+    required this.audioMs,
+  });
 
-  final String initialQuery;
+  final String initialTitle;
+  final String initialArtist;
   final int audioMs;
 
   @override
@@ -16,7 +23,8 @@ class LyricsSearchScreen extends StatefulWidget {
 }
 
 class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
-  final TextEditingController _query = TextEditingController();
+  final TextEditingController _title = TextEditingController();
+  final TextEditingController _artist = TextEditingController();
   List<LyricsHit> _hits = [];
   bool _busy = false;
   String _message = '';
@@ -24,21 +32,24 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
   @override
   void initState() {
     super.initState();
-    _query.text = widget.initialQuery;
-    if (widget.initialQuery.trim().isNotEmpty) {
+    _title.text = widget.initialTitle;
+    _artist.text = widget.initialArtist;
+    if (widget.initialTitle.trim().isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _run());
     }
   }
 
   @override
   void dispose() {
-    _query.dispose();
+    _title.dispose();
+    _artist.dispose();
     super.dispose();
   }
 
   Future<void> _run() async {
-    final q = _query.text.trim();
-    if (q.isEmpty || _busy) return;
+    final title = _title.text.trim();
+    final artist = _artist.text.trim();
+    if (title.isEmpty || _busy) return;
     FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
@@ -48,7 +59,7 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
     List<LyricsHit> hits = [];
     String message = '';
     try {
-      hits = await searchLyrics(q, audioMs: widget.audioMs);
+      hits = await searchLyrics('$artist $title', audioMs: widget.audioMs, title: title, artist: artist);
       if (hits.isEmpty) {
         message = 'Nothing found. Try the artist and the song name only, or paste the lyrics yourself.';
       }
@@ -65,6 +76,24 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
 
   String _clock(int sec) => '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
 
+  /// Where the words start and end, so a wrong version shows up at once.
+  String _edgesNote(LyricsHit h) {
+    if (!h.hasSynced) return '';
+    final first = firstLrcLine(h.synced);
+    final last = lastLrcLine(h.synced);
+    if (first == null || last == null) return '';
+    return '\nFirst line at ${_clock(first.ms ~/ 1000)}, last line at ${_clock(last.ms ~/ 1000)}';
+  }
+
+  Future<void> _google() async {
+    final q = Uri.encodeQueryComponent('${_artist.text.trim()} ${_title.text.trim()} lyrics'.trim());
+    try {
+      await KainuwaEncoder.openUrl('https://www.google.com/search?q=$q');
+    } catch (_) {
+      if (mounted) setState(() => _message = 'The browser could not be opened.');
+    }
+  }
+
   String _lengthNote(LyricsHit h) {
     if (widget.audioMs <= 0 || h.durationSec <= 0) return '';
     final diff = (h.durationSec - widget.audioMs / 1000).abs().round();
@@ -79,15 +108,37 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: _query,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _run(),
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                labelText: 'Artist and song name',
-                suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _run),
-              ),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _title,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Song name'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _artist,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _run(),
+                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Artist (helps to find the exact song)'),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(onPressed: _run, icon: const Icon(Icons.search), label: const Text('Search')),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _google,
+                        icon: const Icon(Icons.public),
+                        label: const Text('Search on Google'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           if (_busy) const LinearProgressIndicator(),
@@ -104,8 +155,8 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
                 return ListTile(
                   title: Text(h.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
-                    '${h.artist}  -  ${_clock(h.durationSec)}${_lengthNote(h)}',
-                    maxLines: 2,
+                    '${h.artist}  -  ${_clock(h.durationSec)}${_lengthNote(h)}${_edgesNote(h)}',
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: Chip(
