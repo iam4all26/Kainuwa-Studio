@@ -351,6 +351,33 @@ class _TimelinePanelState extends State<TimelinePanel> {
 
   // ---- handles on the selected slide clip ----
 
+  /// Width of a drag handle: wide enough for a thumb, but never more than a third of a short clip.
+  double _handleWidth(double u, double clipW) =>
+      math.min(math.max(30.0, 44 * u), math.max(16.0, clipW * 0.3));
+
+  /// The white end handle of a selected clip, with a dark bar in the middle.
+  Widget _handleBox(bool left, double u, {bool plain = false}) {
+    if (plain) return const SizedBox.shrink();
+    final r = Radius.circular(math.max(5.0, 8 * u));
+    return Container(
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: left
+            ? BorderRadius.only(topLeft: r, bottomLeft: r)
+            : BorderRadius.only(topRight: r, bottomRight: r),
+      ),
+      child: Container(
+        width: 3,
+        height: 16,
+        decoration: BoxDecoration(
+          color: const Color(0xFF5B21B6),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+
   Widget _grip(double u) {
     final d = math.max(2.5, 4 * u);
     return Column(
@@ -367,10 +394,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
     );
   }
 
-  Widget _handle({required bool left, required int index, required double u}) {
+  Widget _handle({required bool left, required int index, required double u, double cw = 200}) {
     final lesson = widget.lesson;
     final scene = lesson.scenes[index];
-    final width = math.max(24.0, 40 * u);
+    final width = _handleWidth(u, cw);
     return Positioned(
       left: left ? 0.0 : null,
       right: left ? null : 0.0,
@@ -407,11 +434,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         },
         onHorizontalDragEnd: (_) => widget.onEditEnd(),
         onHorizontalDragCancel: () => widget.onEditEnd(),
-        child: Container(
-          alignment: Alignment.center,
-          color: const Color(0x33000000),
-          child: (left && index == 0) ? const SizedBox.shrink() : _grip(u),
-        ),
+        child: _handleBox(left, u, plain: left && index == 0),
       ),
     );
   }
@@ -480,11 +503,59 @@ class _TimelinePanelState extends State<TimelinePanel> {
     _dragAccum = 0;
     _layerStartA = layer.startMs;
     _layerStartB = layerEndMs(layer, sceneMs);
+    _collectSnaps(layer, sceneMs);
+  }
+
+  // ---- snapping: an item edge is pulled to the slide edges, the playhead and the other items ----
+
+  List<int> _snapPts = <int>[];
+  int _lastSnapped = -1;
+
+  void _collectSnaps(Layer layer, int sceneMs) {
+    final lesson = widget.lesson;
+    _snapPts = <int>[0, sceneMs];
+    _lastSnapped = -1;
+    for (var i = 0; i < lesson.scenes.length; i++) {
+      final scene = lesson.scenes[i];
+      if (!scene.layers.contains(layer)) continue;
+      final head = widget.player.positionMs - sceneStartMs(lesson, i);
+      if (head > 0 && head < sceneMs) _snapPts.add(head);
+      for (final other in scene.layers) {
+        if (identical(other, layer)) continue;
+        _snapPts.add(other.startMs);
+        _snapPts.add(layerEndMs(other, scene.durationMs));
+      }
+      break;
+    }
+  }
+
+  /// The snap point within a few pixels of [ms], or null.
+  int? _nearest(int ms) {
+    final tol = (8 / _pps * 1000).round();
+    int? best;
+    var bestD = tol + 1;
+    for (final p in _snapPts) {
+      final d = (p - ms).abs();
+      if (d < bestD) {
+        best = p;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  void _buzz(int? point) {
+    if (point == null) {
+      _lastSnapped = -1;
+    } else if (point != _lastSnapped) {
+      _lastSnapped = point;
+      HapticFeedback.selectionClick();
+    }
   }
 
   /// Zooms the timeline and keeps the playhead in the middle of the view.
   void _zoomTo(double value) {
-    setState(() => _zoom = value.clamp(0.25, 30.0).toDouble());
+    setState(() => _zoom = value.clamp(0.1, 30.0).toDouble());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       final pos = _scroll.position;
@@ -517,9 +588,13 @@ class _TimelinePanelState extends State<TimelinePanel> {
   void _layerTrim(Layer layer, int sceneMs, {required bool left}) {
     final delta = _roundedDelta().round();
     if (left) {
-      layer.startMs = (_layerStartA + delta).clamp(0, math.max(0, _layerStartB - 200)).toInt();
+      final snap = _nearest(_layerStartA + delta);
+      _buzz(snap);
+      layer.startMs = (snap ?? _layerStartA + delta).clamp(0, math.max(0, _layerStartB - 200)).toInt();
     } else {
-      final end = (_layerStartB + delta).clamp(_layerStartA + 200, sceneMs).toInt();
+      final snap = _nearest(_layerStartB + delta);
+      _buzz(snap);
+      final end = (snap ?? _layerStartB + delta).clamp(_layerStartA + 200, sceneMs).toInt();
       layer.endMs = end >= sceneMs ? -1 : end;
     }
     widget.onLayerTiming();
@@ -527,6 +602,20 @@ class _TimelinePanelState extends State<TimelinePanel> {
 
   void _layerMove(Layer layer, int sceneMs) {
     var delta = _roundedDelta().round();
+    // Either end of the item may snap; the nearer one wins.
+    final a = _layerStartA + delta;
+    final b = _layerStartB + delta;
+    final sa = _nearest(a);
+    final sb = _nearest(b);
+    if (sa != null && (sb == null || (sa - a).abs() <= (sb - b).abs())) {
+      delta += sa - a;
+      _buzz(sa);
+    } else if (sb != null) {
+      delta += sb - b;
+      _buzz(sb);
+    } else {
+      _buzz(null);
+    }
     delta = delta.clamp(-_layerStartA, sceneMs - _layerStartB).toInt();
     layer.startMs = _layerStartA + delta;
     final end = _layerStartB + delta;
@@ -645,8 +734,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
     widget.onSelectLayer(headScene, head.id);
   }
 
-  Widget _layerHandle({required bool left, required Layer layer, required int sceneIndex, required int sceneMs, required double u}) {
-    final width = math.max(24.0, 40 * u);
+  Widget _layerHandle({required bool left, required Layer layer, required int sceneIndex, required int sceneMs, required double u, double cw = 200}) {
+    final width = _handleWidth(u, cw);
     return Positioned(
       left: left ? 0.0 : null,
       right: left ? null : 0.0,
@@ -678,11 +767,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
           if (!left) _extendEnd(layer, sceneIndex);
           widget.onEditEnd();
         },
-        child: Container(
-          alignment: Alignment.center,
-          color: const Color(0x33000000),
-          child: _grip(u),
-        ),
+        child: _handleBox(left, u),
       ),
     );
   }
@@ -727,8 +812,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
     widget.onAudioChanged();
   }
 
-  Widget _audioHandle({required bool left, required AudioClip ac, required double u}) {
-    final width = math.max(24.0, 40 * u);
+  Widget _audioHandle({required bool left, required AudioClip ac, required double u, double cw = 200}) {
+    final width = _handleWidth(u, cw);
     return Positioned(
       left: left ? 0.0 : null,
       right: left ? null : 0.0,
@@ -744,11 +829,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         },
         onHorizontalDragEnd: (_) => widget.onEditEnd(),
         onHorizontalDragCancel: () => widget.onEditEnd(),
-        child: Container(
-          alignment: Alignment.center,
-          color: const Color(0x33000000),
-          child: _grip(u),
-        ),
+        child: _handleBox(left, u),
       ),
     );
   }
@@ -955,16 +1036,16 @@ class _TimelinePanelState extends State<TimelinePanel> {
           children: [
             ClipRRect(borderRadius: radius, child: body),
             if (clip.kind == 'scene') ...[
-              _handle(left: true, index: clip.sceneIndex, u: u),
-              _handle(left: false, index: clip.sceneIndex, u: u),
+              _handle(left: true, index: clip.sceneIndex, u: u, cw: w),
+              _handle(left: false, index: clip.sceneIndex, u: u, cw: w),
             ],
             if (clip.kind == 'audioclip') ...[
-              _audioHandle(left: true, ac: clip.audio!, u: u),
-              _audioHandle(left: false, ac: clip.audio!, u: u),
+              _audioHandle(left: true, ac: clip.audio!, u: u, cw: w),
+              _audioHandle(left: false, ac: clip.audio!, u: u, cw: w),
             ],
             if (clip.kind == 'layer') ...[
-              _layerHandle(left: true, layer: clip.layer!, sceneIndex: clip.sceneIndex, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
-              _layerHandle(left: false, layer: clip.layer!, sceneIndex: clip.sceneIndex, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u),
+              _layerHandle(left: true, layer: clip.layer!, sceneIndex: clip.sceneIndex, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u, cw: w),
+              _layerHandle(left: false, layer: clip.layer!, sceneIndex: clip.sceneIndex, sceneMs: widget.lesson.scenes[clip.sceneIndex].durationMs, u: u, cw: w),
             ],
           ],
         ),
@@ -1040,7 +1121,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final labelW = math.max(84.0, 110 * u);
         final stripLeft = labelLeft + labelW + 5 * u;
         final viewportW = width - stripLeft - 13 * u;
-        _pps = (viewportW / 31.2) * _zoom;
+        // About 9 seconds fill the view, and never less than 30 px per second, so every second can be read.
+        _pps = math.max(30.0, viewportW / 9.0) * _zoom;
         final pps = _pps;
 
         final rulerH = 128 * u;
@@ -1051,7 +1133,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final rowGap = math.max(3.0, 6 * u);
         final addH = math.max(28.0, 40 * u);
         // Transition button: small, and the room kept free on each side of it.
-        final tBtn = math.max(13.0, math.min(clipH * 0.5, 18.0));
+        final tBtn = math.max(20.0, math.min(clipH * 0.8, 28.0));
         final tGap = tBtn / 2 + 4;
 
         final clips = _buildClips();
@@ -1138,10 +1220,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: on ? const Color(0xFF7351FF) : const Color(0xFF2E2658),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: on ? Colors.white : const Color(0xFF8A7BD6), width: 1),
+                      borderRadius: BorderRadius.circular(btn * 0.3),
+                      border: Border.all(color: on ? Colors.white : const Color(0xFF8A7BD6), width: on ? 1.5 : 1),
+                      boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 4)],
                     ),
-                    child: Icon(Icons.compare_arrows, size: btn * 0.62, color: Colors.white),
+                    child: Icon(Icons.compare_arrows, size: btn * 0.7, color: Colors.white),
                   ),
                 ),
               ));
@@ -1213,7 +1296,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   onScaleStart: (_) => _zoomStart = _zoom,
                   onScaleUpdate: (d) {
                     if (d.pointerCount >= 2) {
-                      setState(() => _zoom = (_zoomStart * d.scale).clamp(0.25, 30.0).toDouble());
+                      setState(() => _zoom = (_zoomStart * d.scale).clamp(0.1, 30.0).toDouble());
                     }
                   },
                   child: CustomPaint(painter: _RulerPainter(pps: pps, u: u, bookmarks: List<int>.of(widget.lesson.bookmarks))),
@@ -1429,7 +1512,7 @@ class _RulerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     var step = _steps.last;
     for (final s in _steps) {
-      if (s * pps >= 100 * u) {
+      if (s * pps >= math.max(30.0, 70 * u)) {
         step = s;
         break;
       }

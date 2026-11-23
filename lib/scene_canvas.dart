@@ -611,6 +611,27 @@ class _SceneCanvasState extends State<SceneCanvas> {
       content = IgnorePointer(child: content);
     }
 
+    // While the preview plays, the item picked on the timeline still shows a frame (no handles, no touch).
+    if (!widget.interactive && !isFx && timing != null && widget.selectedId == layer.id) {
+      content = Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          content,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: const [BoxShadow(color: Color(0xAA7351FF), blurRadius: 6)],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     Widget placed = Transform.rotate(angle: layer.rotation, child: content);
     if (timing != null) {
       final frame = layerFrame(timing.$1, timing.$2, timing.$3);

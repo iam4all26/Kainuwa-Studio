@@ -297,7 +297,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   void _selectLayerFromTimeline(int sceneIndex, String id) {
     final lesson = _lesson();
     if (lesson == null || sceneIndex >= lesson.scenes.length) return;
-    _seekToScene(lesson, sceneIndex);
+    // While the preview plays, picking an item must not move the playhead.
+    if (!(_player?.playing ?? false)) _seekToScene(lesson, sceneIndex);
     setState(() {
       _selectedId = id;
       _selectedAudioId = null;
@@ -2578,7 +2579,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             valueListenable: _demoMs,
             builder: (context, demoMs, _) => SceneCanvas(
             scene: viewScene(scene, lesson.hiddenTracks),
-            selectedId: playing ? null : _selectedId,
+            selectedId: _selectedId,
             interactive: !playing,
             tapSelect: playing,
             previewMs: playing ? spot.localMs : null,
