@@ -87,15 +87,58 @@ final class LessonOverlays {
     }
 
     private final List<Long> sceneStartUs = new ArrayList<>();
-    private final List<List<Item>> perScene = new ArrayList<>();
+    /** Per scene, per slot: the items that use that slot, one after the other in time. */
+    private final List<List<List<Item>>> perScene = new ArrayList<>();
     private long cursorMs = 0;
     private int slots = 0;
 
+    /** The encoder draws at most this many pictures on top of the video at the same time. */
+    static final int MAX_SLOTS = 15;
+
+    /** How many items were left out because more than [MAX_SLOTS] were on screen at once. */
+    int droppedItems = 0;
+
     void addScene(long durationMs, List<Item> items) {
         sceneStartUs.add(cursorMs * 1000L);
-        perScene.add(items);
+        List<List<Item>> packed = pack(items);
+        perScene.add(packed);
         cursorMs += durationMs;
-        slots = Math.max(slots, items.size());
+        slots = Math.max(slots, packed.size());
+    }
+
+    /**
+     * Shares the slots between items that are not on screen at the same time (the words of a song come
+     * one after the other, so a hundred of them need only a few slots). An item that is on screen with
+     * an earlier one always gets a higher slot, so the order from back to front stays the same.
+     */
+    private List<List<Item>> pack(List<Item> items) {
+        int n = items.size();
+        int[] slotOf = new int[n];
+        List<List<Item>> out = new ArrayList<>();
+        for (int j = 0; j < n; j++) {
+            Item b = items.get(j);
+            int min = 0;
+            for (int i = 0; i < j; i++) {
+                if (slotOf[i] < 0) {
+                    continue;
+                }
+                Item a = items.get(i);
+                if (a.showMs < b.hideMs && b.showMs < a.hideMs) {
+                    min = Math.max(min, slotOf[i] + 1);
+                }
+            }
+            if (min >= MAX_SLOTS) {
+                slotOf[j] = -1;
+                droppedItems++;
+                continue;
+            }
+            slotOf[j] = min;
+            while (out.size() <= min) {
+                out.add(new ArrayList<Item>());
+            }
+            out.get(min).add(b);
+        }
+        return out;
     }
 
     int slotCount() {
@@ -128,7 +171,7 @@ final class LessonOverlays {
 
     private final class Slot extends BitmapOverlay {
         private final int slot;
-        private int cachedScene = -1;
+        private Item cachedItem = null;
         private int cachedFrame = -2;
         private Bitmap cachedBitmap = BLANK;
 
@@ -136,25 +179,34 @@ final class LessonOverlays {
             this.slot = slot;
         }
 
-        private Item itemAt(int scene) {
-            List<Item> items = perScene.get(scene);
-            return slot < items.size() ? items.get(slot) : null;
+        /** The item this slot shows at [localMs] of the scene, or null when it is empty then. */
+        private Item itemAt(int scene, double localMs) {
+            List<List<Item>> bySlot = perScene.get(scene);
+            if (slot >= bySlot.size()) {
+                return null;
+            }
+            for (Item it : bySlot.get(slot)) {
+                if (localMs >= it.showMs && localMs < it.hideMs) {
+                    return it;
+                }
+            }
+            return null;
         }
 
         @Override
         public Bitmap getBitmap(long presentationTimeUs) {
             int scene = sceneAt(presentationTimeUs);
-            Item item = itemAt(scene);
+            double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
+            Item item = itemAt(scene, localMs);
             if (item == null) {
                 return BLANK;
             }
-            double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
             int frame = item.frameIndex(localMs);
-            if (scene != cachedScene || frame != cachedFrame) {
+            if (item != cachedItem || frame != cachedFrame) {
                 String file = frame >= 0 ? item.framePaths[frame] : item.path;
                 Bitmap decoded = BitmapFactory.decodeFile(file);
                 cachedBitmap = decoded == null ? BLANK : decoded;
-                cachedScene = scene;
+                cachedItem = item;
                 cachedFrame = frame;
             }
             return cachedBitmap;
@@ -163,11 +215,11 @@ final class LessonOverlays {
         @Override
         public OverlaySettings getOverlaySettings(long presentationTimeUs) {
             int scene = sceneAt(presentationTimeUs);
-            Item item = itemAt(scene);
+            double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
+            Item item = itemAt(scene, localMs);
             if (item == null) {
                 return HIDDEN;
             }
-            double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
             double[] f = fullFrame(item, localMs);
             float[] pos = item.positionAt(localMs);
             // The encoder only accepts anchors from -1 to 1 (anything else stops the export), so a
