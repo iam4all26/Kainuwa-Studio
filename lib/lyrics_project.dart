@@ -341,6 +341,79 @@ List<LyricCue> spreadCues(List<String> units, int fromMs, int toMs) {
   return cues;
 }
 
+/// Like [spreadCues], but the words never fall inside a music-only part. [gaps] are [startMs, endMs] pairs.
+List<LyricCue> spreadCuesAround(List<String> units, int fromMs, int toMs, List<List<int>> gaps) {
+  if (units.isEmpty || toMs <= fromMs) return const [];
+  // Keep the parts inside the singing range, in order, joined when they touch.
+  final parts = <List<int>>[];
+  final sorted = [
+    for (final g in gaps)
+      if (g.length == 2 && g[1] > fromMs && g[0] < toMs) [math.max(g[0], fromMs), math.min(g[1], toMs)],
+  ]..sort((a, b) => a[0].compareTo(b[0]));
+  for (final g in sorted) {
+    if (g[1] <= g[0]) continue;
+    if (parts.isNotEmpty && g[0] <= parts.last[1]) {
+      parts.last[1] = math.max(parts.last[1], g[1]);
+    } else {
+      parts.add([g[0], g[1]]);
+    }
+  }
+  if (parts.isEmpty) return spreadCues(units, fromMs, toMs);
+  final hidden = parts.fold<int>(0, (sum, g) => sum + (g[1] - g[0]));
+  final active = (toMs - fromMs) - hidden;
+  if (active < 500) return spreadCues(units, fromMs, toMs);
+  // Time is measured without the hidden parts, then moved back onto the real song.
+  int real(double a, bool isEnd) {
+    var t = fromMs + a;
+    for (final g in parts) {
+      if (isEnd ? t > g[0] : t >= g[0]) t += g[1] - g[0];
+    }
+    return t.round();
+  }
+
+  final weights = [for (final u in units) u.length + 2.0];
+  final total = weights.fold<double>(0, (a, b) => a + b);
+  final cues = <LyricCue>[];
+  var at = 0.0;
+  for (var i = 0; i < units.length; i++) {
+    final len = active * weights[i] / total;
+    final start = real(at, false);
+    final end = i == units.length - 1 ? toMs : real(at + len, true);
+    cues.add(LyricCue(start, math.max(start + 100, end), units[i]));
+    at += len;
+  }
+  return cues;
+}
+
+/// Hides the words inside the music-only [gaps] ([startMs, endMs] pairs) of cues that already have their own times.
+List<LyricCue> cutGaps(List<LyricCue> cues, List<List<int>> gaps) {
+  if (gaps.isEmpty) return cues;
+  final out = <LyricCue>[];
+  for (final c in cues) {
+    var s = c.startMs;
+    var e = c.endMs;
+    var drop = false;
+    for (final g in gaps) {
+      if (g.length != 2) continue;
+      final gs = g[0];
+      final ge = g[1];
+      if (ge <= s || gs >= e) continue;
+      if (gs <= s && ge >= e) {
+        drop = true;
+        break;
+      }
+      if (gs <= s) {
+        s = ge;
+      } else {
+        e = gs;
+      }
+    }
+    if (drop || e < s + 200) continue;
+    out.add(LyricCue(s, e, c.text));
+  }
+  return out;
+}
+
 /// Cues from the times the person tapped (one start per unit, in order). A unit that was not tapped
 /// shares the time that is left after the last tap.
 List<LyricCue> cuesFromStarts(List<String> units, List<int> starts, int totalMs, [List<int> ends = const []]) {

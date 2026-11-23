@@ -247,6 +247,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
       ));
       var imageLane = 1;
       var textLane = 0;
+      final textLaneEnds = <int>[];
       for (final layer in scene.layers) {
         final dur = scene.durationMs;
         final from = layer.startMs.clamp(0, math.max(0, dur - 200)).toInt();
@@ -256,7 +257,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
             kind: 'layer',
             startMs: start + from,
             endMs: start + math.min(to, dur),
-            lane: textLane++,
+            lane: lesson.setupKind == 'lyrics'
+                ? _packLane(textLaneEnds, start + from, start + math.min(to, dur))
+                : textLane++,
             sceneIndex: i,
             layer: layer,
             label: layerLabel(layer),
@@ -324,6 +327,18 @@ class _TimelinePanelState extends State<TimelinePanel> {
       ));
     }
     return {'image': image, 'text': text, 'audio': audio, 'video': video};
+  }
+
+  /// Puts a clip on the first row where it does not overlap another one. Lyrics use this so
+  /// the words follow each other on one row instead of every word having its own row.
+  int _packLane(List<int> ends, int startMs, int endMs) {
+    final lane = ends.indexWhere((end) => end <= startMs);
+    if (lane < 0) {
+      ends.add(endMs);
+      return ends.length - 1;
+    }
+    ends[lane] = endMs;
+    return lane;
   }
 
   int _lanes(List<_Clip> clips) {

@@ -14,6 +14,7 @@ import '../scene_canvas.dart';
 import '../stage_shape.dart';
 import '../effects.dart' show kFxKinds;
 import '../visualizer.dart';
+import 'lyrics_replay_screen.dart';
 import 'lyrics_tap_screen.dart';
 
 /// Setup of a lyrics video: the song, the words, how they are timed, and the look.
@@ -44,6 +45,9 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   // Where the singing starts and how much music-only time is left at the end (spread evenly).
   int _leadMs = 0;
   int _tailMs = 0;
+  // Music-only parts in the middle ([startMs, endMs]) for spread timing and SRT, and a shift for tapped or SRT times.
+  List<List<int>> _gaps = [];
+  int _shiftMs = 0;
   List<LyricCue> _srt = [];
   String _look = 'neon';
   String _anim = 'jump';
@@ -94,6 +98,12 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _ends = [if (f['ends'] is List) for (final v in f['ends'] as List) if (v is num) v.round()];
     _leadMs = iv('lead', 0);
     _tailMs = iv('tail', 0);
+    _shiftMs = iv('shift', 0);
+    _gaps = [
+      if (f['gaps'] is List)
+        for (final v in f['gaps'] as List)
+          if (v is List && v.length == 2 && v[0] is num && v[1] is num) [(v[0] as num).round(), (v[1] as num).round()],
+    ];
     _srt = [
       if (f['srt'] is List)
         for (final v in f['srt'] as List)
@@ -204,6 +214,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       _audioMs = ms;
       _leadMs = 0;
       _tailMs = 0;
+      _gaps = [];
+      _shiftMs = 0;
       _message = '';
       _starts = [];
       _ends = [];
@@ -298,12 +310,82 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   String _clock(int ms) => '${ms ~/ 60000}:${((ms ~/ 1000) % 60).toString().padLeft(2, '0')}';
 
   List<LyricCue> _cues() {
-    if (_timing == 2 && _srt.isNotEmpty) return _srt;
+    if (_timing == 2 && _srt.isNotEmpty) {
+      final moved = _shiftMs == 0
+          ? _srt
+          : [
+              for (final c in _srt)
+                LyricCue(
+                  math.max(0, c.startMs + _shiftMs),
+                  math.max(math.max(0, c.startMs + _shiftMs) + 200, c.endMs + _shiftMs),
+                  c.text,
+                ),
+            ];
+      return cutGaps(moved, _gaps);
+    }
     final units = _units;
-    if (_timing == 1 && _starts.isNotEmpty) return cuesFromStarts(units, _starts, _audioMs, _ends);
+    if (_timing == 1 && _starts.isNotEmpty) {
+      final starts = [for (final v in _starts) math.max(0, v + _shiftMs)];
+      final ends = [for (final v in _ends) v < 0 ? v : math.max(0, v + _shiftMs)];
+      return cuesFromStarts(units, starts, _audioMs, ends);
+    }
     final lead = _leadMs.clamp(0, math.max(0, _audioMs - 1000)).toInt();
     final end = (_audioMs - _tailMs).clamp(lead + 1000, math.max(lead + 1000, _audioMs)).toInt();
-    return spreadCues(units, lead, end);
+    return spreadCuesAround(units, lead, end, _gaps);
+  }
+
+  String _clockTenths(int ms) =>
+      '${ms ~/ 60000}:${((ms ~/ 1000) % 60).toString().padLeft(2, '0')}.${((ms % 1000) ~/ 100)}';
+
+  Future<void> _addGap() async {
+    if (_audioMs <= 0) return;
+    var range = RangeValues(0, math.min(_audioMs.toDouble(), 10000));
+    final picked = await showDialog<RangeValues>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setLocal) => AlertDialog(
+          title: const Text('Music only part'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${_clockTenths(range.start.round())} to ${_clockTenths(range.end.round())}'),
+              RangeSlider(
+                values: range,
+                min: 0,
+                max: _audioMs.toDouble(),
+                divisions: math.max(1, _audioMs ~/ 500),
+                onChanged: (v) => setLocal(() => range = v),
+              ),
+              const Text('The words are hidden between these two times.', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(range), child: const Text('Add')),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final from = picked.start.round();
+    final to = picked.end.round();
+    if (to - from < 500) return;
+    setState(() {
+      _gaps = [..._gaps, [from, to]]..sort((a, b) => a[0].compareTo(b[0]));
+    });
+  }
+
+  Future<void> _replay() async {
+    final cues = _audio.isEmpty ? <LyricCue>[] : _cues();
+    if (cues.isEmpty) {
+      setState(() => _message = 'Choose the song and set the timing first.');
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => LyricsReplayScreen(audio: _audio, audioMs: _audioMs, cues: cues),
+      ),
+    );
   }
 
   LyricsSetup _setup() {
@@ -337,6 +419,8 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'ends': _ends,
         'lead': _leadMs,
         'tail': _tailMs,
+        'shift': _shiftMs,
+        'gaps': _gaps,
         'srt': [for (final c in _srt) [c.startMs, c.endMs, c.text]],
         'look': _look,
         'anim': _anim,
@@ -595,11 +679,61 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                     onChanged: (v) => setState(() => _tailMs = (v / 500).round() * 500),
                   ),
                 ],
+                if ((_timing == 1 && _starts.isNotEmpty) || (_timing == 2 && _srt.isNotEmpty)) ...[
+                  const SizedBox(height: 8),
+                  Text('Shift all words: ${_shiftMs > 0 ? '+' : ''}$_shiftMs ms'),
+                  Slider(
+                    value: _shiftMs.clamp(-2000, 2000).toDouble(),
+                    min: -2000,
+                    max: 2000,
+                    divisions: 80,
+                    onChanged: (v) => setState(() => _shiftMs = (v / 50).round() * 50),
+                  ),
+                  const Text(
+                    'Plus moves the words later, minus earlier. Use Replay to check.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+                if (_audio.isNotEmpty && _audioMs > 4000 && _timing != 1) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Music-only parts', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                      TextButton.icon(
+                        onPressed: _addGap,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                  for (var i = 0; i < _gaps.length; i++)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.music_note_outlined),
+                      title: Text('${_clockTenths(_gaps[i][0])} to ${_clockTenths(_gaps[i][1])}'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _gaps.removeAt(i)),
+                      ),
+                    ),
+                ],
+                if (_audio.isNotEmpty && _ready)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: OutlinedButton.icon(
+                      onPressed: _replay,
+                      icon: const Icon(Icons.play_circle_outline),
+                      label: const Text('Replay the timing'),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     _timing == 0
-                        ? 'The words are spread between the two times above, a longer word a little longer. For music-only parts in the middle, use Tap along.'
+                        ? 'The words are spread between the two times above, a longer word a little longer. Add music-only parts above for gaps in the middle.'
                         : _timing == 1
                             ? (stale
                                 ? 'The words changed after you tapped. Tap along again for exact timing. Until then the rest is spread evenly.'
