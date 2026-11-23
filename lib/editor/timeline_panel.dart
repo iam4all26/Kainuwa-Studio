@@ -351,28 +351,36 @@ class _TimelinePanelState extends State<TimelinePanel> {
 
   // ---- handles on the selected slide clip ----
 
-  /// Width of a drag handle: wide enough for a thumb, but never more than a third of a short clip.
+  /// Touch width of a drag handle: enough for a thumb, but never more than a quarter of a short clip.
   double _handleWidth(double u, double clipW) =>
-      math.min(math.max(30.0, 44 * u), math.max(16.0, clipW * 0.3));
+      math.min(math.max(24.0, 30 * u), math.max(14.0, clipW * 0.25));
 
-  /// The white end handle of a selected clip, with a dark bar in the middle.
+  /// The end handle of a selected clip: a thin white strip on the outer edge with a dark bar.
+  /// The touch area is wider than the white strip, so the clip itself stays visible.
   Widget _handleBox(bool left, double u, {bool plain = false}) {
     if (plain) return const SizedBox.shrink();
-    final r = Radius.circular(math.max(5.0, 8 * u));
-    return Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: left
-            ? BorderRadius.only(topLeft: r, bottomLeft: r)
-            : BorderRadius.only(topRight: r, bottomRight: r),
-      ),
-      child: Container(
-        width: 3,
-        height: 16,
-        decoration: BoxDecoration(
-          color: const Color(0xFF5B21B6),
-          borderRadius: BorderRadius.circular(2),
+    final r = Radius.circular(math.max(4.0, 6 * u));
+    return Align(
+      alignment: left ? Alignment.centerLeft : Alignment.centerRight,
+      child: FractionallySizedBox(
+        widthFactor: 0.5,
+        heightFactor: 1.0,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: left
+                ? BorderRadius.only(topLeft: r, bottomLeft: r)
+                : BorderRadius.only(topRight: r, bottomRight: r),
+          ),
+          child: Container(
+            width: 2.5,
+            height: 12,
+            decoration: BoxDecoration(
+              color: const Color(0xFF5B21B6),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
         ),
       ),
     );
@@ -394,6 +402,29 @@ class _TimelinePanelState extends State<TimelinePanel> {
     );
   }
 
+  void _applySceneHandle(int index, bool left) {
+    final lesson = widget.lesson;
+    final scene = lesson.scenes[index];
+    var deltaMs = ((_dragAccum + _scrolled()) / _pps * 1000);
+    deltaMs = (deltaMs / 100).round() * 100.0;
+    if (!left) {
+      final minMs = math.max(500, scene.narrationLenMs);
+      final ms = math.max(minMs, _dragStartThis + deltaMs.round());
+      widget.onSceneDuration(index, ms);
+    } else if (index > 0) {
+      final prev = lesson.scenes[index - 1];
+      final minPrev = math.max(500, prev.narrationLenMs);
+      final minThis = math.max(500, scene.narrationLenMs);
+      final low = (minPrev - _dragStartPrev).toDouble();
+      final high = (_dragStartThis - minThis).toDouble();
+      if (high >= low) {
+        final delta = deltaMs.clamp(low, high).round();
+        widget.onSceneDuration(index - 1, _dragStartPrev + delta);
+        widget.onSceneDuration(index, _dragStartThis - delta);
+      }
+    }
+  }
+
   Widget _handle({required bool left, required int index, required double u, double cw = 200}) {
     final lesson = widget.lesson;
     final scene = lesson.scenes[index];
@@ -406,34 +437,25 @@ class _TimelinePanelState extends State<TimelinePanel> {
       width: width,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (_) {
+        onHorizontalDragStart: (d) {
           _dragAccum = 0;
           _dragStartThis = scene.durationMs;
           _dragStartPrev = index > 0 ? lesson.scenes[index - 1].durationMs : 0;
+          _beginEdgeDrag(d.globalPosition.dx, () => _applySceneHandle(index, left));
         },
         onHorizontalDragUpdate: (d) {
           _dragAccum += d.delta.dx;
-          var deltaMs = (_dragAccum / _pps * 1000);
-          deltaMs = (deltaMs / 100).round() * 100.0;
-          if (!left) {
-            final minMs = math.max(500, scene.narrationLenMs);
-            final ms = math.max(minMs, _dragStartThis + deltaMs.round());
-            widget.onSceneDuration(index, ms);
-          } else if (index > 0) {
-            final prev = lesson.scenes[index - 1];
-            final minPrev = math.max(500, prev.narrationLenMs);
-            final minThis = math.max(500, scene.narrationLenMs);
-            final low = (minPrev - _dragStartPrev).toDouble();
-            final high = (_dragStartThis - minThis).toDouble();
-            if (high >= low) {
-              final delta = deltaMs.clamp(low, high).round();
-              widget.onSceneDuration(index - 1, _dragStartPrev + delta);
-              widget.onSceneDuration(index, _dragStartThis - delta);
-            }
-          }
+          _fingerGx = d.globalPosition.dx;
+          _applySceneHandle(index, left);
         },
-        onHorizontalDragEnd: (_) => widget.onEditEnd(),
-        onHorizontalDragCancel: () => widget.onEditEnd(),
+        onHorizontalDragEnd: (_) {
+          _endEdgeDrag();
+          widget.onEditEnd();
+        },
+        onHorizontalDragCancel: () {
+          _endEdgeDrag();
+          widget.onEditEnd();
+        },
         child: _handleBox(left, u, plain: left && index == 0),
       ),
     );
@@ -454,6 +476,40 @@ class _TimelinePanelState extends State<TimelinePanel> {
   double _fingerDx = 0;
   double _fingerGx = 0;
   Timer? _edgeTimer;
+
+  // Any drag on a handle or on the playhead: the view scrolls by itself when the finger is near an edge.
+  double _scrollBase = 0;
+  bool _dragging = false;
+  VoidCallback? _reapply;
+  int _headGrab = 0;
+
+  void _beginEdgeDrag(double gx, VoidCallback reapply) {
+    _scrollBase = _scroll.hasClients ? _scroll.offset : 0;
+    _fingerGx = gx;
+    _dragging = true;
+    _reapply = reapply;
+    _holdFollow(5000);
+    _startEdgeScroll();
+  }
+
+  void _endEdgeDrag() {
+    _dragging = false;
+    _reapply = null;
+    if (!_movingLayer && !_extending) _edgeTimer?.cancel();
+  }
+
+  /// The lesson time (ms) under a finger at the global x, counting the scroll of the timeline.
+  int _fingerMs(double gx) {
+    if (!_scroll.hasClients) return 0;
+    final box = _scroll.position.context.storageContext.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return 0;
+    final x = box.globalToLocal(Offset(gx, 0)).dx + _scroll.offset;
+    return (x / _pps * 1000).round();
+  }
+
+  void _seekToFinger() {
+    widget.player.seek(math.max(0, _fingerMs(_fingerGx) + _headGrab));
+  }
 
   /// Lesson time (ms) under the finger now, counting any scrolling done since the press.
   double _fingerAbsMs() {
@@ -476,12 +532,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
   void _startEdgeScroll() {
     _edgeTimer?.cancel();
     _edgeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (!mounted || !(_movingLayer || _extending) || !_scroll.hasClients) return;
+      if (!mounted || !(_movingLayer || _extending || _dragging) || !_scroll.hasClients) return;
       final box = _scroll.position.context.storageContext.findRenderObject();
       if (box is! RenderBox || !box.hasSize) return;
       final left = box.localToGlobal(Offset.zero).dx;
       final right = left + box.size.width;
-      const edge = 56.0;
+      const edge = 72.0;
       var v = 0.0;
       if (_fingerGx > right - edge) {
         v = (_fingerGx - (right - edge)) / edge;
@@ -490,11 +546,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
       }
       if (v == 0) return;
       final pos = _scroll.position;
-      final next = (pos.pixels + v.clamp(-1.0, 1.0) * 14).clamp(0.0, pos.maxScrollExtent).toDouble();
+      final next = (pos.pixels + v.clamp(-1.0, 1.0) * 30).clamp(0.0, pos.maxScrollExtent).toDouble();
       if (next != pos.pixels) {
         _scroll.jumpTo(next);
         _holdFollow(3000);
-        _refreshTarget();
+        if (_movingLayer || _extending) _refreshTarget();
+        _reapply?.call();
       }
     });
   }
@@ -503,6 +560,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
     _dragAccum = 0;
     _layerStartA = layer.startMs;
     _layerStartB = layerEndMs(layer, sceneMs);
+    _scrollBase = _scroll.hasClients ? _scroll.offset : 0;
     _collectSnaps(layer, sceneMs);
   }
 
@@ -583,7 +641,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
     );
   }
 
-  double _roundedDelta() => ((_dragAccum / _pps * 1000) / 100).round() * 100.0;
+  /// How far the timeline has scrolled since the current drag began. The edge auto-scroll adds this,
+  /// so an item keeps following the finger while the view moves under it.
+  double _scrolled() => _scroll.hasClients ? _scroll.offset - _scrollBase : 0.0;
+
+  double _roundedDelta() => (((_dragAccum + _scrolled()) / _pps * 1000) / 100).round() * 100.0;
 
   void _layerTrim(Layer layer, int sceneMs, {required bool left}) {
     final delta = _roundedDelta().round();
@@ -638,6 +700,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
     _fingerGx = gx;
     _extending = true;
     setState(() => _dropScene = pieceScene);
+    _reapply = () => _layerTrim(layer, sceneMs, left: false);
     _startEdgeScroll();
   }
 
@@ -747,12 +810,14 @@ class _TimelinePanelState extends State<TimelinePanel> {
         onHorizontalDragStart: (d) {
           if (left) {
             _layerDragStart(layer, sceneMs);
+            _beginEdgeDrag(d.globalPosition.dx, () => _layerTrim(layer, sceneMs, left: true));
           } else {
             _extendStart(layer, sceneIndex, sceneMs, d.globalPosition.dx);
           }
         },
         onHorizontalDragUpdate: (d) {
           _dragAccum += d.delta.dx;
+          _fingerGx = d.globalPosition.dx;
           if (left) {
             _layerTrim(layer, sceneMs, left: true);
           } else {
@@ -761,10 +826,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
         },
         onHorizontalDragEnd: (_) {
           if (!left) _extendEnd(layer, sceneIndex);
+          _endEdgeDrag();
           widget.onEditEnd();
         },
         onHorizontalDragCancel: () {
           if (!left) _extendEnd(layer, sceneIndex);
+          _endEdgeDrag();
           widget.onEditEnd();
         },
         child: _handleBox(left, u),
@@ -780,6 +847,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
 
   void _audioDragStart(AudioClip ac) {
     _dragAccum = 0;
+    _scrollBase = _scroll.hasClients ? _scroll.offset : 0;
     _aStart = ac.startMs;
     _aTrim = ac.trimMs;
     _aDur = ac.durationMs;
@@ -822,13 +890,23 @@ class _TimelinePanelState extends State<TimelinePanel> {
       width: width,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (_) => _audioDragStart(ac),
+        onHorizontalDragStart: (d) {
+          _audioDragStart(ac);
+          _beginEdgeDrag(d.globalPosition.dx, () => _audioTrim(ac, left: left));
+        },
         onHorizontalDragUpdate: (d) {
           _dragAccum += d.delta.dx;
+          _fingerGx = d.globalPosition.dx;
           _audioTrim(ac, left: left);
         },
-        onHorizontalDragEnd: (_) => widget.onEditEnd(),
-        onHorizontalDragCancel: () => widget.onEditEnd(),
+        onHorizontalDragEnd: (_) {
+          _endEdgeDrag();
+          widget.onEditEnd();
+        },
+        onHorizontalDragCancel: () {
+          _endEdgeDrag();
+          widget.onEditEnd();
+        },
         child: _handleBox(left, u),
       ),
     );
@@ -895,6 +973,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
               _dropScene = fromScene;
             });
             HapticFeedback.mediumImpact();
+            _reapply = () => _layerMove(layer, sceneMs);
             _startEdgeScroll();
           };
           moveUpdate = (dx, gx) {
@@ -907,6 +986,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
           };
           moveEnd = () {
             if (!_movingLayer) return;
+            _reapply = null;
             _edgeTimer?.cancel();
             _refreshTarget();
             final to = _dropScene ?? fromScene;
@@ -997,12 +1077,17 @@ class _TimelinePanelState extends State<TimelinePanel> {
           moveStart = (local, gx) {
             if (!selected) widget.onSelectAudio(ac.id);
             _audioDragStart(ac);
+            _beginEdgeDrag(gx, () => _audioMove(ac));
           };
           moveUpdate = (dx, gx) {
             _dragAccum = dx;
+            _fingerGx = gx;
             _audioMove(ac);
           };
-          moveEnd = widget.onEditEnd;
+          moveEnd = () {
+            _endEdgeDrag();
+            widget.onEditEnd();
+          };
         }
         break;
       default:
@@ -1333,10 +1418,16 @@ class _TimelinePanelState extends State<TimelinePanel> {
                     });
                     widget.onEditEnd();
                   },
-                  onHorizontalDragUpdate: (d) {
-                    final ms = widget.player.positionMs + (d.delta.dx / pps * 1000).round();
-                    widget.player.seek(ms);
+                  onHorizontalDragStart: (d) {
+                    _headGrab = widget.player.positionMs - _fingerMs(d.globalPosition.dx);
+                    _beginEdgeDrag(d.globalPosition.dx, _seekToFinger);
                   },
+                  onHorizontalDragUpdate: (d) {
+                    _fingerGx = d.globalPosition.dx;
+                    _seekToFinger();
+                  },
+                  onHorizontalDragEnd: (_) => _endEdgeDrag(),
+                  onHorizontalDragCancel: _endEdgeDrag,
                   child: Center(
                     child: Container(
                       width: pillW,
