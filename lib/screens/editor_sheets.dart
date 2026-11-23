@@ -67,6 +67,7 @@ class _BackgroundSheetState extends State<_BackgroundSheet> {
 
     await showEditorSheet<void>(
       context: context,
+      scrollable: true,
       isScrollControlled: true,
       builder: (_) => StatefulBuilder(
         builder: (context, setLocal) => SafeArea(

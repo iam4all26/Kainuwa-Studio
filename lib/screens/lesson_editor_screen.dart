@@ -455,6 +455,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   Future<void> _editAvatar(Layer l) async {
     final choice = await showEditorSheet<String>(
       context: context,
+      scrollable: true,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -512,6 +513,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     const colours = [0xFFFF9F1C, 0xFFFFD54F, 0xFF4DD0E1, 0xFF69F0AE, 0xFFFF4D6D, 0xFFB9A0FF, 0xFFFFFFFF];
     await showEditorSheet<void>(
       context: context,
+      scrollable: true,
       showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheet) => SafeArea(
@@ -823,6 +825,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   Future<void> _addSubtitles() async {
     final how = await showEditorSheet<String>(
       context: context,
+      scrollable: true,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -2284,6 +2287,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _pause();
     final action = await showEditorSheet<String>(
       context: context,
+      scrollable: true,
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2412,6 +2416,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final isAudio = id == 'audio';
     final action = await showEditorSheet<String>(
       context: context,
+      scrollable: true,
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

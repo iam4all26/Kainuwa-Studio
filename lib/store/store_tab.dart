@@ -135,6 +135,7 @@ class _StoreTabState extends State<StoreTab> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Store address'),
         content: TextField(
           controller: controller,

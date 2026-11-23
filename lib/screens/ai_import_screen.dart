@@ -131,6 +131,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c, setD) => AlertDialog(
+          scrollable: true,
           title: const Text("Paste the AI's answer"),
           content: SizedBox(
             width: double.maxFinite,

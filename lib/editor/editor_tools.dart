@@ -390,6 +390,7 @@ Future<String?> showSoundChooser(BuildContext context) {
 
   return showEditorSheet<String>(
     context: context,
+    scrollable: true,
     builder: (c) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,

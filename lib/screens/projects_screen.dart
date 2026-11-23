@@ -4,6 +4,7 @@ import '../app_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'create_project.dart';
 import 'lesson_editor_screen.dart';
 import 'lessons_screen.dart';
 import 'project_export.dart';
@@ -353,6 +354,16 @@ class _ProjectsScreenState extends State<ProjectsScreen> with SingleTickerProvid
       },
       child: Scaffold(
         appBar: _appBar(all.length, shown),
+        floatingActionButton: _selecting
+            ? null
+            : FloatingActionButton(
+                heroTag: 'all_projects_create_fab',
+                backgroundColor: KColors.gold,
+                foregroundColor: KColors.onGold,
+                tooltip: 'New project',
+                onPressed: () => createProject(context),
+                child: const Icon(Icons.add, size: 32),
+              ),
         body: Column(
           children: [
             Padding(
@@ -447,7 +458,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> with SingleTickerProvid
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                       itemCount: shown.length,
                       itemBuilder: (_, index) => _card(shown[index]),
                     ),

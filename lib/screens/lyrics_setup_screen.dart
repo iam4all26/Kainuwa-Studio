@@ -348,6 +348,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setLocal) => AlertDialog(
+          scrollable: true,
           title: const Text('Music only part'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -393,6 +394,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     final choice = await showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Use these lyrics?'),
         content: Text(
           '${hit.title}  -  ${hit.artist}\n\nThe words replace what is in the lyrics box.'

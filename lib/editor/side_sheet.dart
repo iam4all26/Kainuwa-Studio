@@ -18,13 +18,17 @@ Future<T?> showEditorSheet<T>({
   Color? backgroundColor,
   Color? barrierColor,
   bool showDragHandle = false,
+
+  /// Wrap the content so it scrolls when the screen is too small for all of it.
+  bool scrollable = false,
 }) async {
   final mq = MediaQuery.of(context);
+  final WidgetBuilder build = scrollable ? (c) => SingleChildScrollView(child: builder(c)) : builder;
   if (mq.orientation != Orientation.landscape) {
     return showModalBottomSheet<T>(
       context: context,
-      builder: builder,
-      isScrollControlled: isScrollControlled,
+      builder: build,
+      isScrollControlled: isScrollControlled || scrollable,
       backgroundColor: backgroundColor,
       barrierColor: barrierColor,
       showDragHandle: showDragHandle,
@@ -54,7 +58,7 @@ Future<T?> showEditorSheet<T>({
                   decoration: const BoxDecoration(
                     border: Border(left: BorderSide(color: Color(0x1FFFFFFF))),
                   ),
-                  child: Builder(builder: builder),
+                  child: Builder(builder: build),
                 ),
               ),
             ),

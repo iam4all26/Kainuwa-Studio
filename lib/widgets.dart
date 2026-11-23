@@ -85,6 +85,7 @@ class _PromptDialogState extends State<_PromptDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.title),
       content: TextField(
         controller: _controller,
