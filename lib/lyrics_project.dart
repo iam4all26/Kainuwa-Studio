@@ -501,9 +501,19 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     groupWFrac = groupW / w;
     groupCxFrac = groupCx / w;
     final discCx = coverCx + shift;
-    textCx = wide ? (recLeft ? 0.70 : 0.30) : 0.5;
     textCy = wide ? 0.5 : 0.75;
-    textMaxW = wide ? 0.42 : 0.9;
+    if (wide) {
+      // The words sit in the middle of the free space next to the record, not at a fixed spot.
+      final edge = recLeft ? groupCx + groupW / 2 : groupCx - groupW / 2;
+      final margin = 0.04 * w;
+      final bandL = recLeft ? edge + margin : margin;
+      final bandR = recLeft ? w - margin : edge - margin;
+      textCx = ((bandL + bandR) / 2) / w;
+      textMaxW = (bandR - bandL) / w;
+    } else {
+      textCx = 0.5;
+      textMaxW = 0.9;
+    }
 
     Layer square(String type, double cx, double cyy, double side) {
       final l = Layer(id: newId(), type: type, w: side / w, h: side / h);
@@ -644,14 +654,25 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     t.glowColor = colour;
     t.glowSize = 0.1;
     t.glowStrength = 0.8;
-    setLayerTextSizePx(t, px);
+    var extra = 0.0;
+    if (!s.byWord) {
+      // A long line becomes two or more lines instead of one tiny line.
+      t.text = 'Ag';
+      setLayerTextSizePx(t, px);
+      final oneLine = t.h;
+      t.text = wrapLyricLine(t, c.text, px, textMaxW);
+      setLayerTextSizePx(t, px);
+      extra = math.max(0.0, t.h - oneLine);
+    } else {
+      setLayerTextSizePx(t, px);
+    }
     if (t.w > textMaxW) {
       final f = textMaxW / t.w;
       t.w = textMaxW;
       t.h = t.h * f;
     }
     t.cx = textCx;
-    t.cy = textCy;
+    t.cy = hasRec ? math.max(0.1, textCy - extra / 2) : textCy;
     if (!sampleOnly) {
       t.startMs = c.startMs;
       t.endMs = c.endMs;
@@ -671,6 +692,7 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     if (hasRec && !s.byWord && !sampleOnly && i + 1 < cues.length) {
       // The next line, small and dim, under the line that is sung now.
       final next = Layer(id: newId(), type: 'text', text: cues[i + 1].text, bold: false, fontFamily: s.font, color: 0x99FFFFFF);
+      next.text = wrapLyricLine(next, cues[i + 1].text, px * 0.55, textMaxW);
       setLayerTextSizePx(next, px * 0.55);
       if (next.w > textMaxW) {
         final f = textMaxW / next.w;
@@ -678,7 +700,7 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
         next.h = next.h * f;
       }
       next.cx = textCx;
-      next.cy = math.min(0.92, textCy + 0.17);
+      next.cy = math.min(0.92, textCy + 0.17 + extra / 2);
       next.startMs = c.startMs;
       next.endMs = c.endMs;
       next.animIn = 'fade';
@@ -693,6 +715,53 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
     bgValue: s.bg.toString(),
     layers: layers,
   );
+}
+
+/// Splits a long line at spaces into balanced lines that each fit [maxW] (a fraction of the video
+/// width) at [px] text size, so the words stay big instead of the whole line shrinking. [probe] is a
+/// text layer used only to measure.
+String wrapLyricLine(Layer probe, String text, double px, double maxW) {
+  final words = text.trim().split(RegExp(r'\s+'));
+  if (words.length < 2) return text.trim();
+  double widthOf(String s) {
+    probe.text = s;
+    setLayerTextSizePx(probe, px);
+    return probe.w;
+  }
+
+  final total = widthOf(words.join(' '));
+  if (total <= maxW) return words.join(' ');
+  final start = (total / maxW).ceil();
+  for (var lines = start; lines <= math.min(words.length, start + 3); lines++) {
+    final target = total / lines;
+    final out = <String>[];
+    var cur = '';
+    for (final w in words) {
+      final cand = cur.isEmpty ? w : '$cur $w';
+      if (cur.isNotEmpty && out.length < lines - 1 && widthOf(cand) > target * 1.06) {
+        out.add(cur);
+        cur = w;
+      } else {
+        cur = cand;
+      }
+    }
+    out.add(cur);
+    if (out.every((l) => widthOf(l) <= maxW)) return out.join('\n');
+  }
+  // Last resort: fill each line as far as it goes.
+  final out = <String>[];
+  var cur = '';
+  for (final w in words) {
+    final cand = cur.isEmpty ? w : '$cur $w';
+    if (cur.isNotEmpty && widthOf(cand) > maxW) {
+      out.add(cur);
+      cur = w;
+    } else {
+      cur = cand;
+    }
+  }
+  out.add(cur);
+  return out.join('\n');
 }
 
 int lighten(int argb, double f) {
