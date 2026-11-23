@@ -836,9 +836,7 @@ public class KainuwaEncoderPlugin
                         MethodChannel.Result r = exportResult;
                         finishExport();
                         if (r != null) {
-                            r.error("export_failed",
-                                    exception.getMessage() + " (code " + exception.errorCode + ")",
-                                    null);
+                            r.error("export_failed", describeExportError(exception), null);
                         }
                     }
                 })
@@ -847,6 +845,43 @@ public class KainuwaEncoderPlugin
         mainHandler.removeCallbacks(progressTicker);
         mainHandler.postDelayed(progressTicker, 500);
         transformer.start(composition, outputPath);
+    }
+
+    /**
+     * The export error as a person can read it, with the real reason after it (the first cause and where
+     * in the code it was thrown), so a failure can be understood from a screenshot.
+     */
+    private static String describeExportError(ExportException e) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(e.getMessage()).append(" (code ").append(e.errorCode).append(")");
+        try {
+            Throwable t = e.getCause();
+            Throwable root = t;
+            for (int i = 0; i < 6 && root != null && root.getCause() != null; i++) {
+                root = root.getCause();
+            }
+            if (t != null) {
+                sb.append("\nReason: ").append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+            }
+            if (root != null && root != t) {
+                sb.append("\nRoot: ").append(root.getClass().getSimpleName()).append(": ").append(root.getMessage());
+            }
+            Throwable src = root != null ? root : e;
+            int shown = 0;
+            for (StackTraceElement el : src.getStackTrace()) {
+                String cn = el.getClassName();
+                if (cn.startsWith("com.kainuwa") || cn.startsWith("androidx.media3.effect")) {
+                    sb.append("\nAt ").append(cn.substring(cn.lastIndexOf('.') + 1)).append('.')
+                            .append(el.getMethodName()).append(':').append(el.getLineNumber());
+                    if (++shown >= 2) {
+                        break;
+                    }
+                }
+            }
+            android.util.Log.e("KainuwaExport", "Export failed", e);
+        } catch (Exception ignored) {
+        }
+        return sb.toString();
     }
 
     private void finishExport() {
@@ -1502,8 +1537,7 @@ public class KainuwaEncoderPlugin
                         MethodChannel.Result r = exportResult;
                         finishExport();
                         if (r != null) {
-                            r.error("export_failed",
-                                    e.getMessage() + " (code " + e.errorCode + ")", null);
+                            r.error("export_failed", describeExportError(e), null);
                         }
                     }
                 })

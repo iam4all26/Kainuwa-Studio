@@ -170,16 +170,24 @@ final class LessonOverlays {
             double localMs = (presentationTimeUs - sceneStartUs.get(scene)) / 1000.0;
             double[] f = fullFrame(item, localMs);
             float[] pos = item.positionAt(localMs);
-            // The encoder only accepts anchors from -1 to 1 (anything else stops the export).
-            float x = (float) Math.max(-1.0, Math.min(1.0, pos[0] * 2f - 1f + f[1] * 2.0));
-            float y = (float) Math.max(-1.0, Math.min(1.0, 1f - pos[1] * 2f - f[5] * 2.0));
+            // The encoder only accepts anchors from -1 to 1 (anything else stops the export), so a
+            // number that is not a real number is replaced instead of being handed over.
+            float x = (float) Math.max(-1.0, Math.min(1.0, fin(pos[0] * 2f - 1f + f[1] * 2.0, 0)));
+            float y = (float) Math.max(-1.0, Math.min(1.0, fin(1f - pos[1] * 2f - f[5] * 2.0, 0)));
+            float sy = (float) Math.max(0.001, fin(f[2], 1));
+            float sxx = (float) Math.max(0.001, fin(f[2] * f[3], 1));
             return new OverlaySettings.Builder()
                     .setBackgroundFrameAnchor(x, y)
-                    .setRotationDegrees((float) -f[4])
-                    .setScale((float) (f[2] * f[3]), (float) f[2])
-                    .setAlphaScale((float) Math.max(0.0, Math.min(1.0, f[0])))
+                    .setRotationDegrees((float) -fin(f[4], 0))
+                    .setScale(sxx, sy)
+                    .setAlphaScale((float) Math.max(0.0, Math.min(1.0, fin(f[0], 1))))
                     .build();
         }
+    }
+
+    /** [v] unless it is not a real number (NaN or infinite), then [fallback]. */
+    private static double fin(double v, double fallback) {
+        return Double.isNaN(v) || Double.isInfinite(v) ? fallback : v;
     }
 
     /** Timing, entrance and exit together. Returns alpha, dx, scale, scaleX, rotation, dy. */

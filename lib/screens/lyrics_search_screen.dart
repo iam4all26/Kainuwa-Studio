@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:kainuwa_encoder/kainuwa_encoder.dart';
+import 'web_page_screen.dart';
 
 import '../lyrics_search.dart';
 
@@ -85,13 +85,15 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
     return '\nFirst line at ${_clock(first.ms ~/ 1000)}, last line at ${_clock(last.ms ~/ 1000)}';
   }
 
+  /// Opens Google inside the app. Long press the words on a page to copy them, press back, and paste
+  /// them in the lyrics box.
   Future<void> _google() async {
     final q = Uri.encodeQueryComponent('${_artist.text.trim()} ${_title.text.trim()} lyrics'.trim());
-    try {
-      await KainuwaEncoder.openUrl('https://www.google.com/search?q=$q');
-    } catch (_) {
-      if (mounted) setState(() => _message = 'The browser could not be opened.');
-    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => WebPageScreen(url: 'https://www.google.com/search?q=$q', title: 'Google'),
+      ),
+    );
   }
 
   String _lengthNote(LyricsHit h) {
@@ -133,7 +135,7 @@ class _LyricsSearchScreenState extends State<LyricsSearchScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _google,
                         icon: const Icon(Icons.public),
-                        label: const Text('Search on Google'),
+                        label: const Text('Google'),
                       ),
                     ),
                   ],
