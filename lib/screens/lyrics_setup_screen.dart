@@ -66,6 +66,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
   bool _sparkle = false;
   bool _snow = false;
   bool _player = false;
+  bool _centerViz = false;
   Set<String> _more = {};
   int _shape = 1;
   String _message = '';
@@ -130,6 +131,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
     _sparkle = flag('sparkle', _sparkle);
     _snow = flag('snow', _snow);
     _player = flag('player', _player);
+    _centerViz = flag('centerViz', false);
     if (f['more'] is List) _more = {for (final v in f['more'] as List) if (v is String) v};
     _shape = iv('shape', 1).clamp(0, _shapes.length - 1).toInt();
   }
@@ -407,6 +409,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
       layout: _layout,
       vizKind: _viz,
       player: _player,
+      centerViz: _centerViz,
       artist: _artist.text,
       title: _songTitle.text.trim().isEmpty ? _nameOf(_audio) : _songTitle.text.trim(),
       form: {
@@ -440,6 +443,7 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
         'snow': _snow,
         'more': _more.toList(),
         'player': _player,
+        'centerViz': _centerViz,
         'shape': _shape,
       },
     );
@@ -830,6 +834,29 @@ class _LyricsSetupScreenState extends State<LyricsSetupScreen> {
                         }),
                   ],
                 ),
+                ],
+                if (_layout == 0) ...[
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Audio picture under the words'),
+                    subtitle: const Text('Moving bars that follow the song'),
+                    value: _centerViz,
+                    onChanged: (v) => setState(() => _centerViz = v),
+                  ),
+                  if (_centerViz)
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final k in kVizKinds)
+                          if (k.id != 'circle')
+                            ChoiceChip(
+                              label: Text(k.name),
+                              selected: _viz == k.id,
+                              onSelected: (_) => setState(() => _viz = k.id),
+                            ),
+                      ],
+                    ),
                 ],
                 const SizedBox(height: 8),
                 SwitchListTile(

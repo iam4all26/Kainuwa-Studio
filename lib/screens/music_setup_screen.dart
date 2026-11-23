@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../editor/edit_panel.dart' show fontEntries;
+import '../effects.dart' show kFxKinds;
 import '../media/media_library.dart';
 import '../models.dart';
 import '../music_project.dart';
@@ -38,6 +39,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
   int _shape = 0;
   String _viz = 'bars';
   bool _player = false;
+  Set<String> _fx = {};
   int _accent = 0xFFFF9F1C;
   String _message = '';
   int _layout = 0;
@@ -66,6 +68,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
     _shape = iv('shape', 0).clamp(0, _shapes.length - 1).toInt();
     _viz = str('viz', 'bars');
     _player = f['player'] == true;
+    if (f['fx'] is List) _fx = {for (final v in f['fx'] as List) if (v is String) v};
     _accent = iv('accent', 0xFFFF9F1C);
     _layout = iv('layout', 0);
     _titleFont = str('titleFont', '');
@@ -215,6 +218,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
       aspectH: s.$3,
       vizKind: _viz,
       player: _player,
+      fx: _fx.toList(),
       accent: _accent,
       layout: _shape == 0 ? _layout : 0,
       titleFont: _titleFont,
@@ -229,6 +233,7 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
         'shape': _shape,
         'viz': _viz,
         'player': _player,
+        'fx': _fx.toList(),
         'accent': _accent,
         'layout': _layout,
         'titleFont': _titleFont,
@@ -477,7 +482,28 @@ class _MusicSetupScreenState extends State<MusicSetupScreen> {
               value: _player,
               onChanged: (v) => setState(() => _player = v),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
+            const Text('Floating effects', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final k in kFxKinds)
+                  FilterChip(
+                    label: Text(k.name),
+                    selected: _fx.contains(k.id),
+                    onSelected: (v) => setState(() {
+                      _custom();
+                      if (v) {
+                        _fx.add(k.id);
+                      } else {
+                        _fx.remove(k.id);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
             const Text('Colour', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(

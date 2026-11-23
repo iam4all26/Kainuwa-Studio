@@ -274,6 +274,7 @@ class LyricsSetup {
     this.layout = 0,
     this.vizKind = 'bars',
     this.player = false,
+    this.centerViz = false,
     this.artist = '',
     this.title = '',
     this.form = const {},
@@ -303,6 +304,9 @@ class LyricsSetup {
 
   /// Add the player look: back, pause and forward buttons with a moving bar.
   final bool player;
+
+  /// An audio picture under the words (for the centred looks; the record looks have their own).
+  final bool centerViz;
   final String artist;
   final String title;
 
@@ -571,6 +575,23 @@ Scene buildLyricsScene(LyricsSetup s, {bool sampleOnly = false}) {
 
     if (shownTitle.isNotEmpty) under(shownTitle, wide ? 44 : 40, 0xFFFFFFFF, wide ? 0.78 : 0.48, true);
     if (shownArtist.isNotEmpty) under(shownArtist, wide ? 28 : 26, s.palette.first, wide ? 0.86 : 0.54, false);
+  }
+  if (!hasRec && s.centerViz && s.vizKind != 'none' && s.audio.isNotEmpty) {
+    final kind = (s.vizKind == 'circle' || s.vizKind.isEmpty) ? 'bars' : s.vizKind;
+    final tall = kind == 'rise' || kind == 'blocks' || kind == 'wave';
+    final viz = Layer(
+      id: newId(),
+      type: 'shape',
+      shape: 'viz_$kind',
+      color: s.palette.first,
+      w: wide ? 0.5 : 0.8,
+      h: wide ? (tall ? 0.10 : 0.07) : (tall ? 0.06 : 0.04),
+    );
+    viz.cx = 0.5;
+    // Above the player bar when that is on.
+    viz.cy = s.player ? (wide ? 0.80 : 0.83) : (wide ? 0.88 : 0.90);
+    viz.avatar = AvatarSpec(audio: s.audio, startMs: 0, sourceMs: s.audioMs).encode();
+    layers.add(viz);
   }
   if (s.player) {
     final pw = hasRec ? math.min(0.9, groupWFrac) : (wide ? 0.5 : 0.8);

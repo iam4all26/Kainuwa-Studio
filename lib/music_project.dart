@@ -25,6 +25,7 @@ class MusicSetup {
     required this.accent,
     this.layout = 0,
     this.player = false,
+    this.fx = const <String>[],
     this.titleFont = '',
     this.artistFont = '',
     this.form = const {},
@@ -46,6 +47,9 @@ class MusicSetup {
 
   /// Add the player look: back, pause and forward buttons with a moving bar.
   final bool player;
+
+  /// Floating effects behind everything (ids from kFxKinds).
+  final List<String> fx;
   final String titleFont;
   final String artistFont;
 
@@ -96,6 +100,12 @@ Scene buildMusicScene(MusicSetup s) {
   }
 
   final layers = <Layer>[];
+  for (final id in s.fx) {
+    final l = Layer(id: newId(), type: 'shape', shape: 'fx_$id', w: 1.0, h: 1.0);
+    l.cx = 0.5;
+    l.cy = 0.5;
+    layers.add(l);
+  }
 
   layers.add(square('shape', discCx, cy, discD * (ring ? 1.06 : 1.04))
     ..shape = 'circle'
