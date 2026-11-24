@@ -1,5 +1,6 @@
 import '../editor/side_sheet.dart';
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class _AudioSheet extends StatefulWidget {
 
 class _AudioSheetState extends State<_AudioSheet> {
   bool _recording = false;
+  bool _making = false;
   bool _reduceNoise = true;
   bool _playing = false;
   int _elapsedMs = 0;
@@ -86,6 +88,65 @@ class _AudioSheetState extends State<_AudioSheet> {
     // The slide keeps its length. Use Fit slide to narration if you want them to match.
     await widget.onChanged();
     if (mounted) setState(() => _message = null);
+  }
+
+  /// The text on the slide, as a starting point for the voice.
+  String _slideText() {
+    final parts = <String>[];
+    for (final l in widget.scene.layers) {
+      if (l.type != 'text') continue;
+      final t = l.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (t.isNotEmpty) parts.add(t);
+    }
+    return parts.join('. ');
+  }
+
+  /// Makes the narration of this slide from typed text with the phone's own voice (offline).
+  Future<void> _makeVoice() async {
+    final controller = TextEditingController(text: _slideText());
+    final text = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        scrollable: true,
+        title: const Text('Voice from text'),
+        content: TextField(
+          controller: controller,
+          maxLines: 6,
+          minLines: 3,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'What should the voice say?'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(c).pop(controller.text.trim()), child: const Text('Make voice')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null || text.isEmpty || !mounted) return;
+    setState(() {
+      _making = true;
+      _message = null;
+    });
+    try {
+      final base = await KainuwaEncoder.filesDir();
+      final dir = Directory('$base/kainuwa_data/tts');
+      await dir.create(recursive: true);
+      final path = '${dir.path}/slide_${DateTime.now().millisecondsSinceEpoch}.wav';
+      await KainuwaEncoder.ttsToFile(text, path);
+      final ms = await KainuwaEncoder.audioDuration(path);
+      if (!mounted) return;
+      if (ms <= 0) {
+        _say('The voice could not be made on this phone. Check that a text to speech engine is installed.');
+      } else {
+        // The slide lasts at least as long as the voice.
+        widget.scene.durationMs = math.max(widget.scene.durationMs, ms + 600);
+        await _attachNarration(path, ms);
+      }
+    } catch (_) {
+      _say('The voice could not be made on this phone. Check that a text to speech engine is installed.');
+    }
+    if (mounted) setState(() => _making = false);
   }
 
   Future<void> _startRecording() async {
@@ -268,6 +329,14 @@ class _AudioSheetState extends State<_AudioSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _making ? null : _makeVoice,
+              icon: _making
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.record_voice_over_outlined),
+              label: Text(_making ? 'Making the voice...' : 'Make voice from text'),
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Reduce background noise while recording'),
@@ -292,6 +361,12 @@ class _AudioSheetState extends State<_AudioSheet> {
                   icon: Icon(_playing ? Icons.stop_circle_outlined : Icons.play_circle_outline, size: 32),
                 ),
               ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _making ? null : _makeVoice,
+              icon: const Icon(Icons.record_voice_over_outlined),
+              label: Text(_making ? 'Making the voice...' : 'Make a new voice from text'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(

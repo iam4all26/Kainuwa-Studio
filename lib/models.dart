@@ -885,9 +885,13 @@ class AppSettings {
     this.frameRate = 30,
     this.orientation = 'portrait',
     this.wm = const Watermark(),
+    this.aiVoice = 1,
   });
 
   final Watermark wm;
+
+  /// The voice chosen last in the AI lesson creator: 0 none, 1 phone voice.
+  final int aiVoice;
   final int videoHeight;
   final int frameRate;
 
@@ -898,8 +902,9 @@ class AppSettings {
 
   int get videoWidth => videoHeight == 1080 ? 1920 : 1280;
 
-  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation, Watermark? wm}) => AppSettings(
+  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation, Watermark? wm, int? aiVoice}) => AppSettings(
         wm: wm ?? this.wm,
+        aiVoice: aiVoice ?? this.aiVoice,
         videoHeight: videoHeight ?? this.videoHeight,
         frameRate: frameRate ?? this.frameRate,
         orientation: orientation ?? this.orientation,
@@ -910,12 +915,14 @@ class AppSettings {
         'frameRate': frameRate,
         'orientation': orientation,
         'wm': wm.toJson(),
+        'aiVoice': aiVoice,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
         videoHeight: _int(json['videoHeight'], 720) == 1080 ? 1080 : 720,
         frameRate: _int(json['frameRate'], 30) == 24 ? 24 : 30,
         orientation: _str(json['orientation'], 'portrait') == 'landscape' ? 'landscape' : 'portrait',
+        aiVoice: _int(json['aiVoice'], 1) == 0 ? 0 : 1,
         wm: json['wm'] is Map ? Watermark.fromJson(Map<String, dynamic>.from(json['wm'] as Map)) : const Watermark(),
       );
 }

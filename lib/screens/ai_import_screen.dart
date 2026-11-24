@@ -40,7 +40,8 @@ class _AiImportScreenState extends State<AiImportScreen> {
   BackgroundChoice? _myBg;
   bool _busy = false;
   String _busyMsg = '';
-  int _voice = 0;
+  int _voice = 1;
+  bool _voiceLoaded = false;
   String _voicePath = '';
   int _voiceMs = 0;
   String _error = '';
@@ -515,7 +516,13 @@ class _AiImportScreenState extends State<AiImportScreen> {
         children: [
           const Text('Voice', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          _chips(const ['No voice', 'Phone voice', 'My voice-over'], _voice, (i) => setState(() => _voice = i)),
+          _chips(const ['No voice', 'Phone voice', 'My voice-over'], _voice, (i) {
+            setState(() => _voice = i);
+            if (i < 2) {
+              final st = AppScope.read(context);
+              st.updateSettings(st.settings.copyWith(aiVoice: i));
+            }
+          }),
           if (_voice == 1)
             const Padding(
               padding: EdgeInsets.only(top: 8),
@@ -646,6 +653,10 @@ class _AiImportScreenState extends State<AiImportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_voiceLoaded) {
+      _voiceLoaded = true;
+      _voice = AppScope.read(context).settings.aiVoice == 0 ? 0 : 1;
+    }
     final review = _plan != null;
     return PopScope(
       canPop: !review,
