@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import '../models.dart';
 import '../scene_canvas.dart';
+import '../svg/svg_raster.dart';
 import '../stage_shape.dart';
 import 'ai_client.dart';
 import 'ai_catalog.dart';
@@ -335,13 +336,25 @@ _Look _lookFor(LessonPlan plan, PlanSlide slide, AiCatalog cat) {
 /// theme, layout and pictures; the geometry here is fixed so nothing overlaps.
 Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
   final aspects = <String, double>{};
+  // Store icons are SVG files: draw each once into a PNG and use that picture.
+  final rasters = <String, SvgRaster>{};
   for (final s in plan.slides) {
     for (final id in s.icons) {
       if (aspects.containsKey(id)) continue;
       final p = cat.pic(id);
-      if (p != null) aspects[id] = await AiCatalog.aspectOf(p.item);
+      if (p == null) continue;
+      if (p.item.isFile && p.item.path.toLowerCase().endsWith('.svg')) {
+        final r = await rasterizeSvg(p.item.path, longSide: 512);
+        if (r != null) {
+          rasters[id] = r;
+          aspects[id] = r.aspect;
+        }
+      } else {
+        aspects[id] = await AiCatalog.aspectOf(p.item);
+      }
     }
   }
+  var tintColor = 0xFFFFFFFF;
 
   Stage.use(lesson.aspectW, lesson.aspectH);
   try {
@@ -431,6 +444,21 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
       final a = aspects[id] ?? 1.0;
       final wPx = a >= 1 ? boxPx : boxPx * a;
       final hPx = a >= 1 ? boxPx / a : boxPx;
+      final raster = rasters[id];
+      if (raster != null) {
+        return Layer(
+          id: newId(),
+          type: 'image',
+          shape: 'tint',
+          color: tintColor,
+          path: raster.path,
+          cx: cx,
+          cy: cy,
+          w: wPx / W,
+          h: hPx / H,
+        );
+      }
+      if (p.item.isFile) return null;
       return Layer(
         id: newId(),
         type: 'asset',
@@ -452,6 +480,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
     for (var i = 0; i < plan.slides.length; i++) {
       final slide = plan.slides[i];
       final look = _lookFor(plan, slide, cat);
+      tintColor = look.accent;
       final durationMs = (slide.seconds * 1000).clamp(3000, 30000).toInt();
       final scene = Scene(
         id: newId(),

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 
 import '../data/asset_catalog.dart';
+import '../store/store_service.dart';
 
 class AiBg {
   AiBg(this.id, this.item, this.lum);
@@ -111,6 +112,17 @@ class AiCatalog {
     ].where((e) => !e.isFile && e.path.toLowerCase().endsWith('.png')).toList();
     for (var i = 0; i < items.length; i++) {
       pics.add(AiPic('p${i + 1}', items[i]));
+    }
+    // Icons installed from the store (SVG, recoloured to the slide accent).
+    // Sorted by id so the numbers stay the same until the owner installs or
+    // removes an icon.
+    final store = StoreService.instance
+        .ofType('icon')
+        .where((e) => e.path.toLowerCase().endsWith('.svg'))
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
+    for (var i = 0; i < store.length; i++) {
+      pics.add(AiPic('p${items.length + i + 1}', CatalogItem(store[i].path, store[i].name, tint: true)));
     }
     return AiCatalog(bgs, pics);
   }
