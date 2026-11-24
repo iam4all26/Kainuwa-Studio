@@ -5,6 +5,7 @@ import '../scene_canvas.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'edit_panel.dart' show fontMenuItems, fontChoices;
+import 'editor_tools.dart' show layerLabel, layerIcon;
 import 'side_sheet.dart';
 
 /// Opens the "edit many items" sheet. Returns how many items were changed, or null.
@@ -35,6 +36,10 @@ class _BulkEditSheetState extends State<_BulkEditSheet> {
   bool _text = true;
   bool _pics = false;
   bool _shapes = false;
+
+  /// When on, only the items ticked in the list are changed.
+  bool _manual = false;
+  final Set<String> _picked = {};
 
   // changes; each one only applies when switched on
   bool _onColor = false;
@@ -77,8 +82,63 @@ class _BulkEditSheetState extends State<_BulkEditSheet> {
   List<Layer> get _targets => [
         for (final s in _scenes)
           for (final l in s.layers)
+            if (_matches(l) && (!_manual || _picked.contains(l.id))) l,
+      ];
+
+  /// The items that can be ticked: every matching item on the chosen slides.
+  List<Layer> get _listed => [
+        for (final s in _scenes)
+          for (final l in s.layers)
             if (_matches(l)) l,
       ];
+
+  Widget _pickList() {
+    final all = widget.lesson.scenes;
+    final shown = _scenes.toList();
+    final rows = <Widget>[];
+    for (final s in shown) {
+      final items = [for (final l in s.layers) if (_matches(l)) l];
+      if (items.isEmpty) continue;
+      rows.add(Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 2),
+        child: Text('Slide ${all.indexOf(s) + 1}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFFB5ABD6), fontWeight: FontWeight.w500)),
+      ));
+      for (final l in items) {
+        rows.add(CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          secondary: Icon(layerIcon(l), size: 20),
+          title: Text(layerLabel(l), maxLines: 1, overflow: TextOverflow.ellipsis),
+          value: _picked.contains(l.id),
+          onChanged: (v) => setState(() {
+            if (v == true) {
+              _picked.add(l.id);
+            } else {
+              _picked.remove(l.id);
+            }
+          }),
+        ));
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            TextButton(
+              onPressed: () => setState(() => _picked.addAll(_listed.map((l) => l.id))),
+              child: const Text('Tick all shown'),
+            ),
+            TextButton(onPressed: () => setState(_picked.clear), child: const Text('Clear')),
+          ],
+        ),
+        if (rows.isEmpty) const Text('No matching items on these slides.', style: TextStyle(fontSize: 13)),
+        ...rows,
+      ],
+    );
+  }
 
   void _apply() {
     var count = 0;
@@ -229,6 +289,9 @@ class _BulkEditSheetState extends State<_BulkEditSheet> {
                     _chip('Shapes', _shapes, (v) => _shapes = v),
                   ],
                 ),
+                const SizedBox(height: 6),
+                _row('Pick items by hand', _manual, (v) => _manual = v),
+                if (_manual) _pickList(),
                 _head('What to change (only switched-on rows are applied)'),
                 if (_text) ...[
                   _row('Text colour', _onColor, (v) => _onColor = v,
@@ -313,7 +376,7 @@ class _BulkEditSheetState extends State<_BulkEditSheet> {
             child: FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
               onPressed: count == 0 ? null : _apply,
-              child: Text(count == 0 ? 'No matching items' : 'Apply to $count items'),
+              child: Text(count == 0 ? (_manual ? 'Tick the items to change' : 'No matching items') : 'Apply to $count items'),
             ),
           ),
         ],

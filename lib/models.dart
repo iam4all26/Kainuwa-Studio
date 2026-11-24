@@ -83,6 +83,7 @@ class Layer {
     this.cropB = 0,
     this.mask = 'none',
     this.srcAspect = 0,
+    this.mockup = '',
     this.locked = false,
   });
 
@@ -206,6 +207,9 @@ class Layer {
   /// Width divided by height of the source picture. 0 until it is known.
   double srcAspect;
 
+  /// For a screenshot inside a phone: 'phoneId|path of the screenshot', so the phone can be changed later.
+  String mockup;
+
   /// A locked item cannot be moved, resized or turned on the slide until it is unlocked.
   bool locked;
 
@@ -276,6 +280,7 @@ class Layer {
         'cropB': cropB,
         'mask': mask,
         'srcAspect': srcAspect,
+        'mockup': mockup,
         'locked': locked,
       };
 
@@ -349,6 +354,7 @@ class Layer {
         cropB: _num(json['cropB'], 0),
         mask: _str(json['mask'], 'none'),
         srcAspect: _num(json['srcAspect'], 0),
+        mockup: _str(json['mockup'], ''),
         locked: json['locked'] is bool ? json['locked'] as bool : false,
       );
 }

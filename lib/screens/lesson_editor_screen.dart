@@ -642,6 +642,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       final box = fitBox(aspect, maxW: 0.5, maxH: 0.92);
       final layer = Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: out);
       layer.srcAspect = aspect;
+      layer.mockup = '${frame.id}|$path';
       _addLayer(scene, layer);
     } catch (e) {
       if (mounted) _snack('The screenshot could not be placed in the phone.');
@@ -1822,6 +1823,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         await _replaceShape(scene, layer);
         return;
       }
+      if (layer.type == 'image' && layer.mockup.contains('|')) {
+        await _replaceMockup(layer);
+        return;
+      }
       if (layer.type != 'image') {
         _snack('Replace works for pictures and shapes. Delete and add a new one for this item.');
         return;
@@ -1869,6 +1874,57 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       scene.videoPath = path;
       scene.videoMs = ms;
       _commit();
+    }
+  }
+
+  /// A screenshot in a phone: change the screenshot, the phone, or both. The phone is kept.
+  Future<void> _replaceMockup(Layer layer) async {
+    final cut = layer.mockup.indexOf('|');
+    final frameId = layer.mockup.substring(0, cut);
+    final oldShot = layer.mockup.substring(cut + 1);
+    final what = await showDialog<int>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('Change what?'),
+        children: [
+          SimpleDialogOption(onPressed: () => Navigator.of(c).pop(0), child: const Text('The screenshot')),
+          SimpleDialogOption(onPressed: () => Navigator.of(c).pop(1), child: const Text('The phone')),
+          SimpleDialogOption(onPressed: () => Navigator.of(c).pop(2), child: const Text('Both')),
+        ],
+      ),
+    );
+    if (what == null || !mounted) return;
+    var shot = oldShot;
+    PhoneFrame frame = kPhoneFrames.firstWhere((f) => f.id == frameId, orElse: () => kPhoneFrames.first);
+    if (what != 1) {
+      String? path;
+      try {
+        path = await pickMedia(context, MediaKind.image);
+      } catch (_) {
+        path = null;
+      }
+      if (path == null || !mounted) return;
+      if (path.toLowerCase().endsWith('.svg')) {
+        _snack('Please choose a screenshot or photo (JPG or PNG), not an SVG.');
+        return;
+      }
+      shot = path;
+    }
+    if (what != 0) {
+      final f = await showPhoneFramePicker(context);
+      if (f == null || !mounted) return;
+      frame = f;
+    }
+    try {
+      final base = await KainuwaEncoder.filesDir();
+      final out = '$base/kainuwa_data/mockups/shot_${DateTime.now().millisecondsSinceEpoch}.png';
+      await composeMockup(screenshot: shot, frame: frame, outPath: out);
+      if (!mounted) return;
+      layer.path = out;
+      layer.mockup = '${frame.id}|$shot';
+      _commit();
+    } catch (e) {
+      if (mounted) _snack('The screenshot could not be placed in the phone. Its file may have been removed.');
     }
   }
 

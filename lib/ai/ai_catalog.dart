@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 
 import '../data/asset_catalog.dart';
+import '../editor/edit_panel.dart' show fontEntries;
 import '../store/store_service.dart';
 
 class AiBg {
@@ -19,6 +20,16 @@ class AiBg {
   String get hint => item.hint;
 }
 
+class AiFont {
+  AiFont(this.id, this.family, this.name, this.category);
+  final String id;
+
+  /// The font family name set on text.
+  final String family;
+  final String name;
+  final String category;
+}
+
 class AiPic {
   AiPic(this.id, this.item);
   final String id;
@@ -28,9 +39,24 @@ class AiPic {
 
 /// The backgrounds and pictures the AI may choose from.
 class AiCatalog {
-  AiCatalog(this.bgs, this.pics);
+  AiCatalog(this.bgs, this.pics, [this.fonts = const []]);
   final List<AiBg> bgs;
   final List<AiPic> pics;
+  final List<AiFont> fonts;
+
+  AiFont? font(String? id) {
+    if (id == null) return null;
+    final key = id.trim();
+    if (key.isEmpty) return null;
+    for (final f in fonts) {
+      if (f.id == key) return f;
+    }
+    // The AI sometimes writes the font name instead of its id.
+    for (final f in fonts) {
+      if (f.name.toLowerCase() == key.toLowerCase() || f.family.toLowerCase() == key.toLowerCase()) return f;
+    }
+    return null;
+  }
 
   AiBg? bg(String? id) {
     if (id == null) return null;
@@ -127,6 +153,12 @@ class AiCatalog {
     for (var i = 0; i < store.length; i++) {
       pics.add(AiPic('p${items.length + i + 1}', CatalogItem(store[i].path, store[i].name, tint: true)));
     }
-    return AiCatalog(bgs, pics);
+    final fonts = <AiFont>[];
+    final seen = <String>{};
+    for (final e in fontEntries()) {
+      if (e.$1.isEmpty || !seen.add(e.$1)) continue;
+      fonts.add(AiFont('f${fonts.length + 1}', e.$1, e.$2, e.$3));
+    }
+    return AiCatalog(bgs, pics, fonts);
   }
 }

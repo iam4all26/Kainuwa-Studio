@@ -43,6 +43,10 @@ class LessonPlan {
   int? bgColor;
   int? accent;
   int? ink;
+
+  /// Font family for headings and for the other text. Empty means the app's default.
+  String font = '';
+  String bodyFont = '';
   final List<PlanSlide> slides;
 
   String get narrationScript {
@@ -74,17 +78,19 @@ const List<String> kLayouts = [
 String _systemPrompt(AiCatalog cat) {
   final bgs = cat.bgs.map((b) => '${b.id}=${b.name} (${b.dark ? 'dark' : 'light'}${b.hint.isEmpty ? '' : ', ${b.hint}'})').join('; ');
   final pics = cat.pics.map((p) => '${p.id}=${p.name}').join('; ');
+  final fonts = cat.fonts.map((f) => '${f.id}=${f.name} (${f.category})').join('; ');
   return '''
 You are a video designer. You turn a lesson into a designed slide plan for a short teaching video.
 Reply with one JSON object only. No markdown, no code fences, no comments.
 Schema:
 {"title": string, "mood": string,
- "theme": {"bg": string, "accent": "#RRGGBB", "text": "#RRGGBB"},
+ "theme": {"bg": string, "accent": "#RRGGBB", "text": "#RRGGBB", "font": string or null, "bodyFont": string or null},
  "slides": [{"layout": string, "heading": string, "points": [string], "icons": [string], "bg": string or null, "narration": string, "seconds": number}]}
 Design rules:
 - First decide the mood of this lesson (for example calm, serious, playful, technical, spiritual, business) and pick a theme that fits the subject and the audience. Do not reuse one fixed look. Different lessons must look different.
 - theme.bg is either a background id from the list below or a solid colour like "#0B3C5D". Prefer a solid colour or a plain background when the text is long. Use a picture background only when it really fits the topic.
 - theme.accent is the highlight colour for headings. theme.text is the main text colour and must contrast strongly with the background.
+- theme.font is the font for headings and theme.bodyFont the font for all other text. Each is an id from the Fonts list below, or null for the default font. Choose fonts that fit the mood and the audience (for example a clean modern font for technical lessons, a serif for serious or spiritual ones, a friendly rounded font for playful ones). Use at most two fonts. Never use a decorative or handwriting font for bodyFont, because it must stay easy to read. Every letter of the lesson language must be supported (Hausa needs the hooked letters), so when unsure use null.
 - slide.bg is optional: null keeps the theme background, or give another background id or colour for one special slide, such as the title or recap.
 - layout is one of: title, bullets, statement, icon_grid, steps, two_column, quote, recap.
   title: opening slide only (heading = video title, points = one short subtitle).
@@ -104,6 +110,7 @@ Design rules:
 - Write all text in the requested language.
 Backgrounds: $bgs
 Pictures: $pics
+Fonts: $fonts
 ''';
 }
 
@@ -193,6 +200,8 @@ LessonPlan parsePlan(String raw, AiCatalog cat) {
     }
     plan.accent = _hex(theme['accent']);
     plan.ink = _hex(theme['text']);
+    plan.font = cat.font(theme['font']?.toString())?.family ?? '';
+    plan.bodyFont = cat.font(theme['bodyFont']?.toString())?.family ?? '';
   }
   for (final item in data['slides'] as List) {
     if (item is! Map) continue;
@@ -247,6 +256,8 @@ String themeSummary(LessonPlan plan, AiCatalog cat) {
   final parts = <String>[];
   if (plan.mood.isNotEmpty) parts.add(plan.mood);
   final b = cat.bg(plan.bg);
+  final hf = cat.fonts.where((f) => f.family == plan.font).toList();
+  if (hf.isNotEmpty) parts.add('${hf.first.name} font');
   if (b != null) {
     parts.add(b.name);
   } else if (plan.bgColor != null) {
@@ -375,6 +386,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
       double maxW = 0.88,
       double maxH = 1.0,
       double? left,
+      bool head = false,
     }) {
       final l = Layer(
         id: newId(),
@@ -384,6 +396,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
         bold: bold,
         italic: italic,
       );
+      l.fontFamily = head ? plan.font : plan.bodyFont;
       var size = px;
       setLayerTextSizePx(l, size);
       while (l.w > maxW && size > px * 0.72) {
@@ -506,7 +519,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
 
       void heading() {
         final hy = portrait ? 0.1 : 0.13;
-        final h = text(slide.heading, 64 * f, look.accent, bold: true, cy: hy, maxW: 0.9, maxH: 0.16);
+        final h = text(slide.heading, 64 * f, look.accent, bold: true, head: true, cy: hy, maxW: 0.9, maxH: 0.16);
         out.add(anim(h, 'fade', 0));
         out.add(anim(shape('rect', look.accent, 0.5, hy + h.h / 2 + 0.025, 140, 6), 'fade', 200));
       }
@@ -520,7 +533,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
               final p = picture(slide.icons.first, 0.5, 0.27, H * 0.3);
               if (p != null) out.add(anim(p, 'pop', 0, 700));
             }
-            final t = text(slide.heading, 100 * f, look.ink, bold: true, cy: titleY, maxW: 0.86, maxH: 0.3);
+            final t = text(slide.heading, 100 * f, look.ink, bold: true, head: true, cy: titleY, maxW: 0.86, maxH: 0.3);
             out.add(anim(t, 'pop', hasPic ? 200 : 0, 700));
             if (n > 0) {
               final barY = t.cy + t.h / 2 + 0.035;
@@ -533,7 +546,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
         case 'statement':
           {
             out.add(anim(shape('rect', look.accent, 0.5, 0.25, 120, 8), 'fade', 0));
-            final t = text(slide.heading, 84 * f, look.ink, bold: true, cy: n > 0 ? 0.46 : 0.5, maxW: 0.84, maxH: 0.4);
+            final t = text(slide.heading, 84 * f, look.ink, bold: true, head: true, cy: n > 0 ? 0.46 : 0.5, maxW: 0.84, maxH: 0.4);
             out.add(anim(t, 'fade', 200, 700));
             if (n > 0) {
               final sub = text(slide.points.first, 44 * f, look.accent, cy: 0.74, maxW: 0.8, maxH: 0.16);
@@ -544,7 +557,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
         case 'quote':
           {
             final body = n > 0 ? slide.points.first : slide.heading;
-            final mark = text('“', 220 * f, look.accent, bold: true, cy: 0.2, maxW: 0.3, maxH: 0.4);
+            final mark = text('“', 220 * f, look.accent, bold: true, head: true, cy: 0.2, maxW: 0.3, maxH: 0.4);
             out.add(anim(mark, 'pop', 0, 600));
             final q = text(body, 58 * f, look.ink, italic: true, cy: 0.5, maxW: 0.8, maxH: 0.4);
             out.add(anim(q, 'fade', 400, 700));
