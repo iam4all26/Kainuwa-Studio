@@ -577,6 +577,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
               if (k < n) {
                 final lab = text(slide.points[k], 36 * f, look.ink,
                     bold: true,
+                    cx: cx,
                     cy: rc + (box * 0.5 + rowH * 0.2) / H,
                     maxW: cellW * 0.86 / W,
                     maxH: rowH * 0.3 / H);

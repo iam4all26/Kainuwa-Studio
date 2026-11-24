@@ -29,6 +29,10 @@ class _AiImportScreenState extends State<AiImportScreen> {
   int _language = 0;
   int _length = 1;
   int _shape = 0;
+
+  /// 0 = one background for every slide, 1 = title and last slide differ, 2 = as the AI chose.
+  int _bgMode = 0;
+  static const List<String> _bgModes = ['Same on every slide', 'Title and recap different', 'As the AI chose'];
   bool _busy = false;
   String _busyMsg = '';
   int _voice = 0;
@@ -255,7 +259,18 @@ class _AiImportScreenState extends State<AiImportScreen> {
     final ids = await state.addVideo(title: title, aspectW: shape.$2, aspectH: shape.$3);
     final lesson = state.lessonById(ids.$1, ids.$2);
     if (lesson != null) {
-      await buildScenes(lesson, plan, _catalog ?? await AiCatalog.load());
+      final savedBgs = [for (final s in plan.slides) s.bg];
+      for (var i = 0; i < plan.slides.length; i++) {
+        final keep = _bgMode == 2 || (_bgMode == 1 && (i == 0 || i == plan.slides.length - 1));
+        if (!keep) plan.slides[i].bg = null;
+      }
+      try {
+        await buildScenes(lesson, plan, _catalog ?? await AiCatalog.load());
+      } finally {
+        for (var i = 0; i < plan.slides.length; i++) {
+          plan.slides[i].bg = savedBgs[i];
+        }
+      }
       if (_voice == 1) {
         setState(() {
           _busy = true;
@@ -508,6 +523,28 @@ class _AiImportScreenState extends State<AiImportScreen> {
     );
   }
 
+  Widget _backgroundBox() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Slide backgrounds', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (var i = 0; i < _bgModes.length; i++)
+              ChoiceChip(
+                label: Text(_bgModes[i]),
+                selected: _bgMode == i,
+                onSelected: (_) => setState(() => _bgMode = i),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _reviewStep() {
     final plan = _plan!;
     return Column(
@@ -526,6 +563,8 @@ class _AiImportScreenState extends State<AiImportScreen> {
                   child: Text('Design chosen by AI: ${themeSummary(plan, _catalog!)}',
                       style: const TextStyle(fontSize: 13, color: Color(0xFFB5ABD6))),
                 ),
+              const SizedBox(height: 14),
+              _backgroundBox(),
               const SizedBox(height: 14),
               _voiceBox(),
               for (var i = 0; i < plan.slides.length; i++) _slideCard(i),
