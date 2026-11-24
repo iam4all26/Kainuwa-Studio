@@ -165,7 +165,17 @@ LessonPlan parsePlan(String raw, AiCatalog cat) {
   try {
     data = jsonDecode(text);
   } catch (_) {
-    throw AiException('The AI answer was cut off or broken. Try a shorter lesson or a larger model.');
+    // Chat apps often paste JSON with markdown escapes such as \[ \] \_ \*.
+    // Drop a backslash that is not a valid JSON escape and try once more.
+    final cleaned = text.replaceAllMapped(
+      RegExp(r'\\\\|\\([^"\\/bfnrtu])'),
+      (m) => m.group(1) ?? m.group(0)!,
+    );
+    try {
+      data = jsonDecode(cleaned);
+    } catch (_) {
+      throw AiException('The AI answer was cut off or broken. Try a shorter lesson or a larger model.');
+    }
   }
   if (data is! Map || data['slides'] is! List) {
     throw AiException('The AI did not return slides. Try again.');
