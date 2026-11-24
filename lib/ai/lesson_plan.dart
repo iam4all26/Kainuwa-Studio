@@ -71,7 +71,7 @@ const List<String> kLayouts = [
 ];
 
 String _systemPrompt(AiCatalog cat) {
-  final bgs = cat.bgs.map((b) => '${b.id}=${b.name} (${b.dark ? 'dark' : 'light'})').join('; ');
+  final bgs = cat.bgs.map((b) => '${b.id}=${b.name} (${b.dark ? 'dark' : 'light'}${b.hint.isEmpty ? '' : ', ${b.hint}'})').join('; ');
   final pics = cat.pics.map((p) => '${p.id}=${p.name}').join('; ');
   return '''
 You are a video designer. You turn a lesson into a designed slide plan for a short teaching video.

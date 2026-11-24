@@ -15,6 +15,7 @@ class AiBg {
 
   bool get dark => lum < 0.45;
   String get name => item.name;
+  String get hint => item.hint;
 }
 
 class AiPic {

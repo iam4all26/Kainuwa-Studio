@@ -8,9 +8,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../store/store_service.dart';
 
 class CatalogItem {
-  const CatalogItem(this.path, this.name, {this.tint = false});
+  const CatalogItem(this.path, this.name, {this.tint = false, this.hint = ''});
   final String path;
   final String name;
+
+  /// Short topics this picture suits (only used in the AI prompt).
+  final String hint;
 
   /// Downloaded SVG icons that start white and can be recoloured.
   final bool tint;
@@ -40,7 +43,7 @@ Widget catalogImage(CatalogItem item, {BoxFit fit = BoxFit.contain, int? cacheWi
 /// Built-in backgrounds plus the ones downloaded from the store, as one list.
 List<CatalogItem> allBackgrounds() => [
       ...kBackgrounds,
-      for (final i in StoreService.instance.ofType('background')) CatalogItem(i.path, i.name),
+      for (final i in StoreService.instance.ofType('background')) CatalogItem(i.path, i.name, hint: i.hint),
     ];
 
 /// Built-in icons plus downloaded icons, as one list.

@@ -74,6 +74,7 @@ class _StoreTabState extends State<StoreTab> {
     });
     try {
       final items = await _store.fetchCatalog();
+      await _store.refreshInstalledInfo(items);
       if (!mounted) return;
       setState(() {
         _items = items;

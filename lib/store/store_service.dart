@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -20,6 +21,7 @@ class StoreItem {
     this.sizeKb = 0,
     this.family = '',
     this.category = '',
+    this.hint = '',
   });
 
   final String id;
@@ -35,6 +37,9 @@ class StoreItem {
   /// Group in the store (for fonts: Sans Serif, Serif, Display, Handwriting, Monospace ...).
   final String category;
 
+  /// Short topics this item suits, for the AI prompt (optional).
+  final String hint;
+
   factory StoreItem.fromJson(Map<String, dynamic> j) => StoreItem(
         id: '${j['id'] ?? ''}',
         type: '${j['type'] ?? ''}',
@@ -44,6 +49,7 @@ class StoreItem {
         sizeKb: j['sizeKb'] is num ? (j['sizeKb'] as num).round() : 0,
         family: '${j['family'] ?? ''}',
         category: '${j['category'] ?? ''}',
+        hint: '${j['hint'] ?? ''}',
       );
 }
 
@@ -55,6 +61,7 @@ class InstalledItem {
     required this.path,
     this.family = '',
     this.category = '',
+    this.hint = '',
   });
 
   final String id;
@@ -63,9 +70,10 @@ class InstalledItem {
   final String path;
   final String family;
   final String category;
+  final String hint;
 
   Map<String, dynamic> toJson() =>
-      {'id': id, 'type': type, 'name': name, 'path': path, 'family': family, 'category': category};
+      {'id': id, 'type': type, 'name': name, 'path': path, 'family': family, 'category': category, 'hint': hint};
 
   factory InstalledItem.fromJson(Map<String, dynamic> j) => InstalledItem(
         id: '${j['id'] ?? ''}',
@@ -74,6 +82,7 @@ class InstalledItem {
         path: '${j['path'] ?? ''}',
         family: '${j['family'] ?? ''}',
         category: '${j['category'] ?? ''}',
+        hint: '${j['hint'] ?? ''}',
       );
 }
 
@@ -124,6 +133,36 @@ class StoreService extends ChangeNotifier {
       // The store is optional. The app works without it.
     }
     notifyListeners();
+    // Quietly refresh names and hints of installed items from the store.
+    unawaited(refreshInstalledInfo().catchError((Object _) {}));
+  }
+
+  /// Updates the name, group and hint of installed items from the store index,
+  /// so renamed items show their new names without being downloaded again.
+  Future<void> refreshInstalledInfo([List<StoreItem>? catalog]) async {
+    final items = catalog ?? await fetchCatalog().timeout(const Duration(seconds: 20));
+    final byId = {for (final i in items) i.id: i};
+    var changed = false;
+    for (var n = 0; n < installed.length; n++) {
+      final old = installed[n];
+      final fresh = byId[old.id];
+      if (fresh == null) continue;
+      if (fresh.name == old.name && fresh.hint == old.hint && fresh.category == old.category) continue;
+      installed[n] = InstalledItem(
+        id: old.id,
+        type: old.type,
+        name: fresh.name,
+        path: old.path,
+        family: old.family,
+        category: fresh.category,
+        hint: fresh.hint,
+      );
+      changed = true;
+    }
+    if (changed) {
+      await _save();
+      notifyListeners();
+    }
   }
 
   Future<void> _save() async {
@@ -215,6 +254,7 @@ class StoreService extends ChangeNotifier {
       path: target.path,
       family: family,
       category: item.category,
+      hint: item.hint,
     );
     installed.removeWhere((i) => i.id == item.id);
     installed.add(record);
