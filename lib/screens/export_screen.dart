@@ -1531,6 +1531,9 @@ class _ExportScreenState extends State<ExportScreen> {
         card(WatermarkCard(
           wm: state.settings.wm,
           enabled: !_busy,
+          previewScene: (lesson != null && lesson.scenes.isNotEmpty) ? lesson.scenes.first : null,
+          stageW: _sw,
+          stageH: _sh,
           onChanged: (w) => state.updateSettings(state.settings.copyWith(wm: w)),
         )),
         if (_busy) ...[

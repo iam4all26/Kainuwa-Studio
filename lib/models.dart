@@ -803,6 +803,10 @@ class Watermark {
     this.corner = 'br',
     this.size = 0.2,
     this.opacity = 0.7,
+    this.color = 0xFFFFFFFF,
+    this.font = '',
+    this.bold = true,
+    this.shadow = true,
   });
 
   final bool on;
@@ -813,6 +817,12 @@ class Watermark {
   final double size;
   final double opacity;
 
+  /// Text colour (ARGB), font family ('' = default), bold and shadow, for a text watermark.
+  final int color;
+  final String font;
+  final bool bold;
+  final bool shadow;
+
   Watermark copyWith({
     bool? on,
     String? kind,
@@ -821,6 +831,10 @@ class Watermark {
     String? corner,
     double? size,
     double? opacity,
+    int? color,
+    String? font,
+    bool? bold,
+    bool? shadow,
   }) =>
       Watermark(
         on: on ?? this.on,
@@ -830,6 +844,10 @@ class Watermark {
         corner: corner ?? this.corner,
         size: size ?? this.size,
         opacity: opacity ?? this.opacity,
+        color: color ?? this.color,
+        font: font ?? this.font,
+        bold: bold ?? this.bold,
+        shadow: shadow ?? this.shadow,
       );
 
   Map<String, dynamic> toJson() => {
@@ -840,6 +858,10 @@ class Watermark {
         'corner': corner,
         'size': size,
         'opacity': opacity,
+        'color': color,
+        'font': font,
+        'bold': bold,
+        'shadow': shadow,
       };
 
   factory Watermark.fromJson(Map<String, dynamic> json) => Watermark(
@@ -850,6 +872,10 @@ class Watermark {
         corner: _str(json['corner'], 'br'),
         size: _num(json['size'], 0.2),
         opacity: _num(json['opacity'], 0.7),
+        color: json['color'] is num ? (json['color'] as num).toInt() : 0xFFFFFFFF,
+        font: _str(json['font'], ''),
+        bold: json['bold'] is bool ? json['bold'] as bool : true,
+        shadow: json['shadow'] is bool ? json['shadow'] as bool : true,
       );
 }
 
