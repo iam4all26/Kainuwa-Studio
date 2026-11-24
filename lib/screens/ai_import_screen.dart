@@ -102,11 +102,10 @@ class _AiImportScreenState extends State<AiImportScreen> {
   }
 
   Future<void> _copyPrompt() async {
-    final text = _lesson.text.trim();
-    if (text.isEmpty) {
-      setState(() => _error = 'Paste your lesson above first.');
-      return;
-    }
+    // With no lesson pasted yet, the prompt is copied with a marker the person replaces in the AI app.
+    final typed = _lesson.text.trim();
+    final blank = typed.isEmpty;
+    final text = blank ? '[PASTE YOUR LESSON HERE]' : typed;
     final catalog = _catalog ??= await AiCatalog.load();
     final prompt = buildExternalPrompt(
       lesson: text.length > _kMaxChars ? text.substring(0, _kMaxChars) : text,
@@ -118,7 +117,11 @@ class _AiImportScreenState extends State<AiImportScreen> {
     if (!mounted) return;
     setState(() => _error = '');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Prompt copied. Paste it in your AI app, then come back and paste the answer.')),
+      SnackBar(
+        content: Text(blank
+            ? 'Prompt copied. In your AI app, replace [PASTE YOUR LESSON HERE] with your lesson, then come back and paste the answer.'
+            : 'Prompt copied. Paste it in your AI app, then come back and paste the answer.'),
+      ),
     );
   }
 
