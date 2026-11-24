@@ -74,6 +74,9 @@ class AiCatalog {
     }
   }
 
+  /// Average brightness of any catalog picture, 0 (black) to 1 (white).
+  static Future<double> luminanceOf(CatalogItem item) => _luminance(item);
+
   static Future<double> _luminance(CatalogItem item) async {
     final bytes = await _bytes(item);
     if (bytes == null) return 0.5;

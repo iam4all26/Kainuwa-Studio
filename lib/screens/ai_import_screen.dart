@@ -9,8 +9,10 @@ import '../ai/lesson_voice.dart';
 import '../media/media_library.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import '../app_state.dart';
+import '../data/asset_catalog.dart';
 import '../theme.dart';
 import 'ai_settings_screen.dart';
+import 'editor_sheets.dart';
 import 'lesson_editor_screen.dart';
 
 const int _kMaxChars = 40000;
@@ -33,6 +35,9 @@ class _AiImportScreenState extends State<AiImportScreen> {
   /// 0 = one background for every slide, 1 = title and last slide differ, 2 = as the AI chose.
   int _bgMode = 0;
   static const List<String> _bgModes = ['Same on every slide', 'Title and recap different', 'As the AI chose'];
+
+  /// The background the owner chose for every slide (mode 3).
+  BackgroundChoice? _myBg;
   bool _busy = false;
   String _busyMsg = '';
   int _voice = 0;
@@ -259,17 +264,36 @@ class _AiImportScreenState extends State<AiImportScreen> {
     final ids = await state.addVideo(title: title, aspectW: shape.$2, aspectH: shape.$3);
     final lesson = state.lessonById(ids.$1, ids.$2);
     if (lesson != null) {
+      final cat = _catalog ?? await AiCatalog.load();
       final savedBgs = [for (final s in plan.slides) s.bg];
+      final savedPlanBg = plan.bg;
+      final savedPlanColor = plan.bgColor;
+      final my = _bgMode == 3 ? _myBg : null;
+      AiBg? custom;
       for (var i = 0; i < plan.slides.length; i++) {
         final keep = _bgMode == 2 || (_bgMode == 1 && (i == 0 || i == plan.slides.length - 1));
         if (!keep) plan.slides[i].bg = null;
       }
+      if (my != null) {
+        if (my.type == 'color') {
+          plan.bg = null;
+          plan.bgColor = int.tryParse(my.value) ?? plan.bgColor;
+        } else {
+          final item = CatalogItem(my.value, 'My background');
+          custom = AiBg('mybg', item, await AiCatalog.luminanceOf(item));
+          cat.bgs.add(custom);
+          plan.bg = 'mybg';
+        }
+      }
       try {
-        await buildScenes(lesson, plan, _catalog ?? await AiCatalog.load());
+        await buildScenes(lesson, plan, cat);
       } finally {
         for (var i = 0; i < plan.slides.length; i++) {
           plan.slides[i].bg = savedBgs[i];
         }
+        plan.bg = savedPlanBg;
+        plan.bgColor = savedPlanColor;
+        if (custom != null) cat.bgs.remove(custom);
       }
       if (_voice == 1) {
         setState(() {
@@ -523,6 +547,16 @@ class _AiImportScreenState extends State<AiImportScreen> {
     );
   }
 
+  Future<void> _chooseMyBackground() async {
+    final choice = await showBackgroundSheet(context, current: _myBg);
+    if (choice == null || !mounted) return;
+    if (choice.type != 'color' && choice.type != 'asset' && choice.type != 'file') return;
+    setState(() {
+      _myBg = choice;
+      _bgMode = 3;
+    });
+  }
+
   Widget _backgroundBox() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,6 +573,12 @@ class _AiImportScreenState extends State<AiImportScreen> {
                 selected: _bgMode == i,
                 onSelected: (_) => setState(() => _bgMode = i),
               ),
+            ChoiceChip(
+              avatar: const Icon(Icons.image_outlined, size: 18),
+              label: Text(_myBg == null ? 'Choose my own...' : 'My background (change)'),
+              selected: _bgMode == 3,
+              onSelected: (_) => _chooseMyBackground(),
+            ),
           ],
         ),
       ],
