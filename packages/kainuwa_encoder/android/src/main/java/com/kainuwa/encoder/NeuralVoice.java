@@ -189,12 +189,22 @@ final class NeuralVoice {
                 .build();
         OfflineTtsModelConfig model = OfflineTtsModelConfig.builder()
                 .setKokoro(kokoro)
-                .setNumThreads(3)
+                .setNumThreads(Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors())))
                 .setDebug(false)
                 .build();
         OfflineTtsConfig config = OfflineTtsConfig.builder().setModel(model).build();
         tts = new OfflineTts(config);
         return tts;
+    }
+
+    /** Loads the voice into memory and runs one tiny sentence, so the first real voice is quicker. */
+    synchronized void warmUp() {
+        try {
+            if (!installed()) return;
+            OfflineTts t = engine();
+            t.generate("Hello.", 0, 1.0f);
+        } catch (Throwable ignored) {
+        }
     }
 
     /** Speaks [text] into the WAV file at [path]. Throws with a readable message on failure. */

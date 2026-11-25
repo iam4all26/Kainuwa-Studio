@@ -561,6 +561,17 @@ public class KainuwaEncoderPlugin
                 result.success(true);
                 break;
             }
+            case "neuralWarmup": {
+                final NeuralVoice nv = neuralVoice();
+                neuralWorker.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        nv.warmUp();
+                    }
+                });
+                result.success(true);
+                break;
+            }
             case "neuralDelete":
                 neuralVoice().delete();
                 result.success(true);

@@ -62,6 +62,7 @@ class _VoicesDialogState extends State<_VoicesDialog> {
   void initState() {
     super.initState();
     _refresh();
+    KainuwaEncoder.neuralWarmup();
     _timer = Timer.periodic(const Duration(milliseconds: 800), (_) => _refresh());
   }
 

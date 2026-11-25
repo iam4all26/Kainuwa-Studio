@@ -168,6 +168,14 @@ class KainuwaEncoder {
   static const String neuralUrl =
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2';
 
+  /// Loads the real voice into memory in the background so the first voice is quicker. Never throws.
+  static Future<void> neuralWarmup() async {
+    try {
+      _init();
+      await _channel.invokeMethod<bool>('neuralWarmup');
+    } catch (_) {}
+  }
+
   static Future<void> neuralDelete() async {
     _init();
     await _channel.invokeMethod<bool>('neuralDelete');

@@ -53,6 +53,7 @@ import '../shape_fit.dart';
 import '../stage_shape.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../editor/voice_all.dart';
 import 'audio_sheet.dart';
 import 'editor_sheets.dart';
 import 'export_screen.dart';
@@ -1102,6 +1103,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         color: 0xFFF6C101,
       ),
     );
+  }
+
+  Future<void> _voiceAll() async {
+    final lesson = _lesson();
+    if (lesson == null) return;
+    _pause();
+    await showVoiceAll(context, lesson, _commit);
+    if (mounted) setState(() {});
   }
 
   Future<void> _openAudio() async {
@@ -3227,13 +3236,14 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
         (Icons.volume_up_outlined, 'Volume', _volume),
+        (Icons.record_voice_over_outlined, 'Voice all', _voiceAll),
         (Icons.compare_arrows, 'Transition', _transitionSheet),
         (Icons.delete_outline, 'Delete', _deleteSelection),
       ]);
     } else if (_clipLayer != null && scene != null) {
       tools.add((Icons.content_paste, 'Paste', _pasteLayer));
-    } else if (!landscape) {
-      return const SizedBox(height: 8);
+    } else {
+      tools.add((Icons.record_voice_over_outlined, 'Voice all', _voiceAll));
     }
     if (landscape) return _toolRail(u, tools);
     final children = <Widget>[];
