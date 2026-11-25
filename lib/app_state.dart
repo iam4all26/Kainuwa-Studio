@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import 'models.dart';
 import 'storage.dart';
@@ -16,6 +17,12 @@ class AppState extends ChangeNotifier {
   bool loaded = false;
   String? loadError;
 
+  /// Tells the plugin which voice the text to speech calls should use.
+  void _syncVoice() {
+    KainuwaEncoder.preferNeural = settings.realVoice;
+    KainuwaEncoder.neuralSid = settings.voiceId;
+  }
+
   Future<void> load() async {
     try {
       courses = await _storage.loadCourses();
@@ -24,6 +31,7 @@ class AppState extends ChangeNotifier {
       loadError = e.toString();
     }
     loaded = true;
+    _syncVoice();
     applyOrientation();
     notifyListeners();
   }
@@ -191,6 +199,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> updateSettings(AppSettings next) async {
     settings = next;
+    _syncVoice();
     applyOrientation();
     notifyListeners();
     try {

@@ -136,6 +136,15 @@ public class KainuwaEncoderPlugin
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService lessonWorker = Executors.newSingleThreadExecutor();
+    private final ExecutorService neuralWorker = Executors.newSingleThreadExecutor();
+    private NeuralVoice neuralVoiceInstance;
+
+    private synchronized NeuralVoice neuralVoice() {
+        if (neuralVoiceInstance == null) {
+            neuralVoiceInstance = new NeuralVoice(appContext.getFilesDir());
+        }
+        return neuralVoiceInstance;
+    }
     private volatile int lessonGen = 0;
 
     private final Runnable progressTicker = new Runnable() {
@@ -515,6 +524,61 @@ public class KainuwaEncoderPlugin
                 ttsToFile((String) call.argument("text"), (String) call.argument("path"),
                         (String) call.argument("lang"), result);
                 break;
+            case "neuralStatus": {
+                NeuralVoice nv = neuralVoice();
+                java.util.HashMap<String, Object> map = new java.util.HashMap<>();
+                map.put("installed", nv.installed());
+                map.put("state", nv.state());
+                map.put("percent", nv.percent());
+                map.put("message", nv.message());
+                result.success(map);
+                break;
+            }
+            case "neuralDownload": {
+                final NeuralVoice nv = neuralVoice();
+                neuralWorker.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        nv.download();
+                    }
+                });
+                result.success(true);
+                break;
+            }
+            case "neuralDelete":
+                neuralVoice().delete();
+                result.success(true);
+                break;
+            case "neuralToFile": {
+                final String nText = call.argument("text");
+                final String nPath = call.argument("path");
+                final int nSid = (int) longOf((Object) call.argument("sid"), 3);
+                final float nSpeed = (float) num(call, "speed", 1.0);
+                final NeuralVoice nv = neuralVoice();
+                neuralWorker.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        String err = null;
+                        try {
+                            if (nText == null || nText.trim().isEmpty() || nPath == null) {
+                                throw new IllegalArgumentException("There is no text to speak.");
+                            }
+                            nv.speak(nText, nPath, nSid, nSpeed);
+                        } catch (Throwable t) {
+                            err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+                        }
+                        final String e2 = err;
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (e2 == null) result.success(nPath);
+                                else result.error("neural", e2, null);
+                            }
+                        });
+                    }
+                });
+                break;
+            }
             case "audioDuration":
                 result.success((int) Math.max(readDurationMs(String.valueOf((String) call.argument("path"))), 0));
                 break;

@@ -125,7 +125,49 @@ class KainuwaEncoder {
   /// Returns the path, or throws a PlatformException with a readable message.
   static Future<String> ttsToFile(String text, String path, {String lang = ''}) async {
     _init();
+    // The real (neural) English voice, when the person turned it on and it is downloaded.
+    // Any other language, or any failure, falls back to the phone's own voice below.
+    final l = lang.toLowerCase();
+    if (preferNeural && (l.isEmpty || l.startsWith('en'))) {
+      try {
+        return await neuralToFile(text, path);
+      } catch (_) {}
+    }
     final out = await _channel.invokeMethod<String>('ttsToFile', {'text': text, 'path': path, 'lang': lang});
+    return out ?? path;
+  }
+
+  /// Set from the app settings: use the real English voice for [ttsToFile] when it is installed.
+  static bool preferNeural = false;
+
+  /// Which real voice (speaker number 0 to 27) [ttsToFile] and [neuralToFile] use.
+  static int neuralSid = 3;
+
+  /// State of the real voice download: installed, state (idle, downloading, done, error), percent, message.
+  static Future<Map<String, dynamic>> neuralStatus() async {
+    _init();
+    final r = await _channel.invokeMethod<Map<Object?, Object?>>('neuralStatus');
+    final out = <String, dynamic>{};
+    (r ?? const {}).forEach((k, v) => out['$k'] = v);
+    return out;
+  }
+
+  /// Starts downloading the real voice (about 130 MB). Follow it with [neuralStatus].
+  static Future<void> neuralDownload() async {
+    _init();
+    await _channel.invokeMethod<bool>('neuralDownload');
+  }
+
+  static Future<void> neuralDelete() async {
+    _init();
+    await _channel.invokeMethod<bool>('neuralDelete');
+  }
+
+  /// Speaks [text] with the real English voice into the WAV file at [path].
+  static Future<String> neuralToFile(String text, String path, {int? sid, double speed = 1.0}) async {
+    _init();
+    final out = await _channel.invokeMethod<String>(
+        'neuralToFile', {'text': text, 'path': path, 'sid': sid ?? neuralSid, 'speed': speed});
     return out ?? path;
   }
 

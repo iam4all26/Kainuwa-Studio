@@ -9,7 +9,9 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../media/media_library.dart';
 import '../models.dart';
+import '../app_state.dart';
 import '../theme.dart';
+import 'voices_dialog.dart';
 import '../widgets.dart';
 
 /// Narration for the current scene and music for the whole lesson.
@@ -336,6 +338,13 @@ class _AudioSheetState extends State<_AudioSheet> {
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.record_voice_over_outlined),
               label: Text(_making ? 'Making the voice...' : 'Make voice from text'),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => showVoicesDialog(context),
+                child: Text(AppScope.of(context).settings.realVoice ? 'Real English voice: on' : 'Real English voice (download)'),
+              ),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

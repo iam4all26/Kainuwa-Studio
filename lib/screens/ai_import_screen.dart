@@ -12,6 +12,7 @@ import '../app_state.dart';
 import '../data/asset_catalog.dart';
 import '../theme.dart';
 import 'ai_settings_screen.dart';
+import 'voices_dialog.dart';
 import 'editor_sheets.dart';
 import 'lesson_editor_screen.dart';
 
@@ -523,7 +524,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
               st.updateSettings(st.settings.copyWith(aiVoice: i));
             }
           }),
-          if (_voice == 1)
+          if (_voice == 1) ...[
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
@@ -531,6 +532,17 @@ class _AiImportScreenState extends State<AiImportScreen> {
                 style: TextStyle(fontSize: 12.5, color: Color(0xFFB5ABD6)),
               ),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => showVoicesDialog(context),
+                icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+                label: Text(AppScope.of(context).settings.realVoice
+                    ? 'Real English voice is on (change)'
+                    : 'Real English voice (download)'),
+              ),
+            ),
+          ],
           if (_voice == 2) ...[
             const Padding(
               padding: EdgeInsets.only(top: 8),

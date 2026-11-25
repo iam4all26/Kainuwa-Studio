@@ -886,12 +886,20 @@ class AppSettings {
     this.orientation = 'portrait',
     this.wm = const Watermark(),
     this.aiVoice = 1,
+    this.realVoice = false,
+    this.voiceId = 3,
   });
 
   final Watermark wm;
 
   /// The voice chosen last in the AI lesson creator: 0 none, 1 phone voice.
   final int aiVoice;
+
+  /// Use the downloaded real English voice instead of the phone voice (where it is installed).
+  final bool realVoice;
+
+  /// Speaker number of the real voice (0 to 27).
+  final int voiceId;
   final int videoHeight;
   final int frameRate;
 
@@ -902,9 +910,11 @@ class AppSettings {
 
   int get videoWidth => videoHeight == 1080 ? 1920 : 1280;
 
-  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation, Watermark? wm, int? aiVoice}) => AppSettings(
+  AppSettings copyWith({int? videoHeight, int? frameRate, String? orientation, Watermark? wm, int? aiVoice, bool? realVoice, int? voiceId}) => AppSettings(
         wm: wm ?? this.wm,
         aiVoice: aiVoice ?? this.aiVoice,
+        realVoice: realVoice ?? this.realVoice,
+        voiceId: voiceId ?? this.voiceId,
         videoHeight: videoHeight ?? this.videoHeight,
         frameRate: frameRate ?? this.frameRate,
         orientation: orientation ?? this.orientation,
@@ -916,6 +926,8 @@ class AppSettings {
         'orientation': orientation,
         'wm': wm.toJson(),
         'aiVoice': aiVoice,
+        'realVoice': realVoice,
+        'voiceId': voiceId,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -923,6 +935,8 @@ class AppSettings {
         frameRate: _int(json['frameRate'], 30) == 24 ? 24 : 30,
         orientation: _str(json['orientation'], 'portrait') == 'landscape' ? 'landscape' : 'portrait',
         aiVoice: _int(json['aiVoice'], 1) == 0 ? 0 : 1,
+        realVoice: json['realVoice'] == true,
+        voiceId: _int(json['voiceId'], 3).clamp(0, 27).toInt(),
         wm: json['wm'] is Map ? Watermark.fromJson(Map<String, dynamic>.from(json['wm'] as Map)) : const Watermark(),
       );
 }
