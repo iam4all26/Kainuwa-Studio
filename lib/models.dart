@@ -368,6 +368,7 @@ class Scene {
     this.bgValue = '4294967295',
     this.bgFilter = '',
     this.narrationPath = '',
+    this.narrationText = '',
     this.narrationMs = 0,
     this.narrationVolume = 1.0,
     this.narrationSpeed = 1.0,
@@ -403,6 +404,9 @@ class Scene {
 
   /// Voice recording or imported audio for this scene. Empty means none.
   String narrationPath;
+
+  /// The words the narration says. Saved with the slide but never drawn on it.
+  String narrationText;
   int narrationMs;
   double narrationVolume;
 
@@ -468,6 +472,7 @@ class Scene {
         bgValue: bgValue,
         bgFilter: bgFilter,
         narrationPath: narrationPath,
+        narrationText: narrationText,
         narrationMs: narrationMs,
         narrationVolume: narrationVolume,
         narrationSpeed: narrationSpeed,
@@ -498,6 +503,7 @@ class Scene {
         'bgValue': bgValue,
         'bgFilter': bgFilter,
         'narrationPath': narrationPath,
+        'narrationText': narrationText,
         'narrationMs': narrationMs,
         'narrationVolume': narrationVolume,
         'narrationSpeed': narrationSpeed,
@@ -536,6 +542,7 @@ class Scene {
       bgValue: _str(json['bgValue'], '4294967295'),
       bgFilter: _str(json['bgFilter'], ''),
       narrationPath: _str(json['narrationPath'], ''),
+      narrationText: _str(json['narrationText'], ''),
       narrationMs: _int(json['narrationMs'], 0),
       narrationVolume: _num(json['narrationVolume'], 1.0),
       narrationSpeed: _num(json['narrationSpeed'], 1.0).clamp(0.5, 2.0).toDouble(),

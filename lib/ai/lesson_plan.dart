@@ -502,6 +502,7 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
         bgValue: look.bgValue,
         transKind: i == 0 ? 'none' : 'fade',
         transMs: 600,
+        narrationText: slide.narration.trim(),
       );
       final out = scene.layers;
       if (look.scrim != null) {

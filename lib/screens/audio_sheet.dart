@@ -105,7 +105,8 @@ class _AudioSheetState extends State<_AudioSheet> {
 
   /// Makes the narration of this slide from typed text with the phone's own voice (offline).
   Future<void> _makeVoice() async {
-    final controller = TextEditingController(text: _slideText());
+    final controller = TextEditingController(
+        text: widget.scene.narrationText.isNotEmpty ? widget.scene.narrationText : _slideText());
     final text = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
@@ -143,6 +144,7 @@ class _AudioSheetState extends State<_AudioSheet> {
       } else {
         // The slide lasts at least as long as the voice.
         widget.scene.durationMs = math.max(widget.scene.durationMs, ms + 600);
+        widget.scene.narrationText = text;
         await _attachNarration(path, ms);
       }
     } catch (_) {
