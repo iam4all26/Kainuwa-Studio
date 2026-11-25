@@ -545,6 +545,22 @@ public class KainuwaEncoderPlugin
                 result.success(true);
                 break;
             }
+            case "neuralImport": {
+                final String archivePath = call.argument("path");
+                final NeuralVoice nv = neuralVoice();
+                neuralWorker.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (archivePath != null) {
+                            File f = new File(archivePath);
+                            nv.importFile(f);
+                            f.delete();
+                        }
+                    }
+                });
+                result.success(true);
+                break;
+            }
             case "neuralDelete":
                 neuralVoice().delete();
                 result.success(true);

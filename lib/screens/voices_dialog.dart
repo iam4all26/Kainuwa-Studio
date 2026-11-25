@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../app_state.dart';
@@ -89,6 +90,23 @@ class _VoicesDialogState extends State<_VoicesDialog> {
       setState(() => _note = 'The download could not start.');
     }
     await _refresh();
+  }
+
+  Future<void> _import() async {
+    setState(() => _note = '');
+    try {
+      final path = await KainuwaEncoder.pickAnyFile();
+      if (path == null) return;
+      await KainuwaEncoder.neuralImport(path);
+    } catch (e) {
+      setState(() => _note = 'The file could not be opened: $e');
+    }
+    await _refresh();
+  }
+
+  Future<void> _copyLink() async {
+    await Clipboard.setData(const ClipboardData(text: KainuwaEncoder.neuralUrl));
+    if (mounted) setState(() => _note = 'The download link is copied. Paste it in your browser or a download manager.');
   }
 
   Future<void> _delete() async {
@@ -182,6 +200,9 @@ class _VoicesDialogState extends State<_VoicesDialog> {
               icon: const Icon(Icons.download),
               label: const Text('Download the real voice'),
             ),
+            const SizedBox(height: 4),
+            TextButton(onPressed: _copyLink, child: const Text('Copy the download link')),
+            TextButton(onPressed: _import, child: const Text('Import a downloaded file (.tar.bz2)')),
           ],
           if (failed && !_downloading)
             Padding(

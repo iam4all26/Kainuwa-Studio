@@ -26,7 +26,7 @@ import java.net.URL;
  */
 final class NeuralVoice {
     static final String NAME = "kokoro-int8-multi-lang-v1_0";
-    private static final String URL_TEXT =
+    static final String URL_TEXT =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" + NAME + ".tar.bz2";
     private static final long FALLBACK_SIZE = 132353410L;
 
@@ -63,6 +63,15 @@ final class NeuralVoice {
 
     /** Downloads and unpacks the voice. Runs on the calling thread; call it from a worker. */
     void download() {
+        run(null);
+    }
+
+    /** Unpacks a voice archive (.tar.bz2) the person downloaded by themselves. Call it from a worker. */
+    void importFile(File archive) {
+        run(archive);
+    }
+
+    private void run(File local) {
         if (downloading) return;
         downloading = true;
         state = "downloading";
@@ -73,18 +82,27 @@ final class NeuralVoice {
         try {
             deleteAll(tmp);
             tmp.mkdirs();
-            conn = (HttpURLConnection) new URL(URL_TEXT).openConnection();
-            conn.setConnectTimeout(20000);
-            conn.setReadTimeout(30000);
-            conn.setInstanceFollowRedirects(true);
-            if (conn.getResponseCode() != 200) {
-                throw new IOException("The download server answered " + conn.getResponseCode() + ".");
+            InputStream source;
+            long total;
+            if (local != null) {
+                if (!local.exists() || local.length() == 0) throw new IOException("That file is empty or missing.");
+                source = new java.io.FileInputStream(local);
+                total = local.length();
+            } else {
+                conn = (HttpURLConnection) new URL(URL_TEXT).openConnection();
+                conn.setConnectTimeout(20000);
+                conn.setReadTimeout(30000);
+                conn.setInstanceFollowRedirects(true);
+                if (conn.getResponseCode() != 200) {
+                    throw new IOException("The download server answered " + conn.getResponseCode() + ".");
+                }
+                source = conn.getInputStream();
+                total = conn.getContentLengthLong();
+                if (total <= 0) total = FALLBACK_SIZE;
             }
-            long total = conn.getContentLengthLong();
-            if (total <= 0) total = FALLBACK_SIZE;
             final long size = total;
             final long[] read = new long[] {0};
-            InputStream raw = new FilterInputStream(new BufferedInputStream(conn.getInputStream(), 1 << 16)) {
+            InputStream raw = new FilterInputStream(new BufferedInputStream(source, 1 << 16)) {
                 @Override
                 public int read() throws IOException {
                     int b = super.read();
@@ -128,7 +146,7 @@ final class NeuralVoice {
             tar.close();
             if (!new File(tmp, "model.int8.onnx").exists() || !new File(tmp, "voices.bin").exists()
                     || !new File(tmp, "lexicon-us-en.txt").exists()) {
-                throw new IOException("The voice download was incomplete.");
+                throw new IOException("The voice file is incomplete or is not the right one.");
             }
             new File(tmp, ".ok").createNewFile();
             File dir = modelDir();
