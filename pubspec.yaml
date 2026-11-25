@@ -26,6 +26,7 @@ flutter:
     - assets/backgrounds/
     - assets/icons/
     - assets/icons_svg/
+    - assets/icons_ui/
     - assets/illustrations/
     - assets/hands/
     - assets/phones/

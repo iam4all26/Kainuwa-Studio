@@ -139,6 +139,16 @@ class AiCatalog {
       ...kIcons,
       ...kIllustrations,
     ].where((e) => !e.isFile && e.path.toLowerCase().endsWith('.png')).toList();
+    // Built-in brand logos (WhatsApp, Google Play and so on) and everyday icons (phone, calculator
+    // and so on). They are SVG, drawn into pictures when the lesson is built.
+    items.addAll([
+      ...kSocialIcons,
+      ...kAppIcons,
+      ...kPaymentIcons,
+      ...kDeveloperIcons,
+      ...kLanguageIcons,
+      ...kUiIcons,
+    ]);
     for (var i = 0; i < items.length; i++) {
       pics.add(AiPic('p${i + 1}', items[i]));
     }

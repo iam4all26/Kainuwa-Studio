@@ -77,7 +77,12 @@ const List<String> kLayouts = [
 
 String _systemPrompt(AiCatalog cat) {
   final bgs = cat.bgs.map((b) => '${b.id}=${b.name} (${b.dark ? 'dark' : 'light'}${b.hint.isEmpty ? '' : ', ${b.hint}'})').join('; ');
-  final pics = cat.pics.map((p) => '${p.id}=${p.name}').join('; ');
+  String picHint(String h) {
+    final parts = h.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).take(3).toList();
+    return parts.isEmpty ? '' : ' (${parts.join(', ')})';
+  }
+
+  final pics = cat.pics.map((p) => '${p.id}=${p.name}${picHint(p.item.hint)}').join('; ');
   final fonts = cat.fonts.map((f) => '${f.id}=${f.name} (${f.category})').join('; ');
   return '''
 You are a video designer. You turn a lesson into a designed slide plan for a short teaching video.
@@ -102,7 +107,7 @@ Design rules:
   quote: one sentence in points[0], who or what it is from in heading.
   recap: last slide, 2 to 5 key takeaways.
 - Use a good mix of layouts. Never use the same layout more than twice in a row.
-- icons: 0 to 4 ids from the picture list that match the meaning of the slide. Use [] when nothing fits. Never invent ids.
+- icons: 0 to 4 ids from the picture list that match the meaning of the slide. Use [] when nothing fits. Never invent ids. The list has real app and company logos (for example WhatsApp, Google Play, Telegram, PayPal) and everyday icons (phone, calculator, camera, settings, clock). When the lesson names an app, brand or everyday device, use its own icon.
 - heading: at most 8 words. points: each at most 10 words, no bullet symbols, no numbering.
 - narration: the words the teacher says over the slide, natural and spoken, matching the lesson.
 - seconds: between 4 and 20, about 2.5 spoken words per second of narration.
@@ -354,8 +359,10 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
       if (aspects.containsKey(id)) continue;
       final p = cat.pic(id);
       if (p == null) continue;
-      if (p.item.isFile && p.item.path.toLowerCase().endsWith('.svg')) {
-        final r = await rasterizeSvg(p.item.path, longSide: 512);
+      if (p.item.path.toLowerCase().endsWith('.svg')) {
+        final r = p.item.isFile
+            ? await rasterizeSvg(p.item.path, longSide: 512)
+            : await rasterizeSvgAsset(p.item.path, longSide: 512);
         if (r != null) {
           rasters[id] = r;
           aspects[id] = r.aspect;
@@ -459,10 +466,11 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
       final hPx = a >= 1 ? boxPx / a : boxPx;
       final raster = rasters[id];
       if (raster != null) {
+        // Brand logos keep their own colour; the other SVG icons take the slide's accent colour.
         return Layer(
           id: newId(),
           type: 'image',
-          shape: 'tint',
+          shape: p.item.tint ? 'tint' : 'rect',
           color: tintColor,
           path: raster.path,
           cx: cx,
