@@ -8,6 +8,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import '../control/app_control.dart';
 import 'ai_settings_screen.dart';
 import 'scene_test_screen.dart';
+import 'voices_dialog.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -291,6 +292,17 @@ class _SettingsTabState extends State<SettingsTab> {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const AiSettingsScreen()),
                   ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.record_voice_over_outlined),
+                  title: const Text('Real voice (English)'),
+                  subtitle: Text(
+                    AppScope.of(context).settings.realVoice ? 'On' : 'Download, test and choose a natural voice',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => showVoicesDialog(context),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,

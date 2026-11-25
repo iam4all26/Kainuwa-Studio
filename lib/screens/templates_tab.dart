@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -151,8 +153,8 @@ class _TemplatesTabState extends State<TemplatesTab> with SingleTickerProviderSt
         final scene = buildLyricsScene(
           LyricsSetup(
             audio: '',
-            audioMs: 2000,
-            cues: const [LyricCue(0, 1000, 'Feel it')],
+            audioMs: 4000,
+            cues: const [LyricCue(0, 4000, 'Feel it')],
             aspectW: layout != 0 ? 16 : 9,
             aspectH: layout != 0 ? 9 : 16,
             palette: palette,
@@ -178,7 +180,7 @@ class _TemplatesTabState extends State<TemplatesTab> with SingleTickerProviderSt
           scene: scene,
           w: Stage.w,
           h: Stage.h,
-          loopMs: 1600,
+          loopMs: 4000,
           onUse: () => _useLyricsForm(f, t.name),
           onMenu: () => _mineMenu(t),
         ));
@@ -277,8 +279,8 @@ class _TemplatesTabState extends State<TemplatesTab> with SingleTickerProviderSt
       final scene = buildLyricsScene(
         LyricsSetup(
           audio: '',
-          audioMs: 2000,
-          cues: const [LyricCue(0, 1000, 'Feel it')],
+          audioMs: 4000,
+          cues: const [LyricCue(0, 4000, 'Feel it')],
           aspectW: l.layout != 0 ? 16 : 9,
           aspectH: l.layout != 0 ? 9 : 16,
           palette: l.palette,
@@ -388,7 +390,7 @@ class _TemplatesTabState extends State<TemplatesTab> with SingleTickerProviderSt
                             child: _animate
                                 ? ValueListenableBuilder<int>(
                                     valueListenable: _clock,
-                                    builder: (context, ms, _) => SceneCanvas(scene: c.scene, previewMs: ms % c.loopMs),
+                                    builder: (context, ms, _) => SceneCanvas(scene: c.scene, previewMs: ms % math.max(1000, math.min(c.loopMs, c.scene.durationMs))),
                                   )
                                 : SceneCanvas(scene: c.scene),
                           ),
