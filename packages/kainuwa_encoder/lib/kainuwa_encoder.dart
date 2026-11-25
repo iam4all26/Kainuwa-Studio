@@ -158,13 +158,6 @@ class KainuwaEncoder {
     await _channel.invokeMethod<bool>('neuralDownload');
   }
 
-  /// Opens the file picker for any file (used to import a voice file the person downloaded). Returns a
-  /// local copy path, or null if cancelled.
-  static Future<String?> pickAnyFile() {
-    _init();
-    return _channel.invokeMethod<String>('pick', {'mime': '*/*'});
-  }
-
   /// Unpacks a voice file (.tar.bz2) that the person downloaded by themselves. Follow it with [neuralStatus].
   static Future<void> neuralImport(String path) async {
     _init();
