@@ -45,6 +45,7 @@ import '../editor/timeline_panel.dart';
 import '../editor/track_visibility.dart';
 import '../media/media_library.dart';
 import '../models.dart';
+import '../user_templates.dart';
 import '../store/store_graphics_sheet.dart';
 import '../svg/svg_raster.dart';
 import '../scene_canvas.dart';
@@ -3302,6 +3303,32 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (mounted) setState(() => _tab = -1);
   }
 
+  /// Saves the look of this music or lyrics video (not the cover, song or words) in Templates, under Mine.
+  Future<void> _saveAsTemplate(Lesson lesson, Map<String, dynamic> form) async {
+    final controller = TextEditingController(text: lesson.title);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        scrollable: true,
+        title: const Text('Save as a template'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 40,
+          decoration: const InputDecoration(labelText: 'Template name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(c).pop(controller.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty || !mounted) return;
+    await UserTemplates.instance.add(lesson.setupKind == 'music' ? 'music' : 'lyrics', name, form);
+    if (mounted) _snack('Saved. Find it in Templates, under Mine.');
+  }
+
   /// True for a music or lyrics video, which can open its setup screen again.
   bool get _hasSetup => (_lesson()?.setupKind ?? '').isNotEmpty;
 
@@ -3315,6 +3342,21 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       final raw = jsonDecode(lesson.setupForm);
       if (raw is Map<String, dynamic>) form = raw;
     } catch (_) {}
+    final pick = await showDialog<int>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('Setup'),
+        children: [
+          SimpleDialogOption(onPressed: () => Navigator.of(c).pop(0), child: const Text('Open the setup')),
+          SimpleDialogOption(onPressed: () => Navigator.of(c).pop(1), child: const Text('Save this look as a template')),
+        ],
+      ),
+    );
+    if (pick == null || !mounted) return;
+    if (pick == 1) {
+      await _saveAsTemplate(lesson, form);
+      return;
+    }
     final go = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(

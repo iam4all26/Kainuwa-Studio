@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../animation_math.dart' show animLabel;
 import '../app_state.dart';
@@ -10,6 +11,7 @@ import '../scene_canvas.dart';
 import '../models.dart';
 import '../stage_shape.dart';
 import '../theme.dart';
+import '../user_templates.dart';
 import '../visualizer.dart';
 import 'lesson_editor_screen.dart';
 import 'lyrics_setup_screen.dart';
@@ -17,7 +19,17 @@ import 'music_setup_screen.dart';
 
 /// One ready template with its picture.
 class _Card {
-  _Card({required this.name, required this.note, required this.badge, required this.scene, required this.w, required this.h, required this.onUse});
+  _Card({
+    required this.name,
+    required this.note,
+    required this.badge,
+    required this.scene,
+    required this.w,
+    required this.h,
+    required this.onUse,
+    this.loopMs = 4000,
+    this.onMenu,
+  });
 
   final String name;
   final String note;
@@ -26,6 +38,12 @@ class _Card {
   final double w;
   final double h;
   final VoidCallback onUse;
+
+  /// How long the animated preview runs before it starts again.
+  final int loopMs;
+
+  /// A menu button on the card (rename, delete) for the owner's own templates.
+  final VoidCallback? onMenu;
 }
 
 /// Ready-made music and lyrics videos. The picture of each card is drawn by the same code that builds
@@ -37,15 +55,184 @@ class TemplatesTab extends StatefulWidget {
   State<TemplatesTab> createState() => _TemplatesTabState();
 }
 
-class _TemplatesTabState extends State<TemplatesTab> {
+class _TemplatesTabState extends State<TemplatesTab> with SingleTickerProviderStateMixin {
   List<_Card> _music = [];
   List<_Card> _lyrics = [];
   List<_Card> _record = [];
+  List<_Card> _mine = [];
+
+  /// The time of the animated previews, in milliseconds; it steps ten times a second to keep the phone cool.
+  final ValueNotifier<int> _clock = ValueNotifier<int>(0);
+  late final Ticker _ticker;
+  bool _animate = true;
 
   @override
   void initState() {
     super.initState();
     _build();
+    _ticker = createTicker((d) {
+      final step = (d.inMilliseconds ~/ 100) * 100;
+      if (step != _clock.value) _clock.value = step;
+    })
+      ..start();
+    UserTemplates.instance.addListener(_mineChanged);
+    UserTemplates.instance.load();
+  }
+
+  @override
+  void dispose() {
+    UserTemplates.instance.removeListener(_mineChanged);
+    _ticker.dispose();
+    _clock.dispose();
+    super.dispose();
+  }
+
+  void _mineChanged() {
+    if (!mounted) return;
+    setState(_buildMine);
+  }
+
+  static String _s(dynamic v, String d) => v is String ? v : d;
+  static int _i(dynamic v, int d) => v is num ? v.toInt() : d;
+  static bool _b(dynamic v, bool d) => v is bool ? v : d;
+
+  /// The picture cards of the owner's saved templates, drawn by the same code as the ready ones.
+  void _buildMine() {
+    // The editor may be open on top of this tab: put the stage size back exactly as it was.
+    final keepW = Stage.w;
+    final keepH = Stage.h;
+    final mine = <_Card>[];
+    for (final t in UserTemplates.instance.items) {
+      final f = t.form;
+      if (t.kind == 'music') {
+        Stage.use(16, 9);
+        final scene = buildMusicScene(MusicSetup(
+          cover: '',
+          coverAspect: 1.0,
+          audio: '',
+          audioMs: 0,
+          title: 'Song title',
+          artist: 'Artist name',
+          aspectW: 16,
+          aspectH: 9,
+          vizKind: _s(f['viz'], 'bars'),
+          accent: _i(f['accent'], 0xFFFFC107),
+          layout: _i(f['layout'], 0),
+          player: _b(f['player'], false),
+          fx: f['fx'] is List ? (f['fx'] as List).whereType<String>().toList() : const <String>[],
+          titleFont: _s(f['titleFont'], ''),
+          artistFont: _s(f['artistFont'], ''),
+        ));
+        mine.add(_Card(
+          name: t.name,
+          note: 'Music  -  ${_s(f['titleFont'], '').isEmpty ? 'Default font' : _s(f['titleFont'], '')}',
+          badge: 'Mine',
+          scene: scene,
+          w: Stage.w,
+          h: Stage.h,
+          onUse: () => _useMusicForm(f, t.name),
+          onMenu: () => _mineMenu(t),
+        ));
+      } else {
+        final layout = _i(f['layout'], 0);
+        if (layout != 0) {
+          Stage.use(16, 9);
+        } else {
+          Stage.use(9, 16);
+        }
+        final fx = <String>[
+          for (final k in const ['stars', 'streaks', 'embers', 'sparkle', 'snow'])
+            if (_b(f[k], false)) k,
+          if (f['more'] is List) ...(f['more'] as List).whereType<String>(),
+        ];
+        final palette = f['palette'] is List && (f['palette'] as List).isNotEmpty
+            ? (f['palette'] as List).whereType<num>().map((e) => e.toInt()).toList()
+            : kLyricsLooks.first.palette;
+        final scene = buildLyricsScene(
+          LyricsSetup(
+            audio: '',
+            audioMs: 2000,
+            cues: const [LyricCue(0, 1000, 'Feel it')],
+            aspectW: layout != 0 ? 16 : 9,
+            aspectH: layout != 0 ? 9 : 16,
+            palette: palette,
+            font: _s(f['font'], kLyricsLooks.first.font),
+            bg: _i(f['bg'], kLyricsLooks.first.bg),
+            fx: fx,
+            byWord: _b(f['byWord'], false),
+            anim: _s(f['anim'], 'pop'),
+            layout: layout,
+            vizKind: _s(f['viz'], 'bars'),
+            player: _b(f['player'], false),
+            centerViz: _b(f['centerViz'], false),
+            karaoke: _b(f['karaoke'], false),
+            title: 'Song title',
+            artist: 'Artist name',
+          ),
+          sampleOnly: true,
+        );
+        mine.add(_Card(
+          name: t.name,
+          note: 'Lyrics  -  ${animLabel(_s(f['anim'], 'pop'))}  -  ${_s(f['font'], '')}',
+          badge: 'Mine',
+          scene: scene,
+          w: Stage.w,
+          h: Stage.h,
+          loopMs: 1600,
+          onUse: () => _useLyricsForm(f, t.name),
+          onMenu: () => _mineMenu(t),
+        ));
+      }
+    }
+    Stage.w = keepW;
+    Stage.h = keepH;
+    _mine = mine;
+  }
+
+  Future<void> _mineMenu(UserTemplate t) async {
+    final pick = await showModalBottomSheet<int>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Rename'), onTap: () => Navigator.of(c).pop(0)),
+            ListTile(leading: const Icon(Icons.delete_outline), title: const Text('Delete'), onTap: () => Navigator.of(c).pop(1)),
+          ],
+        ),
+      ),
+    );
+    if (pick == null || !mounted) return;
+    if (pick == 0) {
+      final controller = TextEditingController(text: t.name);
+      final name = await showDialog<String>(
+        context: context,
+        builder: (c) => AlertDialog(
+          scrollable: true,
+          title: const Text('Rename template'),
+          content: TextField(controller: controller, autofocus: true, maxLength: 40),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(c).pop(), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(c).pop(controller.text.trim()), child: const Text('Save')),
+          ],
+        ),
+      );
+      controller.dispose();
+      if (name != null && name.isNotEmpty) await UserTemplates.instance.rename(t.id, name);
+    } else {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Delete this template?'),
+          content: Text('"${t.name}" is removed from Templates. Videos made from it are not changed.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Delete')),
+          ],
+        ),
+      );
+      if (ok == true) await UserTemplates.instance.remove(t.id);
+    }
   }
 
   void _build() {
@@ -130,11 +317,13 @@ class _TemplatesTabState extends State<TemplatesTab> {
     );
   }
 
-  Future<void> _useMusic(MusicTemplate t) async {
+  Future<void> _useMusic(MusicTemplate t) => _useMusicForm(musicTemplateForm(t), t.name);
+
+  Future<void> _useMusicForm(Map<String, dynamic> form, String name) async {
     final state = AppScope.read(context);
     final music = await Navigator.of(context).push<MusicSetup>(
       MaterialPageRoute<MusicSetup>(
-        builder: (_) => MusicSetupScreen(initial: musicTemplateForm(t), simple: true, templateName: t.name),
+        builder: (_) => MusicSetupScreen(initial: form, simple: true, templateName: name),
       ),
     );
     if (music == null || !mounted) return;
@@ -148,11 +337,13 @@ class _TemplatesTabState extends State<TemplatesTab> {
     await _open(lesson, (ids.$1, ids.$2));
   }
 
-  Future<void> _useLyrics(LyricsLook l) async {
+  Future<void> _useLyrics(LyricsLook l) => _useLyricsForm(lyricsTemplateForm(l), l.name);
+
+  Future<void> _useLyricsForm(Map<String, dynamic> form, String name) async {
     final state = AppScope.read(context);
     final lyrics = await Navigator.of(context).push<LyricsSetup>(
       MaterialPageRoute<LyricsSetup>(
-        builder: (_) => LyricsSetupScreen(initial: lyricsTemplateForm(l), simple: true, templateName: l.name),
+        builder: (_) => LyricsSetupScreen(initial: form, simple: true, templateName: name),
       ),
     );
     if (lyrics == null || !mounted) return;
@@ -191,10 +382,33 @@ class _TemplatesTabState extends State<TemplatesTab> {
                         child: FittedBox(
                           fit: BoxFit.cover,
                           clipBehavior: Clip.hardEdge,
-                          child: SizedBox(width: c.w, height: c.h, child: SceneCanvas(scene: c.scene)),
+                          child: SizedBox(
+                            width: c.w,
+                            height: c.h,
+                            child: _animate
+                                ? ValueListenableBuilder<int>(
+                                    valueListenable: _clock,
+                                    builder: (context, ms, _) => SceneCanvas(scene: c.scene, previewMs: ms % c.loopMs),
+                                  )
+                                : SceneCanvas(scene: c.scene),
+                          ),
                         ),
                       ),
                     ),
+                    if (c.onMenu != null)
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: Material(
+                          color: const Color(0xAA000000),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: c.onMenu,
+                            child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.more_vert, size: 18, color: Colors.white)),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       left: 8,
                       top: 8,
@@ -236,6 +450,11 @@ class _TemplatesTabState extends State<TemplatesTab> {
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(hint, style: const TextStyle(fontSize: 13, color: Color(0xFFB5ABD6))),
         ),
+        if (cards.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text('Nothing here yet.', style: TextStyle(color: Color(0xFFB5ABD6))),
+          ),
         Wrap(spacing: 12, runSpacing: 14, children: [for (final c in cards) _card(c, width)]),
       ],
     );
@@ -244,7 +463,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: SafeArea(
         bottom: false,
         child: LayoutBuilder(
@@ -260,6 +479,15 @@ class _TemplatesTabState extends State<TemplatesTab> {
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: Text('Pick a look, add your cover, song and words. The rest is ready.', style: TextStyle(color: Color(0xFFB5ABD6))),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Row(
+                    children: [
+                      const Expanded(child: Text('Animated previews', style: TextStyle(fontSize: 13, color: Color(0xFFB5ABD6)))),
+                      Switch(value: _animate, onChanged: (v) => setState(() => _animate = v)),
+                    ],
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -278,6 +506,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
                         Tab(height: 40, text: 'Music (${_music.length})'),
                         Tab(height: 40, text: 'Lyrics (${_lyrics.length})'),
                         Tab(height: 40, text: 'Record (${_record.length})'),
+                        Tab(height: 40, text: 'Mine (${_mine.length})'),
                       ],
                     ),
                   ),
@@ -288,6 +517,7 @@ class _TemplatesTabState extends State<TemplatesTab> {
                       _page('Cover art, a turning record and an audio picture.', _music, half),
                       _page('Words in time with the song, centred on the screen.', _lyrics, half),
                       _page('Cover and record on one side, the lyrics on the other, with the audio picture and the song name under the cover.', _record, half),
+                      _page('Your own looks. Open a music or lyrics video, tap Setup, then choose Save this look as a template.', _mine, half),
                     ],
                   ),
                 ),
