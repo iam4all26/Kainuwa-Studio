@@ -145,6 +145,7 @@ class AiCatalog {
       ...kSocialIcons,
       ...kAppIcons,
       ...kPaymentIcons,
+      ...kNigerianSymbols,
       ...kNigerianIcons,
       ...kDeveloperIcons,
       ...kLanguageIcons,
