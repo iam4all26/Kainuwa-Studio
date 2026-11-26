@@ -4,6 +4,7 @@ import '../app_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'ai_import_screen.dart';
 import 'create_project.dart';
 import 'lesson_editor_screen.dart';
 import 'lessons_screen.dart';
@@ -280,12 +281,14 @@ class _ProjectsScreenState extends State<ProjectsScreen> with SingleTickerProvid
                     if (value == 'rename') _rename(course);
                     if (value == 'duplicate') AppScope.read(context).duplicateCourse(course.id);
                     if (value == 'export') exportProjectFile(context, course);
+                    if (value == 'ai') openAiPlan(context, course);
                     if (value == 'delete') _deleteOne(course);
                   },
-                  itemBuilder: (_) => const [
+                  itemBuilder: (_) => [
                     PopupMenuItem(value: 'rename', child: Text('Rename')),
                     PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
                     PopupMenuItem(value: 'export', child: Text('Export (.kainuwa)')),
+                    if (hasAiPlan(course)) const PopupMenuItem(value: 'ai', child: Text('Open in AI screen')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],
                 ),

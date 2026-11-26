@@ -32,6 +32,26 @@ class PlanSlide {
   List<String> points;
   String narration;
   int seconds;
+
+  Map<String, dynamic> toJson() => {
+        'layout': layout,
+        'heading': heading,
+        'points': points,
+        'icons': icons,
+        'bg': bg,
+        'narration': narration,
+        'seconds': seconds,
+      };
+
+  factory PlanSlide.fromJson(Map<String, dynamic> j) => PlanSlide(
+        heading: (j['heading'] ?? '').toString(),
+        points: [if (j['points'] is List) for (final e in j['points'] as List) e.toString()],
+        narration: (j['narration'] ?? '').toString(),
+        seconds: j['seconds'] is num ? (j['seconds'] as num).toInt() : 8,
+        layout: (j['layout'] ?? 'bullets').toString(),
+        icons: [if (j['icons'] is List) for (final e in j['icons'] as List) e.toString()],
+        bg: j['bg'] is String ? j['bg'] as String : null,
+      );
 }
 
 class LessonPlan {
@@ -51,6 +71,39 @@ class LessonPlan {
   String font = '';
   String bodyFont = '';
   final List<PlanSlide> slides;
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'mood': mood,
+        'catalog': catalogCode,
+        'bg': bg,
+        'bgColor': bgColor,
+        'accent': accent,
+        'ink': ink,
+        'font': font,
+        'bodyFont': bodyFont,
+        'slides': [for (final s in slides) s.toJson()],
+      };
+
+  factory LessonPlan.fromJson(Map<String, dynamic> j) {
+    final plan = LessonPlan(
+      title: (j['title'] ?? '').toString(),
+      slides: [
+        if (j['slides'] is List)
+          for (final e in j['slides'] as List)
+            if (e is Map) PlanSlide.fromJson(Map<String, dynamic>.from(e)),
+      ],
+    );
+    plan.mood = (j['mood'] ?? '').toString();
+    plan.catalogCode = (j['catalog'] ?? '').toString();
+    plan.bg = j['bg'] is String ? j['bg'] as String : null;
+    plan.bgColor = j['bgColor'] is num ? (j['bgColor'] as num).toInt() : null;
+    plan.accent = j['accent'] is num ? (j['accent'] as num).toInt() : null;
+    plan.ink = j['ink'] is num ? (j['ink'] as num).toInt() : null;
+    plan.font = (j['font'] ?? '').toString();
+    plan.bodyFont = (j['bodyFont'] ?? '').toString();
+    return plan;
+  }
 
   String get narrationScript {
     final b = StringBuffer();

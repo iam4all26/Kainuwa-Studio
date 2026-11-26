@@ -236,12 +236,14 @@ class CoursesTab extends StatelessWidget {
                   if (value == 'rename') _rename(context, course);
                   if (value == 'duplicate') AppScope.read(context).duplicateCourse(course.id);
                   if (value == 'export') _export(context, course);
+                  if (value == 'ai') openAiPlan(context, course);
                   if (value == 'delete') _delete(context, course);
                 },
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(value: 'rename', child: Text('Rename')),
                   PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
                   PopupMenuItem(value: 'export', child: Text('Export (.kainuwa)')),
+                  if (hasAiPlan(course)) const PopupMenuItem(value: 'ai', child: Text('Open in AI screen')),
                   PopupMenuItem(value: 'delete', child: Text('Delete')),
                 ],
               ),

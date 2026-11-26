@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,6 +11,7 @@ import '../ai/lesson_voice.dart';
 import '../media/media_library.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 import '../app_state.dart';
+import '../models.dart';
 import '../data/asset_catalog.dart';
 import '../theme.dart';
 import 'ai_settings_screen.dart';
@@ -19,7 +22,10 @@ import 'lesson_editor_screen.dart';
 const int _kMaxChars = 40000;
 
 class AiImportScreen extends StatefulWidget {
-  const AiImportScreen({super.key});
+  const AiImportScreen({super.key, this.from});
+
+  /// A video made here earlier: its saved plan and choices are loaded so a new copy can be made.
+  final Lesson? from;
 
   @override
   State<AiImportScreen> createState() => _AiImportScreenState();
@@ -61,6 +67,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
   void initState() {
     super.initState();
     _loadConfig();
+    if (widget.from != null) WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
   }
 
   @override
@@ -225,6 +232,60 @@ class _AiImportScreenState extends State<AiImportScreen> {
     });
   }
 
+  int _pick(dynamic v, int count, int fallback) => v is int && v >= 0 && v < count ? v : fallback;
+
+  /// Loads the plan and choices saved with an earlier video. Pictures and backgrounds are found again by
+  /// their file, because their numbers can change when the app gains new pictures.
+  Future<void> _restore() async {
+    final from = widget.from;
+    if (from == null || from.aiPlan.isEmpty) return;
+    try {
+      final data = jsonDecode(from.aiPlan);
+      if (data is! Map || data['plan'] is! Map) return;
+      final cat = _catalog ??= await AiCatalog.load();
+      final plan = LessonPlan.fromJson(Map<String, dynamic>.from(data['plan'] as Map));
+      String? bgId(dynamic path) {
+        if (path is! String || path.isEmpty) return null;
+        for (final b in cat.bgs) {
+          if (b.item.path == path) return b.id;
+        }
+        return null;
+      }
+
+      final iconPaths = data['iconPaths'];
+      final slidePaths = data['slideBgPaths'];
+      for (var i = 0; i < plan.slides.length; i++) {
+        if (iconPaths is List && i < iconPaths.length && iconPaths[i] is List) {
+          final ids = <String>[];
+          for (final p in iconPaths[i] as List) {
+            for (final pic in cat.pics) {
+              if (pic.item.path == p) {
+                ids.add(pic.id);
+                break;
+              }
+            }
+          }
+          plan.slides[i].icons = ids;
+        }
+        plan.slides[i].bg = slidePaths is List && i < slidePaths.length ? bgId(slidePaths[i]) : null;
+      }
+      if (data['planBgPath'] != null) plan.bg = bgId(data['planBgPath']) ?? plan.bg;
+      if (!mounted) return;
+      _lesson.text = (data['lesson'] ?? '').toString();
+      _language = _pick(data['language'], kPlanLanguages.length, _language);
+      _length = _pick(data['length'], kPlanLengths.length, _length);
+      _shape = _pick(data['shape'], _shapes.length, _shape);
+      final bgMode = _pick(data['bgMode'], _bgModes.length, 0);
+      _bgMode = bgMode;
+      final voice = _pick(data['voice'], 3, 1);
+      _voice = voice == 2 ? 1 : voice;
+      _name.text = '${from.title} (2)';
+      _setPlan(plan);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'The saved plan could not be opened.');
+    }
+  }
+
   void _setPlan(LessonPlan plan) {
     for (final c in _headings) {
       c.dispose();
@@ -329,6 +390,21 @@ class _AiImportScreenState extends State<AiImportScreen> {
       } else if (_voice == 2) {
         applyOwnVoice(lesson, plan, _voicePath, _voiceMs);
       }
+      String? picPath(String id) => cat.pic(id)?.item.path;
+      lesson.aiPlan = jsonEncode({
+        'plan': plan.toJson(),
+        'iconPaths': [
+          for (final s in plan.slides) [for (final id in s.icons) if (picPath(id) != null) picPath(id)],
+        ],
+        'slideBgPaths': [for (final s in plan.slides) cat.bg(s.bg)?.item.path],
+        'planBgPath': cat.bg(plan.bg)?.item.path,
+        'lesson': _lesson.text,
+        'language': _language,
+        'length': _length,
+        'shape': _shape,
+        'bgMode': _bgMode,
+        'voice': _voice,
+      });
       await state.saveNow();
     }
     if (!mounted) return;
@@ -682,4 +758,14 @@ class _AiImportScreenState extends State<AiImportScreen> {
       ),
     );
   }
+}
+
+/// True for a video that was made on the AI screen and has its plan saved.
+bool hasAiPlan(Course c) => c.isVideo && c.lessons.isNotEmpty && c.lessons.first.aiPlan.isNotEmpty;
+
+/// Opens the AI screen with the saved plan, to make a new copy of the video.
+Future<void> openAiPlan(BuildContext context, Course c) {
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => AiImportScreen(from: c.lessons.first)),
+  );
 }

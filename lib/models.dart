@@ -661,6 +661,7 @@ class Lesson {
     this.aspectH = 9,
     this.setupKind = '',
     this.setupForm = '',
+    this.aiPlan = '',
   })  : scenes = scenes ?? <Scene>[],
         hiddenTracks = hiddenTracks ?? <String>{},
         audioClips = audioClips ?? <AudioClip>[],
@@ -674,6 +675,9 @@ class Lesson {
   /// [setupForm] is that screen's choices as JSON, so the setup can be opened again.
   String setupKind;
   String setupForm;
+
+  /// For a video made on the AI screen: the plan and the choices as JSON, so the screen can be opened again.
+  String aiPlan;
 
   /// Red markers on the timeline, in milliseconds from the start of the video.
   final List<int> bookmarks;
@@ -712,6 +716,7 @@ class Lesson {
         'aspectH': aspectH,
         'setupKind': setupKind,
         'setupForm': setupForm,
+        'aiPlan': aiPlan,
         'hiddenTracks': hiddenTracks.toList(),
         'audioClips': audioClips.map((c) => c.toJson()).toList(),
         'bookmarks': bookmarks,
@@ -737,6 +742,7 @@ class Lesson {
       aspectH: _int(json['aspectH'], 9).clamp(1, 99).toInt(),
       setupKind: _str(json['setupKind'], ''),
       setupForm: _str(json['setupForm'], ''),
+      aiPlan: _str(json['aiPlan'], ''),
       hiddenTracks: json['hiddenTracks'] is List
           ? (json['hiddenTracks'] as List).whereType<String>().toSet()
           : <String>{},
