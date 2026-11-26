@@ -141,6 +141,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
     if (!mounted) return;
     final controller = TextEditingController();
     var message = '';
+    var warned = false;
     final plan = await showDialog<LessonPlan>(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -176,7 +177,14 @@ class _AiImportScreenState extends State<AiImportScreen> {
             FilledButton(
               onPressed: () {
                 try {
-                  Navigator.of(c).pop(parsePlan(controller.text, catalog));
+                  final read = parsePlan(controller.text, catalog);
+                  if (!warned && read.catalogCode != catalog.code) {
+                    warned = true;
+                    setD(() => message = 'This answer was not made from the newest prompt, so some pictures may be wrong. '
+                        'For the best result tap Cancel, copy a new prompt and use that. To use this answer anyway, tap Read answer again.');
+                    return;
+                  }
+                  Navigator.of(c).pop(read);
                 } on AiException catch (e) {
                   setD(() => message = e.message);
                 }
@@ -362,20 +370,6 @@ class _AiImportScreenState extends State<AiImportScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
       children: [
-        if (needsKey)
-          Container(
-            padding: const EdgeInsets.all(14),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(color: const Color(0xFF1E1938), borderRadius: BorderRadius.circular(20)),
-            child: Row(
-              children: [
-                const Icon(Icons.key_outlined),
-                const SizedBox(width: 12),
-                const Expanded(child: Text('Add your AI key to start.')),
-                FilledButton(onPressed: _openSettings, child: const Text('Set up')),
-              ],
-            ),
-          ),
         TextField(
           controller: _lesson,
           minLines: 10,
@@ -397,7 +391,7 @@ class _AiImportScreenState extends State<AiImportScreen> {
         const SizedBox(height: 20),
         const SizedBox(height: 28),
         const Divider(),
-        _label('No AI key? Use any AI you like (ChatGPT, Claude, Gemini...)'),
+        _label('Use any AI app you like (ChatGPT, Claude, Gemini...). No key is needed.'),
         const Text(
           '1. Copy the prompt.  2. Paste it in your AI app.  3. Copy the answer and paste it here.',
           style: TextStyle(fontSize: 13),
@@ -414,10 +408,11 @@ class _AiImportScreenState extends State<AiImportScreen> {
           icon: const Icon(Icons.content_paste),
           label: const Text("Paste the AI's answer"),
         ),
-        const SizedBox(height: 20),
+        if (!needsKey && c != null) const SizedBox(height: 20),
+        if (!needsKey && c != null)
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-          onPressed: (_busy || needsKey || c == null) ? null : _generate,
+          onPressed: _busy ? null : _generate,
           icon: _busy
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.auto_awesome),

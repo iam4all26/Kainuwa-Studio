@@ -44,6 +44,18 @@ class AiCatalog {
   final List<AiPic> pics;
   final List<AiFont> fonts;
 
+  /// A short code for the picture list. It changes whenever a picture is added, removed or moved,
+  /// so an answer made from an older prompt can be told apart from one made from this list.
+  String get code {
+    var h = 0x811C9DC5;
+    for (final p in pics) {
+      for (final u in '${p.id}:${p.name}|'.codeUnits) {
+        h = ((h ^ u) * 0x01000193) & 0xFFFFFFFF;
+      }
+    }
+    return h.toRadixString(16).padLeft(8, '0');
+  }
+
   AiFont? font(String? id) {
     if (id == null) return null;
     final key = id.trim();

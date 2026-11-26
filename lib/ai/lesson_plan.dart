@@ -39,6 +39,9 @@ class LessonPlan {
 
   String title;
   String mood = '';
+
+  /// The picture-list code the AI copied from the prompt. Empty when the answer carries none.
+  String catalogCode = '';
   String? bg;
   int? bgColor;
   int? accent;
@@ -88,7 +91,7 @@ String _systemPrompt(AiCatalog cat) {
 You are a video designer. You turn a lesson into a designed slide plan for a short teaching video.
 Reply with one JSON object only. No markdown, no code fences, no comments.
 Schema:
-{"title": string, "mood": string,
+{"catalog": string, "title": string, "mood": string,
  "theme": {"bg": string, "accent": "#RRGGBB", "text": "#RRGGBB", "font": string or null, "bodyFont": string or null},
  "slides": [{"layout": string, "heading": string, "points": [string], "icons": [string], "bg": string or null, "narration": string, "seconds": number}]}
 Design rules:
@@ -97,6 +100,7 @@ Design rules:
 - theme.accent is the highlight colour for headings. theme.text is the main text colour and must contrast strongly with the background.
 - theme.font is the font for headings and theme.bodyFont the font for all other text. Each is an id from the Fonts list below, or null for the default font. Choose fonts that fit the mood and the audience (for example a clean modern font for technical lessons, a serif for serious or spiritual ones, a friendly rounded font for playful ones). Use at most two fonts. Never use a decorative or handwriting font for bodyFont, because it must stay easy to read. Every letter of the lesson language must be supported (Hausa needs the hooked letters), so when unsure use null.
 - slide.bg is optional: null keeps the theme background, or give another background id or colour for one special slide, such as the title or recap.
+- catalog: copy this exact text without change: ${catalog.code}
 - layout is one of: title, bullets, statement, icon_grid, steps, two_column, quote, recap.
   title: opening slide only (heading = video title, points = one short subtitle).
   bullets: a heading with 2 to 5 short points.
@@ -195,6 +199,7 @@ LessonPlan parsePlan(String raw, AiCatalog cat) {
   }
   final plan = LessonPlan(title: (data['title'] ?? '').toString().trim());
   plan.mood = (data['mood'] ?? '').toString().trim();
+  plan.catalogCode = (data['catalog'] ?? '').toString().trim();
   final theme = data['theme'];
   if (theme is Map) {
     final bg = (theme['bg'] ?? '').toString().trim();

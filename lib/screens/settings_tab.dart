@@ -287,7 +287,8 @@ class _SettingsTabState extends State<SettingsTab> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.auto_awesome),
-                  title: const Text('AI assistant'),
+                  title: const Text('AI assistant (optional)'),
+                  subtitle: const Text('Only needed to skip copy and paste'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const AiSettingsScreen()),
