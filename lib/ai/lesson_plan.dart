@@ -100,7 +100,7 @@ Design rules:
 - theme.accent is the highlight colour for headings. theme.text is the main text colour and must contrast strongly with the background.
 - theme.font is the font for headings and theme.bodyFont the font for all other text. Each is an id from the Fonts list below, or null for the default font. Choose fonts that fit the mood and the audience (for example a clean modern font for technical lessons, a serif for serious or spiritual ones, a friendly rounded font for playful ones). Use at most two fonts. Never use a decorative or handwriting font for bodyFont, because it must stay easy to read. Every letter of the lesson language must be supported (Hausa needs the hooked letters), so when unsure use null.
 - slide.bg is optional: null keeps the theme background, or give another background id or colour for one special slide, such as the title or recap.
-- catalog: copy this exact text without change: ${catalog.code}
+- catalog: copy this exact text without change: ${cat.code}
 - layout is one of: title, bullets, statement, icon_grid, steps, two_column, quote, recap.
   title: opening slide only (heading = video title, points = one short subtitle).
   bullets: a heading with 2 to 5 short points.
