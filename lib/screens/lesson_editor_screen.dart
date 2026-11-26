@@ -975,7 +975,11 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         return;
       }
       final b = fitBox(raster.aspect, maxW: 0.28, maxH: 0.5);
-      _addLayer(scene, Layer(id: newId(), type: 'image', w: b.$1, h: b.$2, path: raster.path));
+      // Everyday icons are plain white lines, so they are added as a tint item the person can recolour.
+      _addLayer(
+        scene,
+        Layer(id: newId(), type: 'image', w: b.$1, h: b.$2, path: raster.path, shape: item.tint ? 'tint' : 'rect'),
+      );
       return;
     }
     // Built-in icons also exist as SVG: use those, so they stay sharp at any size.

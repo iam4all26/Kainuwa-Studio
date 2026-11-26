@@ -258,7 +258,7 @@ class _AssetSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 8,
+        length: 10,
         child: Column(
           children: [
             const Padding(
@@ -277,6 +277,8 @@ class _AssetSheet extends StatelessWidget {
               Tab(text: 'Crypto'),
               Tab(text: 'Apps and stores'),
               Tab(text: 'Payments'),
+              Tab(text: 'Nigeria'),
+              Tab(text: 'Everyday'),
             ]),
             Expanded(
               child: TabBarView(
@@ -289,6 +291,8 @@ class _AssetSheet extends StatelessWidget {
                   _PickGrid(items: kCryptoIcons, columns: 4),
                   _PickGrid(items: kAppIcons, columns: 4),
                   _PickGrid(items: kPaymentIcons, columns: 4),
+                  _PickGrid(items: kNigerianIcons, columns: 4),
+                  _PickGrid(items: kUiIcons, columns: 4),
                 ],
               ),
             ),
