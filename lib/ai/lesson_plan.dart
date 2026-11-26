@@ -661,7 +661,14 @@ Future<void> buildScenes(Lesson lesson, LessonPlan plan, AiCatalog cat) async {
             for (var k = 0; k < n; k++) {
               final cy = (top + step * (k + 0.5)) / H;
               final start = 600 + span * k ~/ n;
-              if (steps) {
+              if (steps && n >= 5) {
+                // Many steps: the number and its badge are one item, so the video exporter
+                // (which draws at most 15 animated items at once) keeps every step.
+                final num = text('${k + 1}', 30 * f, look.onAccent, bold: true, cx: (left + markW / 2) / W, cy: cy);
+                num.bgBox = true;
+                num.bgColor = look.accent;
+                out.add(anim(num, 'pop', start, 400));
+              } else if (steps) {
                 out.add(anim(shape('circle', look.accent, (left + markW / 2) / W, cy, markW, markW), 'pop', start, 400));
                 final num = text('${k + 1}', 30 * f, look.onAccent, bold: true, cx: (left + markW / 2) / W, cy: cy);
                 out.add(anim(num, 'pop', start, 400));

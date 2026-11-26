@@ -1241,6 +1241,7 @@ public class KainuwaEncoderPlugin
                     it.cx = (float) doubleOf(m.get("cx"), 0.5);
                     it.cy = (float) doubleOf(m.get("cy"), 0.5);
                     it.kind = m.get("anim") instanceof String ? (String) m.get("anim") : "none";
+                    it.prio = (int) longOf(m.get("prio"), 3);
                     it.startMs = longOf(m.get("startMs"), 0);
                     it.durMs = longOf(m.get("durMs"), 800);
                     it.showMs = longOf(m.get("showMs"), 0);

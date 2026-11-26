@@ -27,6 +27,8 @@ final class LessonOverlays {
         float cx;
         float cy;
         String kind;
+        /** How important the item is when too many are on screen: text 3, shapes 2, pictures 1. */
+        int prio = 3;
         long startMs;
         long durMs;
         /** On screen from showMs until hideMs (milliseconds into the scene). */
@@ -100,7 +102,34 @@ final class LessonOverlays {
 
     void addScene(long durationMs, List<Item> items) {
         sceneStartUs.add(cursorMs * 1000L);
-        List<List<Item>> packed = pack(items);
+        // When too many items are on screen at once, leave out the least important ones (pictures, then
+        // shapes, back-most first) so the text always stays.
+        List<Item> work = new ArrayList<>(items);
+        int removed = 0;
+        List<List<Item>> packed;
+        while (true) {
+            int saved = droppedItems;
+            packed = pack(work);
+            if (droppedItems == saved) {
+                break;
+            }
+            droppedItems = saved;
+            int idx = -1;
+            int best = 99;
+            for (int i = 0; i < work.size(); i++) {
+                if (work.get(i).prio < best) {
+                    best = work.get(i).prio;
+                    idx = i;
+                }
+            }
+            if (idx < 0 || best >= 3) {
+                packed = pack(work);
+                break;
+            }
+            work.remove(idx);
+            removed++;
+        }
+        droppedItems += removed;
         perScene.add(packed);
         cursorMs += durationMs;
         slots = Math.max(slots, packed.size());

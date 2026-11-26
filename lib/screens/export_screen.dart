@@ -644,6 +644,7 @@ class _ExportScreenState extends State<ExportScreen> {
             }
             final end = layerEndMs(layer, scene.durationMs);
             overlays.add({
+              'prio': layer.type == 'text' ? 3 : (layer.type == 'shape' ? 2 : 1),
               'frames': frames,
               'path': path,
               'cx': layer.cx,

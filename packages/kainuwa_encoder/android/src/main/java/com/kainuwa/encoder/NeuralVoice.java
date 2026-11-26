@@ -17,6 +17,10 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -32,6 +36,7 @@ final class NeuralVoice {
 
     private final File root;
     private OfflineTts tts;
+    private Set<String> lexicon;
     private volatile String state = "idle";
     private volatile int percent = 0;
     private volatile String message = "";
@@ -172,6 +177,7 @@ final class NeuralVoice {
         }
         tts = null;
         deleteAll(modelDir());
+        lexicon = null;
         state = "idle";
         percent = 0;
         message = "";
@@ -197,6 +203,91 @@ final class NeuralVoice {
         return tts;
     }
 
+
+    // ---- Words the voice does not know -------------------------------------------------------
+    // The voice looks every word up in a word list and silently skips a word that is not in it.
+    // So before speaking, numbers are written as words and unknown words are mended when possible
+    // (plural or possessive of a known word, or two known words joined together).
+
+    private synchronized Set<String> words() {
+        if (lexicon != null) return lexicon;
+        Set<String> set = new HashSet<>();
+        for (String name : new String[] {"lexicon-us-en.txt", "lexicon-gb-en.txt"}) {
+            File f = new File(modelDir(), name);
+            if (!f.exists()) continue;
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    int sp = line.indexOf(' ');
+                    if (sp > 0) set.add(line.substring(0, sp).toLowerCase());
+                }
+            } catch (IOException ignored) {
+            }
+        }
+        lexicon = set;
+        return set;
+    }
+
+    private static final String[] ONES = {"zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+        "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+        "nineteen"};
+    private static final String[] TENS = {"", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+        "ninety"};
+
+    static String numberWords(long n) {
+        if (n < 0) return "minus " + numberWords(-n);
+        if (n < 20) return ONES[(int) n];
+        if (n < 100) return TENS[(int) (n / 10)] + (n % 10 == 0 ? "" : " " + ONES[(int) (n % 10)]);
+        if (n < 1000) return ONES[(int) (n / 100)] + " hundred" + (n % 100 == 0 ? "" : " " + numberWords(n % 100));
+        if (n < 1000000) return numberWords(n / 1000) + " thousand" + (n % 1000 == 0 ? "" : " " + numberWords(n % 1000));
+        if (n < 1000000000L) return numberWords(n / 1000000) + " million" + (n % 1000000 == 0 ? "" : " " + numberWords(n % 1000000));
+        return Long.toString(n);
+    }
+
+    private String mend(String word, Set<String> known) {
+        String w = word.toLowerCase();
+        if (known.contains(w)) return word;
+        String base = w;
+        if (base.endsWith("'s")) base = base.substring(0, base.length() - 2);
+        if (known.contains(base)) return base;
+        if (base.endsWith("es") && known.contains(base.substring(0, base.length() - 2))) {
+            return base.substring(0, base.length() - 2);
+        }
+        if (base.endsWith("s") && known.contains(base.substring(0, base.length() - 1))) {
+            return base.substring(0, base.length() - 1);
+        }
+        for (int i = 3; i <= base.length() - 3; i++) {
+            String a = base.substring(0, i);
+            String b = base.substring(i);
+            if (known.contains(a) && (known.contains(b) || (b.endsWith("s") && known.contains(b.substring(0, b.length() - 1))))) {
+                return a + " " + b;
+            }
+        }
+        return word;
+    }
+
+    String prepare(String text) {
+        Set<String> known = words();
+        // Whole numbers become words.
+        Matcher nm = Pattern.compile("\\d+").matcher(text);
+        StringBuffer sb = new StringBuffer();
+        while (nm.find()) {
+            String d = nm.group();
+            String rep = d.length() > 9 ? d : numberWords(Long.parseLong(d));
+            nm.appendReplacement(sb, Matcher.quoteReplacement(rep));
+        }
+        nm.appendTail(sb);
+        String t = sb.toString();
+        if (known.isEmpty()) return t;
+        Matcher wm = Pattern.compile("[A-Za-z']+").matcher(t);
+        StringBuffer out = new StringBuffer();
+        while (wm.find()) {
+            wm.appendReplacement(out, Matcher.quoteReplacement(mend(wm.group(), known)));
+        }
+        wm.appendTail(out);
+        return out.toString();
+    }
+
     /** Loads the voice into memory and runs one tiny sentence, so the first real voice is quicker. */
     synchronized void warmUp() {
         try {
@@ -211,7 +302,7 @@ final class NeuralVoice {
     synchronized String speak(String text, String path, int sid, float speed) throws Exception {
         if (!installed()) throw new IOException("The real voice is not downloaded yet.");
         OfflineTts t = engine();
-        GeneratedAudio audio = t.generate(text, sid, speed);
+        GeneratedAudio audio = t.generate(prepare(text), sid, speed);
         File out = new File(path);
         File parent = out.getParentFile();
         if (parent != null) parent.mkdirs();
