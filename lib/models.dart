@@ -85,6 +85,7 @@ class Layer {
     this.srcAspect = 0,
     this.mockup = '',
     this.locked = false,
+    this.groupId = '',
   });
 
   final String id;
@@ -213,6 +214,9 @@ class Layer {
   /// A locked item cannot be moved, resized or turned on the slide until it is unlocked.
   bool locked;
 
+  /// Items with the same non-empty group id move together on the slide (empty = not in a group).
+  String groupId;
+
   Layer copy() => Layer.fromJson({...toJson(), 'id': newId()});
 
   Map<String, dynamic> toJson() => {
@@ -282,6 +286,7 @@ class Layer {
         'srcAspect': srcAspect,
         'mockup': mockup,
         'locked': locked,
+        'groupId': groupId,
       };
 
   factory Layer.fromJson(Map<String, dynamic> json) => Layer(
@@ -356,6 +361,7 @@ class Layer {
         srcAspect: _num(json['srcAspect'], 0),
         mockup: _str(json['mockup'], ''),
         locked: json['locked'] is bool ? json['locked'] as bool : false,
+        groupId: _str(json['groupId'], ''),
       );
 }
 

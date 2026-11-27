@@ -95,6 +95,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   EditorHistory? _history;
 
   String? _selectedId;
+
+  /// "Select many": while on, taps add or remove items and a drag moves all the chosen items.
+  bool _multi = false;
+  final Set<String> _multiIds = <String>{};
   String? _selectedAudioId;
   bool _sceneSelected = false;
   String? _soundSel; // 'music' or 'narration:<scene index>'
@@ -232,6 +236,141 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     if (mounted) setState(() {});
     if (!mounted) return;
     await AppScope.read(context).persist();
+  }
+
+  // ---- select many and groups ----
+
+  List<Layer> _multiLayers(Scene? scene) {
+    if (scene == null) return <Layer>[];
+    return scene.layers.where((l) => _multiIds.contains(l.id)).toList();
+  }
+
+  void _startMulti() {
+    _pause();
+    final scene = _currentScene();
+    final first = _selectedLayer(scene);
+    setState(() {
+      _multi = true;
+      _multiIds.clear();
+      if (first != null) {
+        if (first.groupId.isEmpty) {
+          _multiIds.add(first.id);
+        } else {
+          for (final l in scene!.layers) {
+            if (l.groupId == first.groupId) _multiIds.add(l.id);
+          }
+        }
+      }
+      _selectedId = null;
+      _selectedAudioId = null;
+      _soundSel = null;
+      _sceneSelected = false;
+    });
+    _snack('Tap items to choose them, then drag one to move all.');
+  }
+
+  void _endMulti() {
+    setState(() {
+      _multi = false;
+      _multiIds.clear();
+    });
+  }
+
+  void _toggleMulti(String id) {
+    final scene = _currentScene();
+    if (scene == null) return;
+    Layer? hit;
+    for (final l in scene.layers) {
+      if (l.id == id) hit = l;
+    }
+    if (hit == null) return;
+    // An item in a group is chosen or dropped together with its group.
+    final ids = hit.groupId.isEmpty
+        ? <String>[hit.id]
+        : [for (final l in scene.layers) if (l.groupId == hit.groupId) l.id];
+    final on = _multiIds.contains(id);
+    setState(() {
+      for (final i in ids) {
+        if (on) {
+          _multiIds.remove(i);
+        } else {
+          _multiIds.add(i);
+        }
+      }
+    });
+  }
+
+  void _selectAllMulti() {
+    final scene = _currentScene();
+    if (scene == null) return;
+    setState(() {
+      _multiIds
+        ..clear()
+        ..addAll(scene.layers.map((l) => l.id));
+    });
+  }
+
+  void _groupSelected() {
+    final scene = _currentScene();
+    final chosen = _multiLayers(scene);
+    if (chosen.length < 2) {
+      _snack('Choose at least two items to group.');
+      return;
+    }
+    final gid = newId();
+    for (final l in chosen) {
+      l.groupId = gid;
+    }
+    _multi = false;
+    _multiIds.clear();
+    _selectedId = chosen.first.id;
+    _sceneSelected = false;
+    _commit();
+    _snack('Grouped. Drag any one of them to move them all.');
+  }
+
+  void _ungroup() {
+    final scene = _currentScene();
+    final layer = _selectedLayer(scene);
+    if (scene == null || layer == null || layer.groupId.isEmpty) return;
+    final gid = layer.groupId;
+    for (final l in scene.layers) {
+      if (l.groupId == gid) l.groupId = '';
+    }
+    _commit();
+  }
+
+  void _duplicateMulti() {
+    final scene = _currentScene();
+    final chosen = _multiLayers(scene);
+    if (scene == null || chosen.isEmpty) return;
+    // Items that were in one group stay together in the copy, as a new group.
+    final regroup = <String, String>{};
+    final copies = <Layer>[];
+    for (final l in chosen) {
+      final copy = l.copy();
+      copy.cx = (copy.cx + 0.04).clamp(0.0, 1.0).toDouble();
+      copy.cy = (copy.cy + 0.04).clamp(0.0, 1.0).toDouble();
+      copy.groupId = l.groupId.isEmpty ? '' : regroup.putIfAbsent(l.groupId, newId);
+      copies.add(copy);
+    }
+    scene.layers.addAll(copies);
+    setState(() {
+      _multiIds
+        ..clear()
+        ..addAll(copies.map((c) => c.id));
+    });
+    _commit();
+  }
+
+  void _deleteMulti() {
+    final scene = _currentScene();
+    if (scene == null) return;
+    scene.layers.removeWhere((l) => _multiIds.contains(l.id));
+    _multi = false;
+    _multiIds.clear();
+    _selectedId = null;
+    _commit();
   }
 
   void _selectLayer(String? id) {
@@ -1684,6 +1823,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
 
   void _duplicateLayer(Scene scene, Layer layer) {
     final copy = layer.copy();
+    copy.groupId = '';
     copy.cx = (copy.cx + 0.04).clamp(0.0, 1.0).toDouble();
     copy.cy = (copy.cy + 0.04).clamp(0.0, 1.0).toDouble();
     _addLayer(scene, copy);
@@ -2695,6 +2835,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             scene: viewScene(scene, lesson.hiddenTracks),
             selectedId: _selectedId,
             interactive: !playing,
+            multiMode: _multi && !playing,
+            multiIds: _multiIds,
+            onToggle: _toggleMulti,
             tapSelect: playing,
             previewMs: playing ? spot.localMs : null,
             startAbsMs: player.positionMs - spot.localMs,
@@ -2702,6 +2845,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
             demoId: playing ? null : _demoId,
             demoMs: playing ? null : demoMs,
             onSelect: (id) {
+              if (_multi) return;
               if (playing && id != null) _pause();
               _selectLayer(id);
             },
@@ -3224,7 +3368,16 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     final tools = <(IconData, String, VoidCallback)>[];
     final scene = _currentScene();
     final layer = _selectedLayer(scene);
-    if (_selectedAudioId != null) {
+    if (_multi) {
+      final count = _multiLayers(scene).length;
+      tools.addAll([
+        (Icons.check_circle_outline, 'Done ($count)', _endMulti),
+        (Icons.select_all, 'All', _selectAllMulti),
+        (Icons.link, 'Group', _groupSelected),
+        (Icons.copy_all_outlined, 'Duplicate', _duplicateMulti),
+        (Icons.delete_outline, 'Delete', _deleteMulti),
+      ]);
+    } else if (_selectedAudioId != null) {
       tools.addAll([
         (Icons.content_cut, 'Split', _split),
         (Icons.copy_all_outlined, 'Duplicate', _duplicateSelection),
@@ -3249,6 +3402,8 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
         (Icons.content_copy, 'Copy', _copyLayer),
         if (_clipLayer != null) (Icons.content_paste, 'Paste', _pasteLayer),
         (Icons.control_camera, 'Arrows', _movePad),
+        (Icons.select_all, 'Select many', _startMulti),
+        if (layer.groupId.isNotEmpty) (Icons.link_off, 'Ungroup', _ungroup),
         (layer.locked ? Icons.lock : Icons.lock_open_outlined, layer.locked ? 'Unlock' : 'Lock', _toggleLock),
         (Icons.open_with, 'Pos & size', _positionSheet),
         (Icons.layers_outlined, 'Layer', _openLayers),
@@ -3281,8 +3436,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       ]);
     } else if (_clipLayer != null && scene != null) {
       tools.add((Icons.content_paste, 'Paste', _pasteLayer));
+      if (scene.layers.length > 1) tools.add((Icons.select_all, 'Select many', _startMulti));
     } else {
       tools.add((Icons.record_voice_over_outlined, 'Voice all', _voiceAll));
+      if (scene != null && scene.layers.length > 1) tools.add((Icons.select_all, 'Select many', _startMulti));
     }
     if (landscape) return _toolRail(u, tools);
     final children = <Widget>[];

@@ -39,6 +39,9 @@ class SceneCanvas extends StatefulWidget {
     this.ghostAtMs,
     this.demoId,
     this.demoMs,
+    this.multiMode = false,
+    this.multiIds = const <String>{},
+    this.onToggle,
   });
 
   final Scene scene;
@@ -72,6 +75,11 @@ class SceneCanvas extends StatefulWidget {
   final String? demoId;
   final int? demoMs;
 
+  /// Editor only: while on, a tap adds or removes an item from the selection and a drag moves every selected item.
+  final bool multiMode;
+  final Set<String> multiIds;
+  final ValueChanged<String>? onToggle;
+
   @override
   State<SceneCanvas> createState() => _SceneCanvasState();
 }
@@ -93,6 +101,72 @@ class _SceneCanvasState extends State<SceneCanvas> {
   double _wrapStartCy = 0;
   double _wrapScale = 1;
   double _wrapFullW = 1;
+
+  /// Where each item of a moving group (or of the selection) started, by id.
+  Map<String, Offset> _moveStarts = {};
+
+  /// The items that move together with [layer]: its group, or just itself.
+  List<Layer> _groupMembers(Layer layer) {
+    if (layer.groupId.isEmpty) return [layer];
+    final list = widget.scene.layers.where((l) => l.groupId == layer.groupId && !l.locked).toList();
+    return list.length > 1 ? list : [layer];
+  }
+
+  void _beginMove(Iterable<Layer> set, Offset focal) {
+    _startFocal = focal;
+    _moveStarts = {for (final l in set) l.id: Offset(l.cx, l.cy)};
+  }
+
+  void _doMove(Offset focal, double width, double height) {
+    final start = _startFocal;
+    if (start == null || _moveStarts.isEmpty) return;
+    var dx = (focal.dx - start.dx) / width;
+    var dy = (focal.dy - start.dy) / height;
+    var minX = 1.0, maxX = 0.0, minY = 1.0, maxY = 0.0;
+    for (final o in _moveStarts.values) {
+      minX = math.min(minX, o.dx);
+      maxX = math.max(maxX, o.dx);
+      minY = math.min(minY, o.dy);
+      maxY = math.max(maxY, o.dy);
+    }
+    // Keep every item on the slide.
+    dx = math.min(math.max(dx, -minX), 1 - maxX);
+    dy = math.min(math.max(dy, -minY), 1 - maxY);
+    setState(() {
+      for (final l in widget.scene.layers) {
+        final o = _moveStarts[l.id];
+        if (o == null) continue;
+        l.cx = o.dx + dx;
+        l.cy = o.dy + dy;
+      }
+    });
+  }
+
+  void _endMove() {
+    _startFocal = null;
+    _moveStarts = {};
+    widget.onCommit?.call();
+  }
+
+  Widget _outline(Layer l, double width, double height, {required bool strong}) {
+    return Positioned(
+      left: (l.cx - l.w / 2) * width,
+      top: (l.cy - l.h / 2) * height,
+      width: l.w * width,
+      height: l.h * height,
+      child: IgnorePointer(
+        child: Transform.rotate(
+          angle: l.rotation,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: strong ? const Color(0xFF7351FF) : const Color(0x887351FF), width: strong ? 3 : 2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   /// True while the user is moving, resizing or turning the selected item: guide lines show.
   bool _guiding = false;
@@ -162,7 +236,19 @@ class _SceneCanvasState extends State<SceneCanvas> {
         if (selected != null && _guiding) {
           children.add(_buildGuides(selected, width, height));
         }
-        if (selected != null) {
+        if (widget.interactive && widget.multiMode) {
+          for (final layer in widget.scene.layers) {
+            if (widget.multiIds.contains(layer.id)) children.add(_outline(layer, width, height, strong: true));
+          }
+        } else if (selected != null && selected.groupId.isNotEmpty) {
+          // The other pieces of the same group get a light frame.
+          for (final layer in widget.scene.layers) {
+            if (layer.id != selected.id && layer.groupId == selected.groupId) {
+              children.add(_outline(layer, width, height, strong: false));
+            }
+          }
+        }
+        if (selected != null && !widget.multiMode) {
           children.add(_buildSelection(selected, width, height));
         }
         return ClipRect(child: Stack(children: children));
@@ -555,7 +641,21 @@ class _SceneCanvasState extends State<SceneCanvas> {
       }
     }
 
-    if (widget.interactive && !isFx && layer.locked) {
+    if (widget.interactive && !isFx && widget.multiMode) {
+      content = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => widget.onToggle?.call(layer.id),
+        onScaleStart: (details) {
+          if (!widget.multiIds.contains(layer.id)) return;
+          _beginMove(widget.scene.layers.where((l) => widget.multiIds.contains(l.id) && !l.locked), details.focalPoint);
+        },
+        onScaleUpdate: (details) => _doMove(details.focalPoint, width, height),
+        onScaleEnd: (_) {
+          if (_moveStarts.isNotEmpty) _endMove();
+        },
+        child: content,
+      );
+    } else if (widget.interactive && !isFx && layer.locked) {
       content = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onSelect?.call(layer.id),
@@ -568,6 +668,13 @@ class _SceneCanvasState extends State<SceneCanvas> {
         onScaleStart: (details) {
           widget.onSelect?.call(layer.id);
           _guideOn();
+          final group = _groupMembers(layer);
+          if (group.length > 1) {
+            _guiding = false;
+            _beginMove(group, details.focalPoint);
+            return;
+          }
+          _moveStarts = {};
           _startFocal = details.focalPoint;
           _startCx = layer.cx;
           _startCy = layer.cy;
@@ -576,6 +683,10 @@ class _SceneCanvasState extends State<SceneCanvas> {
           _startRotation = layer.rotation;
         },
         onScaleUpdate: (details) {
+          if (_moveStarts.isNotEmpty) {
+            _doMove(details.focalPoint, width, height);
+            return;
+          }
           final start = _startFocal;
           if (start == null) return;
           setState(() {
@@ -595,6 +706,10 @@ class _SceneCanvasState extends State<SceneCanvas> {
           });
         },
         onScaleEnd: (_) {
+          if (_moveStarts.isNotEmpty) {
+            _endMove();
+            return;
+          }
           _startFocal = null;
           _guideOff();
           widget.onCommit?.call();

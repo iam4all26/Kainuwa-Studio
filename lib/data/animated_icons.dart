@@ -144,6 +144,7 @@ Future<List<Layer>> buildAnimatedIcon(
   // On a tall slide the icon may be wider, because the slide is narrow.
   final s = size ?? math.min(0.8, preset.size * (aspect < 1 ? 1.6 : 1.0));
   final layers = <Layer>[];
+  final group = preset.parts.length > 1 ? newId() : '';
   for (final p in preset.parts) {
     var wf = s * p.w;
     var hf = s * p.h * aspect;
@@ -180,6 +181,7 @@ Future<List<Layer>> buildAnimatedIcon(
       animOut: p.outKind,
       animOutDurationMs: p.outMs,
       animLoop: p.loop,
+      groupId: group,
     );
     layers.add(layer);
   }
