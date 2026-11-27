@@ -73,25 +73,26 @@ const int _grey = 0xFFE3E0F0;
 const String _ui = 'assets/icons_ui/';
 
 const List<AnimIconPreset> kAnimatedIcons = [
-  AnimIconPreset('success', 'Success', 0.2, 2000, [
-    AnimPart(icon: '${_ui}check.svg', color: _white, w: 0.8, h: 0.8, at: 0, until: 1100, inKind: 'pop', inMs: 400, outKind: 'zoom', outMs: 300),
-    AnimPart(shape: 'circle', color: _green, at: 1000, inKind: 'jump', inMs: 600),
-    AnimPart(icon: '${_ui}check.svg', color: _white, w: 0.55, h: 0.55, at: 1300, inKind: 'draw', inMs: 600),
+  AnimIconPreset('success', 'Success', 0.2, 2300, [
+    // The white tick comes in, leaves, and the circle jumps in; the inner tick pops in only after the circle has settled.
+    AnimPart(icon: '${_ui}check.svg', color: _white, w: 0.8, h: 0.8, at: 0, until: 1000, inKind: 'pop', inMs: 400, outKind: 'zoom', outMs: 300),
+    AnimPart(shape: 'circle', color: _green, at: 1150, inKind: 'jump', inMs: 600),
+    AnimPart(icon: '${_ui}check.svg', color: _white, w: 0.55, h: 0.55, at: 1800, inKind: 'pop', inMs: 400),
   ]),
-  AnimIconPreset('error', 'Error', 0.2, 900, [
+  AnimIconPreset('error', 'Error', 0.2, 950, [
     AnimPart(shape: 'circle', color: _red, inKind: 'pop', inMs: 450),
-    AnimPart(shape: 'cross', color: _white, w: 0.62, h: 0.62, rot: math.pi / 4, at: 400, inKind: 'pop', inMs: 400, loop: 'shake'),
+    AnimPart(shape: 'cross', color: _white, w: 0.62, h: 0.62, rot: math.pi / 4, at: 500, inKind: 'pop', inMs: 400, loop: 'shake'),
   ]),
-  AnimIconPreset('checklist', 'Checklist', 0.4, 2400, [
+  AnimIconPreset('checklist', 'Checklist', 0.4, 3000, [
     AnimPart(shape: 'circle', color: _green, x: -0.36, y: -0.3, w: 0.2, h: 0.2, at: 0),
-    AnimPart(icon: '${_ui}check.svg', color: _white, x: -0.36, y: -0.3, w: 0.12, h: 0.12, at: 250, inKind: 'draw', inMs: 350),
-    AnimPart(shape: 'round', color: _grey, x: 0.14, y: -0.3, w: 0.62, h: 0.09, at: 150, inKind: 'draw', inMs: 450),
-    AnimPart(shape: 'circle', color: _green, x: -0.36, y: 0, w: 0.2, h: 0.2, at: 800),
-    AnimPart(icon: '${_ui}check.svg', color: _white, x: -0.36, y: 0, w: 0.12, h: 0.12, at: 1050, inKind: 'draw', inMs: 350),
-    AnimPart(shape: 'round', color: _grey, x: 0.14, y: 0, w: 0.62, h: 0.09, at: 950, inKind: 'draw', inMs: 450),
-    AnimPart(shape: 'circle', color: _green, x: -0.36, y: 0.3, w: 0.2, h: 0.2, at: 1600),
-    AnimPart(icon: '${_ui}check.svg', color: _white, x: -0.36, y: 0.3, w: 0.12, h: 0.12, at: 1850, inKind: 'draw', inMs: 350),
-    AnimPart(shape: 'round', color: _grey, x: 0.14, y: 0.3, w: 0.62, h: 0.09, at: 1750, inKind: 'draw', inMs: 450),
+    AnimPart(icon: '${_ui}check.svg', color: _white, x: -0.36, y: -0.3, w: 0.12, h: 0.12, at: 450, inKind: 'pop', inMs: 300),
+    AnimPart(shape: 'round', color: _grey, x: 0.14, y: -0.3, w: 0.62, h: 0.09, at: 150, inKind: 'rise', inMs: 450),
+    AnimPart(shape: 'circle', color: _green, x: -0.36, y: 0, w: 0.2, h: 0.2, at: 900),
+    AnimPart(icon: '${_ui}check.svg', color: _white, x: -0.36, y: 0, w: 0.12, h: 0.12, at: 1350, inKind: 'pop', inMs: 300),
+    AnimPart(shape: 'round', color: _grey, x: 0.14, y: 0, w: 0.62, h: 0.09, at: 1050, inKind: 'rise', inMs: 450),
+    AnimPart(shape: 'circle', color: _green, x: -0.36, y: 0.3, w: 0.2, h: 0.2, at: 1800),
+    AnimPart(icon: '${_ui}check.svg', color: _white, x: -0.36, y: 0.3, w: 0.12, h: 0.12, at: 2250, inKind: 'pop', inMs: 300),
+    AnimPart(shape: 'round', color: _grey, x: 0.14, y: 0.3, w: 0.62, h: 0.09, at: 1950, inKind: 'rise', inMs: 450),
   ]),
   AnimIconPreset('bell', 'Bell', 0.2, 900, [
     AnimPart(icon: '${_ui}bell.svg', color: _gold, w: 0.9, h: 0.9, inKind: 'pop', inMs: 450, loop: 'swing'),
@@ -100,9 +101,9 @@ const List<AnimIconPreset> kAnimatedIcons = [
   AnimIconPreset('heart', 'Beating heart', 0.2, 600, [
     AnimPart(shape: 'heart', color: _red, w: 0.9, h: 0.9, inKind: 'pop', inMs: 500, loop: 'heartbeat'),
   ]),
-  AnimIconPreset('like', 'Like', 0.2, 1000, [
+  AnimIconPreset('like', 'Like', 0.2, 900, [
     AnimPart(shape: 'circle', color: _blue, inKind: 'pop', inMs: 400),
-    AnimPart(icon: '${_ui}thumb-up.svg', color: _white, w: 0.55, h: 0.55, at: 400, inKind: 'jump', inMs: 600, loop: 'pulse'),
+    AnimPart(icon: '${_ui}thumb-up.svg', color: _white, w: 0.55, h: 0.55, at: 450, inKind: 'pop', inMs: 400, loop: 'pulse'),
   ]),
   AnimIconPreset('loading', 'Loading', 0.2, 500, [
     AnimPart(icon: '${_ui}refresh.svg', color: _purple, w: 0.9, h: 0.9, inKind: 'fade', inMs: 400, loop: 'spin'),
