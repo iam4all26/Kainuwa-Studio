@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../data/animated_icons.dart';
 import '../data/asset_catalog.dart';
 import '../theme.dart';
+import 'animated_icon_grid.dart';
 
 class AssetsTab extends StatelessWidget {
   const AssetsTab({super.key});
@@ -10,7 +12,7 @@ class AssetsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 12,
+        length: 13,
         child: Column(
           children: [
             const Padding(
@@ -28,6 +30,7 @@ class AssetsTab extends StatelessWidget {
               tabs: [
                 Tab(text: 'Backgrounds'),
                 Tab(text: 'Icons'),
+                Tab(text: 'Animated'),
                 Tab(text: 'Illustrations'),
                 Tab(text: 'Social media'),
                 Tab(text: 'Developer'),
@@ -45,6 +48,13 @@ class AssetsTab extends StatelessWidget {
                 children: [
                   _AssetGrid(items: allBackgrounds(), columns: 2, aspect: 16 / 11, kind: _Kind.photo),
                   _AssetGrid(items: allIcons(), columns: 4, aspect: 0.85, kind: _Kind.png),
+                  Builder(
+                    builder: (context) => AnimatedIconGrid(
+                      onPick: (AnimIconPreset p) => ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${p.name}: add it in the editor from Add, Icon, Animated.')),
+                      ),
+                    ),
+                  ),
                   _AssetGrid(items: kIllustrations, columns: 3, aspect: 0.9, kind: _Kind.png),
                   _AssetGrid(items: kSocialIcons, columns: 4, aspect: 0.85, kind: _Kind.png),
                   _AssetGrid(items: kDeveloperIcons, columns: 4, aspect: 0.85, kind: _Kind.png),

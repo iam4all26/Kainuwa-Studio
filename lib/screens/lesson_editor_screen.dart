@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
+import '../data/animated_icons.dart';
 import '../app_state.dart';
 import '../demo_plan.dart';
 import '../editor/drawing_screen.dart';
@@ -958,11 +959,45 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _addLayer(scene, Layer(id: newId(), type: 'image', w: box.$1, h: box.$2, path: result.path));
   }
 
+  /// Adds an animated icon: several ordinary items that appear one after another from the playhead.
+  Future<void> _addAnimated(Scene scene, String id) async {
+    final preset = animatedIconById(id);
+    if (preset == null) return;
+    final lesson = _lesson();
+    final player = _player;
+    final index = lesson == null ? -1 : lesson.scenes.indexOf(scene);
+    var local = 0;
+    if (lesson != null && player != null && index >= 0) {
+      local = (player.positionMs - sceneStartMs(lesson, index)).clamp(0, math.max(0, scene.durationMs - 600)).toInt();
+    }
+    final stay = local + preset.totalMs + 3000;
+    final layers = await buildAnimatedIcon(
+      preset,
+      aspect: Stage.aspect,
+      base: local,
+      end: stay >= scene.durationMs ? -1 : stay,
+    );
+    if (!mounted) return;
+    if (layers.isEmpty) {
+      _snack('That animated icon could not be made.');
+      return;
+    }
+    scene.layers.addAll(layers);
+    _selectedId = layers.first.id;
+    _sceneSelected = false;
+    _commit();
+    _snack('${preset.name} added. It is a few separate items; change each one in the editor.');
+  }
+
   Future<void> _addIcon() async {
     final scene = _currentScene();
     if (scene == null) return;
     final item = await showAssetSheet(context);
     if (item == null) return;
+    if (item.path.startsWith('anim:')) {
+      await _addAnimated(scene, item.path.substring(5));
+      return;
+    }
     if (item.isFile) {
       await _addSvg(scene, item.path, tint: item.tint);
       return;

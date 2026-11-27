@@ -9,7 +9,9 @@ import '../editor/filter_editor.dart';
 import '../pic_filter.dart';
 import '../text_reveal.dart';
 import '../editor/hand_picker.dart';
+import '../data/animated_icons.dart';
 import '../data/asset_catalog.dart';
+import 'animated_icon_grid.dart';
 import '../media/media_library.dart';
 import '../models.dart';
 import '../shapes.dart';
@@ -258,7 +260,7 @@ class _AssetSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: DefaultTabController(
-        length: 11,
+        length: 12,
         child: Column(
           children: [
             const Padding(
@@ -270,6 +272,7 @@ class _AssetSheet extends StatelessWidget {
             ),
             const TabBar(isScrollable: true, tabs: [
               Tab(text: 'Icons'),
+              Tab(text: 'Animated'),
               Tab(text: 'Illustrations'),
               Tab(text: 'Social media'),
               Tab(text: 'Developer'),
@@ -285,6 +288,11 @@ class _AssetSheet extends StatelessWidget {
               child: TabBarView(
                 children: [
                   _PickGrid(items: allIcons(), columns: 4),
+                  Builder(
+                    builder: (context) => AnimatedIconGrid(
+                      onPick: (AnimIconPreset p) => Navigator.of(context).pop(CatalogItem('anim:${p.id}', p.name)),
+                    ),
+                  ),
                   _PickGrid(items: kIllustrations, columns: 3),
                   _PickGrid(items: kSocialIcons, columns: 4),
                   _PickGrid(items: kDeveloperIcons, columns: 4),
