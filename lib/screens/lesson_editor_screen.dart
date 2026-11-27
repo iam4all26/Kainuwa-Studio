@@ -439,6 +439,17 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
   void _selectLayerFromTimeline(int sceneIndex, String id) {
     final lesson = _lesson();
     if (lesson == null || sceneIndex >= lesson.scenes.length) return;
+    if (_multi) {
+      // "Select many": a tap on an item in the timeline chooses it or drops it, on the slide being edited.
+      final player = _player;
+      final here = player == null ? sceneIndex : sceneAt(lesson, player.positionMs).index;
+      if (here != sceneIndex) {
+        _snack('Choose items on one slide at a time. Move to that slide first.');
+        return;
+      }
+      _toggleMulti(id);
+      return;
+    }
     // While the preview plays, picking an item must not move the playhead.
     if (!(_player?.playing ?? false)) _seekToScene(lesson, sceneIndex);
     setState(() {
@@ -3817,6 +3828,7 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
                         onSelectSound: _selectSound,
                         onSelectScene: _selectScene,
                         onSelectLayer: _selectLayerFromTimeline,
+                        multiIds: _multiIds,
                         onSelectAudio: _selectAudio,
                         onSceneMenu: _sceneMenu,
                         onSceneDuration: _setSceneDuration,

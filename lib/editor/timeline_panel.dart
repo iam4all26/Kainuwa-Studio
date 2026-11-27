@@ -82,6 +82,7 @@ class TimelinePanel extends StatefulWidget {
     required this.onSelectSound,
     required this.onSelectScene,
     required this.onSelectLayer,
+    this.multiIds = const <String>{},
     required this.onSelectAudio,
     required this.onSceneMenu,
     required this.onSceneDuration,
@@ -111,6 +112,9 @@ class TimelinePanel extends StatefulWidget {
   final void Function(String kind, int sceneIndex) onSelectSound;
   final ValueChanged<int> onSelectScene;
   final void Function(int sceneIndex, String layerId) onSelectLayer;
+
+  /// Items chosen with "Select many": they are drawn as selected.
+  final Set<String> multiIds;
   final ValueChanged<String> onSelectAudio;
   final ValueChanged<int> onSceneMenu;
 
@@ -953,7 +957,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         break;
       case 'layer':
         final layer = clip.layer!;
-        selected = !widget.sceneSelected && widget.selectedLayerId == layer.id;
+        selected = (!widget.sceneSelected && widget.selectedLayerId == layer.id) || widget.multiIds.contains(layer.id);
         onTap = () => widget.onSelectLayer(clip.sceneIndex, layer.id);
         {
           final fromScene = clip.sceneIndex;
