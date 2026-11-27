@@ -1397,7 +1397,15 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       setState(() => _zoom = (_zoomStart * d.scale).clamp(0.1, 30.0).toDouble());
                     }
                   },
-                  child: CustomPaint(painter: _RulerPainter(pps: pps, u: u, bookmarks: List<int>.of(widget.lesson.bookmarks))),
+                  child: CustomPaint(
+                    painter: _RulerPainter(
+                      pps: pps,
+                      u: u,
+                      bookmarks: List<int>.of(widget.lesson.bookmarks),
+                      scroll: _scroll,
+                      viewport: viewportW,
+                    ),
+                  ),
                 ),
               ),
               ...rows,
@@ -1604,11 +1612,17 @@ class _TimelinePanelState extends State<TimelinePanel> {
 // ---------------------------------------------------------------------------
 
 class _RulerPainter extends CustomPainter {
-  _RulerPainter({required this.pps, required this.u, required this.bookmarks});
+  _RulerPainter({required this.pps, required this.u, required this.bookmarks, this.scroll, this.viewport = 0})
+      : super(repaint: scroll);
 
   final double pps;
   final double u;
   final List<int> bookmarks;
+
+  /// With these, only the ticks near the visible part are drawn. A long video has thousands of ticks,
+  /// and the ruler is drawn again on every frame while the video plays.
+  final ScrollController? scroll;
+  final double viewport;
 
   static const List<double> _steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
 
@@ -1627,10 +1641,14 @@ class _RulerPainter extends CustomPainter {
       ..strokeWidth = math.max(1.0, 2 * u);
     final seconds = size.width / pps;
     final count = (seconds / minor).ceil() + 1;
-    for (var i = 0; i < count; i++) {
+    final offset = (scroll != null && scroll!.hasClients) ? scroll!.offset : 0.0;
+    final windowFrom = viewport > 0 ? offset - 300 : 0.0;
+    final windowTo = viewport > 0 ? offset + viewport + 300 : size.width;
+    final firstTick = windowFrom <= 0 ? 0 : (windowFrom / pps / minor).floor();
+    for (var i = firstTick; i < count; i++) {
       final sec = i * minor;
       final x = sec * pps;
-      if (x > size.width) break;
+      if (x > size.width || x > windowTo) break;
       final major = i % 5 == 0;
       final y1 = 73 * u;
       final y2 = major ? 98 * u : 86 * u;
@@ -1677,7 +1695,10 @@ class _RulerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RulerPainter oldDelegate) =>
-      oldDelegate.pps != pps || oldDelegate.u != u || oldDelegate.bookmarks.join(',') != bookmarks.join(',');
+      oldDelegate.pps != pps ||
+      oldDelegate.u != u ||
+      oldDelegate.viewport != viewport ||
+      oldDelegate.bookmarks.join(',') != bookmarks.join(',');
 }
 
 /// A waveform. It uses the real loudness of the file when it is known, and a
