@@ -1226,6 +1226,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
         final tGap = tBtn / 2 + 4;
 
         final clips = _buildClips();
+        // While the video plays, the timeline is redrawn on every frame. With many slides that is too much,
+        // so only the bars near the visible part are built. They are all built again when playing stops.
+        final playingNow = widget.player.playing;
+        final scrolledTo = _scroll.hasClients ? _scroll.offset : 0.0;
+        final visFrom = scrolledTo - 600.0;
+        final visTo = scrolledTo + viewportW + 600.0;
         final totalMs = widget.lesson.durationMs;
         final contentW = math.max(viewportW, totalMs / 1000 * pps + 60 * u + clipH);
 
@@ -1272,6 +1278,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
               if (clip.sceneIndex < lastIndex) w -= tGap;
               w = math.max(8.0, w);
             }
+            if (playingNow && (x + w < visFrom || x > visTo)) continue;
             children.add(Positioned(
               left: x,
               top: pad + clip.lane * stride,
@@ -1298,8 +1305,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
             for (var i = 0; i < widget.lesson.scenes.length - 1; i++) {
               final boundaryMs = sceneStartMs(widget.lesson, i + 1);
               final on = widget.lesson.scenes[i].transKind != 'none';
+              final buttonX = boundaryMs / 1000 * pps;
+              if (playingNow && (buttonX + btn < visFrom || buttonX - btn > visTo)) continue;
               children.add(Positioned(
-                left: boundaryMs / 1000 * pps - btn / 2,
+                left: buttonX - btn / 2,
                 top: pad + (clipH - btn) / 2,
                 width: btn,
                 height: btn,
