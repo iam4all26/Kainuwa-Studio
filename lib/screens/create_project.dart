@@ -5,6 +5,9 @@ import '../lyrics_project.dart';
 import '../music_project.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../documentary/doc_script.dart';
+import '../editor/doc_scenes.dart';
+import 'documentary_script_screen.dart';
 import 'lesson_editor_screen.dart';
 import 'lessons_screen.dart';
 import 'lyrics_setup_screen.dart';
@@ -75,6 +78,8 @@ Future<void> createProject(BuildContext context) async {
                 'Cover art, a turning record and an audio picture', 'music'),
             _choiceTile(sheetContext, Icons.lyrics_outlined, 'Lyrics video',
                 'Words glowing in time with the song', 'lyrics'),
+            _choiceTile(sheetContext, Icons.theaters_outlined, 'Documentary',
+                'Paste your script. One slide per scene, then add clips and voice', 'documentary'),
             _choiceTile(sheetContext, Icons.school_outlined, 'Course',
                 'A set of lessons, each one a video', 'course'),
           ],
@@ -116,6 +121,33 @@ Future<void> createProject(BuildContext context) async {
       await state.saveNow();
     }
     if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LessonEditorScreen(courseId: ids.$1, lessonId: ids.$2),
+      ),
+    );
+    return;
+  }
+  if (choice == 'documentary') {
+    final setup = await showVideoSetup(context);
+    if (setup == null || !context.mounted) return;
+    final scenes = await Navigator.of(context).push<List<DocScene>>(
+      MaterialPageRoute<List<DocScene>>(builder: (_) => DocScriptScreen(name: setup.name)),
+    );
+    if (scenes == null || scenes.isEmpty || !context.mounted) return;
+    final ids = await state.addVideo(title: setup.name, aspectW: setup.aspectW, aspectH: setup.aspectH);
+    final lesson = state.lessonById(ids.$1, ids.$2);
+    if (lesson != null) {
+      buildDocumentary(lesson, scenes);
+      await state.saveNow();
+    }
+    if (!context.mounted) return;
+    if (lesson != null) {
+      final openEditor = await showDocScenes(context, lesson, () {
+        state.saveNow();
+      });
+      if (!openEditor || !context.mounted) return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LessonEditorScreen(courseId: ids.$1, lessonId: ids.$2),

@@ -375,6 +375,7 @@ class Scene {
     this.bgFilter = '',
     this.narrationPath = '',
     this.narrationText = '',
+    this.note = '',
     this.narrationMs = 0,
     this.narrationVolume = 1.0,
     this.narrationSpeed = 1.0,
@@ -413,6 +414,9 @@ class Scene {
 
   /// The words the narration says. Saved with the slide but never drawn on it.
   String narrationText;
+
+  /// Notes for the maker (title, what the scene needs). Saved with the slide, never drawn on it.
+  String note;
   int narrationMs;
   double narrationVolume;
 
@@ -479,6 +483,7 @@ class Scene {
         bgFilter: bgFilter,
         narrationPath: narrationPath,
         narrationText: narrationText,
+        note: note,
         narrationMs: narrationMs,
         narrationVolume: narrationVolume,
         narrationSpeed: narrationSpeed,
@@ -510,6 +515,7 @@ class Scene {
         'bgFilter': bgFilter,
         'narrationPath': narrationPath,
         'narrationText': narrationText,
+        'note': note,
         'narrationMs': narrationMs,
         'narrationVolume': narrationVolume,
         'narrationSpeed': narrationSpeed,
@@ -549,6 +555,7 @@ class Scene {
       bgFilter: _str(json['bgFilter'], ''),
       narrationPath: _str(json['narrationPath'], ''),
       narrationText: _str(json['narrationText'], ''),
+      note: _str(json['note'], ''),
       narrationMs: _int(json['narrationMs'], 0),
       narrationVolume: _num(json['narrationVolume'], 1.0),
       narrationSpeed: _num(json['narrationSpeed'], 1.0).clamp(0.5, 2.0).toDouble(),

@@ -11,6 +11,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../animation_math.dart';
 import '../data/animated_icons.dart';
+import '../editor/doc_scenes.dart';
 import '../app_state.dart';
 import '../demo_plan.dart';
 import '../editor/drawing_screen.dart';
@@ -1137,6 +1138,18 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _sceneSelected = false;
     _commit();
     _snack('${preset.name} added. It is a few separate items; change each one in the editor.');
+  }
+
+  /// The list of slides with their words, where a clip, a picture and a voice are added to each.
+  Future<void> _openDocScenes() async {
+    final lesson = _lesson();
+    if (lesson == null) return;
+    _pause();
+    await showDocScenes(context, lesson, () {
+      if (mounted) _commit();
+    });
+    if (!mounted) return;
+    _commit();
   }
 
   Future<void> _addIcon() async {
@@ -3447,9 +3460,11 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       ]);
     } else if (_clipLayer != null && scene != null) {
       tools.add((Icons.content_paste, 'Paste', _pasteLayer));
+      tools.add((Icons.view_list_outlined, 'Scenes', _openDocScenes));
       if (scene.layers.length > 1) tools.add((Icons.select_all, 'Select many', _startMulti));
     } else {
       tools.add((Icons.record_voice_over_outlined, 'Voice all', _voiceAll));
+      tools.add((Icons.view_list_outlined, 'Scenes', _openDocScenes));
       if (scene != null && scene.layers.length > 1) tools.add((Icons.select_all, 'Select many', _startMulti));
     }
     if (landscape) return _toolRail(u, tools);
