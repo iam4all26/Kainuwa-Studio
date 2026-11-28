@@ -102,7 +102,7 @@ class _CaptionDialogState extends State<_CaptionDialog> {
     Navigator.of(context).pop(-1);
   }
 
-  Widget _tile(CaptionStyle st) {
+  Widget _tile(CaptionStyle st, double width) {
     final sel = st.id == _style;
     final base = TextStyle(
       fontFamily: st.font.isEmpty ? null : st.font,
@@ -137,7 +137,7 @@ class _CaptionDialogState extends State<_CaptionDialog> {
     return GestureDetector(
       onTap: () => setState(() => _style = st.id),
       child: Container(
-        width: 140,
+        width: width,
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: const Color(0xFF2A2A2E),
@@ -168,6 +168,8 @@ class _CaptionDialogState extends State<_CaptionDialog> {
     final st = _current;
     final highlightOk = st.highlight != 0;
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       title: const Text('Captions from the script'),
       content: SizedBox(
         width: double.maxFinite,
@@ -194,10 +196,6 @@ class _CaptionDialogState extends State<_CaptionDialog> {
                       style: TextStyle(fontSize: 11, color: Color(0xFFFFB74D))),
                 ),
               const SizedBox(height: 10),
-              const Text('Style', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Wrap(spacing: 8, runSpacing: 8, children: [for (final s in kCaptionStyles) _tile(s)]),
-              const SizedBox(height: 10),
               const Text('Size', style: TextStyle(fontWeight: FontWeight.w700)),
               Wrap(
                 spacing: 8,
@@ -222,6 +220,17 @@ class _CaptionDialogState extends State<_CaptionDialog> {
                   Switch(value: _test, onChanged: (v) => setState(() => _test = v)),
                 ],
               ),
+              const SizedBox(height: 10),
+              const Text('Style', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              LayoutBuilder(
+                builder: (context, box) {
+                  // As many tiles per line as fit, never fewer than two.
+                  final cols = math.max(2, (box.maxWidth / 150).floor());
+                  final tileW = (box.maxWidth - (cols - 1) * 8) / cols;
+                  return Wrap(spacing: 8, runSpacing: 8, children: [for (final s in kCaptionStyles) _tile(s, tileW)]);
+                },
+              ),
             ],
           ),
         ),
@@ -229,7 +238,7 @@ class _CaptionDialogState extends State<_CaptionDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         TextButton(onPressed: _remove, child: const Text('Remove all')),
-        FilledButton(onPressed: _add, child: const Text('Add captions')),
+        FilledButton(onPressed: _add, child: const Text('Add')),
       ],
     );
   }
