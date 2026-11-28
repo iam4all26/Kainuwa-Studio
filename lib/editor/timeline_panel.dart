@@ -49,6 +49,7 @@ class _Clip {
     required this.lane,
     required this.sceneIndex,
     this.layer,
+    this.group,
     this.scene,
     this.audio,
     this.label = '',
@@ -62,6 +63,9 @@ class _Clip {
   final int lane;
   final int sceneIndex;
   final Layer? layer;
+
+  /// For kind 'captions': all the caption items of one slide, shown as one bar.
+  final List<Layer>? group;
   final Scene? scene;
   final AudioClip? audio;
   final String label;
@@ -252,10 +256,20 @@ class _TimelinePanelState extends State<TimelinePanel> {
       var imageLane = 1;
       var textLane = 0;
       final textLaneEnds = <int>[];
+      final caps = <Layer>[];
+      var capFrom = 1 << 30;
+      var capTo = 0;
       for (final layer in scene.layers) {
         final dur = scene.durationMs;
         final from = layer.startMs.clamp(0, math.max(0, dur - 200)).toInt();
         final to = math.max(from + 200, layerEndMs(layer, dur));
+        if (layer.type == 'text' && layer.id.startsWith('cap_')) {
+          // Captions made by the caption tool are shown as one bar, like in other editors.
+          caps.add(layer);
+          capFrom = math.min(capFrom, from);
+          capTo = math.max(capTo, math.min(to, dur));
+          continue;
+        }
         if (layer.type == 'text') {
           text.add(_Clip(
             kind: 'layer',
@@ -279,6 +293,18 @@ class _TimelinePanelState extends State<TimelinePanel> {
             label: layerLabel(layer),
           ));
         }
+      }
+      if (caps.isNotEmpty) {
+        text.add(_Clip(
+          kind: 'captions',
+          startMs: start + capFrom,
+          endMs: start + math.max(capFrom + 200, capTo),
+          lane: textLane++,
+          sceneIndex: i,
+          layer: caps.first,
+          group: caps,
+          label: 'Captions (${caps.length})',
+        ));
       }
       if (scene.narrationPath.isNotEmpty) {
         anyNarration = true;
@@ -1037,6 +1063,71 @@ class _TimelinePanelState extends State<TimelinePanel> {
             ],
           ),
         );
+        break;
+      case 'captions':
+        {
+          final group = clip.group!;
+          selected = !widget.sceneSelected &&
+              (group.any((l) => l.id == widget.selectedLayerId) || group.any((l) => widget.multiIds.contains(l.id)));
+          final sceneNow = widget.lesson.scenes[clip.sceneIndex];
+          onTap = () {
+            // Selects the word that is on screen at the playhead (or the first one), to edit it.
+            final local = widget.player.positionMs - sceneStartMs(widget.lesson, clip.sceneIndex);
+            var pick = group.first;
+            for (final l in group) {
+              if (l.startMs <= local && local < layerEndMs(l, sceneNow.durationMs)) {
+                pick = l;
+                break;
+              }
+            }
+            widget.onSelectLayer(clip.sceneIndex, pick.id);
+          };
+          onLong = () {
+            showModalBottomSheet<void>(
+              context: context,
+              builder: (sheet) => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: Text('Captions of slide ${clip.sceneIndex + 1}'),
+                      subtitle: Text('${group.length} items shown as one bar. Tap the bar to edit the word on screen. '
+                          'To change the style or timing of all of them, use Captions in the Scenes list.'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline),
+                      title: const Text('Delete the captions of this slide'),
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        sceneNow.layers.removeWhere((l) => group.contains(l));
+                        widget.onEditEnd();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          };
+          body = Container(
+            color: KColors.clipText,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            alignment: Alignment.centerLeft,
+            child: Row(
+              children: [
+                Icon(Icons.closed_caption_outlined, size: math.max(14.0, 34 * u), color: KColors.onGold),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    clip.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: KColors.onGold, fontSize: fontSize, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         break;
       case 'audioclip':
         {
