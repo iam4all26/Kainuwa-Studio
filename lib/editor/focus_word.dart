@@ -321,15 +321,49 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
       ..pushStyle(base)
       ..addText(sentence);
   }
-  final line = builder.build()..layout(const ui.ParagraphConstraints(width: 100000));
+  var line = builder.build()..layout(const ui.ParagraphConstraints(width: 100000));
+  final maxW = w * 0.92;
+  if (line.longestLine > maxW) {
+    // Too long for the picture: draw the whole sentence again, smaller, so none of it is cut off.
+    final f = maxW / line.longestLine;
+    final small = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: size * f, height: look.lh));
+    ui.TextStyle st(bool mark) => ui.TextStyle(
+          color: mark ? const Color(0xFF000000) : Color(look.ink),
+          background: mark ? (Paint()..color = const Color(_marker)) : null,
+          fontFamily: look.font,
+          fontSize: size * f,
+          height: look.lh,
+          fontWeight: (mark || look.bold) ? FontWeight.w800 : FontWeight.w400,
+          fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
+        );
+    if (at >= 0) {
+      small
+        ..pushStyle(st(false))
+        ..addText(sentence.substring(0, at))
+        ..pushStyle(st(true))
+        ..addText(sentence.substring(at, at + word.length))
+        ..pushStyle(st(false))
+        ..addText(sentence.substring(at + word.length));
+    } else {
+      small
+        ..pushStyle(st(false))
+        ..addText(sentence);
+    }
+    line = small.build()..layout(const ui.ParagraphConstraints(width: 100000));
+  }
   var centre = line.longestLine / 2;
   if (at >= 0) {
     final boxes = line.getBoxesForRange(at, at + word.length);
     if (boxes.isNotEmpty) centre = (boxes.first.left + boxes.last.right) / 2;
   }
-  // The line is as wide as the picture or wider, so it needs a paper strip behind it to hide the page text.
+  // The word goes to the middle of the picture, but the sentence always stays inside it.
+  final margin = w * 0.04;
+  var dx = w / 2 - centre;
+  dx = math.min(dx, w - margin - line.longestLine);
+  dx = math.max(dx, margin);
+  // A paper strip behind the line hides the page text under it.
   c.drawRect(Rect.fromLTWH(0, cy - lh * 0.5, w, lh), Paint()..color = paper);
-  c.drawParagraph(line, Offset(w / 2 - centre, cy - line.height / 2));
+  c.drawParagraph(line, Offset(dx, cy - line.height / 2));
   final page = rec.endRecording();
 
   // Blur: the farther from the middle line, the stronger.
@@ -365,10 +399,11 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
     o.restore();
   }
 
-  level(4.2, lhn * 4.0, lhn * 6.0);
-  level(2.2, lhn * 2.4, lhn * 3.6);
-  level(1.0, lhn * 1.2, lhn * 2.0);
-  level(0, lhn * 0.6, lhn * 1.0);
+  // The focus zone covers the sentence and a few lines around it; only farther away does the page go soft.
+  level(4.2, lhn * 7.0, lhn * 10.0);
+  level(2.2, lhn * 4.0, lhn * 6.0);
+  level(1.0, lhn * 2.4, lhn * 3.6);
+  level(0, lhn * 1.3, lhn * 2.1);
   final result = out.endRecording();
   final image = await result.toImage(w.round(), h.round());
   page.dispose();
