@@ -32,6 +32,7 @@ const List<FxKind> kFxKinds = [
   FxKind('bokeh', 'Bokeh lights', Icons.blur_on),
   FxKind('hearts', 'Floating hearts', Icons.favorite_border),
   FxKind('meteors', 'Shooting stars', Icons.nights_stay_outlined),
+  FxKind('docs', 'Blurred newspapers and documents', Icons.newspaper),
 ];
 
 bool isFxLayerShape(String shape) => shape.startsWith('fx_');
@@ -162,12 +163,154 @@ class _FxPainter extends CustomPainter {
       case 'meteors':
         _meteors(canvas, size, p, u);
         break;
+      case 'docs':
+        _docs(canvas, size, p, u);
+        break;
     }
   }
 
   /// Light on a dark night sky. In the export (solid) the brightness is mixed into near-black instead of see-through.
   Color _b(Color c, double o) =>
       solid ? Color.lerp(const Color(0xFF05060F), c, o.clamp(0.0, 1.0).toDouble())! : c.withOpacity(o.clamp(0.0, 1.0).toDouble());
+
+  // ---- Blurred newspapers, documents and books drifting behind a sharp word ----
+
+  /// Lines of small text (grey bars) inside [area].
+  void _textLines(Canvas c, Rect area, double lineH, double gap, int seed, Color col) {
+    final paint = Paint()..color = col;
+    var y = area.top;
+    var n = 0;
+    var left = 3 + (_rnd(seed, 1) * 5).floor();
+    while (y + lineH <= area.bottom) {
+      var w = area.width * (0.82 + 0.18 * _rnd(seed + n, 7));
+      if (left == 0) {
+        // the last line of a paragraph is short, then a bigger gap
+        w = area.width * (0.3 + 0.4 * _rnd(seed + n, 8));
+      }
+      c.drawRect(Rect.fromLTWH(area.left, y, w, lineH), paint);
+      y += lineH + gap;
+      left--;
+      if (left < 0) {
+        y += gap * 1.6;
+        left = 4 + (_rnd(seed + n, 9) * 6).floor();
+      }
+      n++;
+    }
+  }
+
+  void _page(Canvas c, Rect r, int type, double u, int seed) {
+    c.drawRect(r.shift(Offset(4 * u, 5 * u)), Paint()..color = const Color(0x66000000));
+    final ink = const Color(0xCC3A3631);
+    final line = 3.2 * u;
+    final gap = 3.0 * u;
+    if (type == 0) {
+      // Newspaper
+      c.drawRect(r, Paint()..color = const Color(0xFFE9E2CF));
+      final pad = r.width * 0.06;
+      final inner = Rect.fromLTWH(r.left + pad, r.top + pad, r.width - 2 * pad, r.height - 2 * pad);
+      c.drawRect(Rect.fromLTWH(inner.left, inner.top, inner.width, inner.height * 0.075), Paint()..color = const Color(0xFF2A2622));
+      c.drawRect(Rect.fromLTWH(inner.left, inner.top + inner.height * 0.09, inner.width, 1.5 * u), Paint()..color = ink);
+      final headTop = inner.top + inner.height * 0.12;
+      c.drawRect(Rect.fromLTWH(inner.left, headTop, inner.width * 0.7, inner.height * 0.055), Paint()..color = const Color(0xFF2A2622));
+      c.drawRect(Rect.fromLTWH(inner.left, headTop + inner.height * 0.07, inner.width * 0.45, inner.height * 0.03), Paint()..color = ink);
+      final photo = Rect.fromLTWH(inner.left + inner.width * 0.58, headTop + inner.height * 0.065, inner.width * 0.42, inner.height * 0.2);
+      c.drawRect(photo, Paint()..color = const Color(0xFF8C867A));
+      final body = Rect.fromLTWH(inner.left, headTop + inner.height * 0.12, inner.width, inner.bottom - headTop - inner.height * 0.12);
+      const cols = 3;
+      final cw = (body.width - (cols - 1) * 6 * u) / cols;
+      for (var k = 0; k < cols; k++) {
+        var top = body.top;
+        if (k == 2) top = photo.bottom + 6 * u;
+        _textLines(c, Rect.fromLTWH(body.left + k * (cw + 6 * u), top, cw, body.bottom - top), line, gap, seed * 7 + k, ink);
+      }
+    } else if (type == 1) {
+      // Document with a table and a stamp
+      c.drawRect(r, Paint()..color = const Color(0xFFF7F6F0));
+      final pad = r.width * 0.1;
+      final inner = Rect.fromLTWH(r.left + pad, r.top + pad, r.width - 2 * pad, r.height - 2 * pad);
+      c.drawRect(Rect.fromLTWH(inner.left, inner.top, inner.width * 0.55, inner.height * 0.05), Paint()..color = const Color(0xFF2C3E6B));
+      _textLines(c, Rect.fromLTWH(inner.left, inner.top + inner.height * 0.09, inner.width, inner.height * 0.3), line, gap, seed * 5, ink);
+      final table = Rect.fromLTWH(inner.left, inner.top + inner.height * 0.44, inner.width, inner.height * 0.22);
+      final grid = Paint()
+        ..color = const Color(0x99555555)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2 * u;
+      c.drawRect(table, grid);
+      for (var k = 1; k < 4; k++) {
+        c.drawLine(Offset(table.left, table.top + table.height * k / 4), Offset(table.right, table.top + table.height * k / 4), grid);
+        c.drawLine(Offset(table.left + table.width * k / 4, table.top), Offset(table.left + table.width * k / 4, table.bottom), grid);
+      }
+      _textLines(c, Rect.fromLTWH(inner.left, table.bottom + inner.height * 0.05, inner.width, inner.bottom - table.bottom - inner.height * 0.05), line, gap, seed * 3, ink);
+      final stamp = Paint()
+        ..color = const Color(0xCCB3261E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3 * u;
+      c.drawCircle(Offset(inner.right - inner.width * 0.18, inner.top + inner.height * 0.22), inner.width * 0.13, stamp);
+    } else {
+      // Open book: two pages
+      c.drawRect(r, Paint()..color = const Color(0xFFF0E2BD));
+      final mid = r.center.dx;
+      c.drawRect(
+        Rect.fromLTWH(mid - 5 * u, r.top, 10 * u, r.height),
+        Paint()..shader = ui.Gradient.linear(Offset(mid - 5 * u, 0), Offset(mid + 5 * u, 0), const [Color(0x00000000), Color(0x66000000), Color(0x00000000)], const [0, 0.5, 1]),
+      );
+      final pad = r.width * 0.07;
+      for (var side = 0; side < 2; side++) {
+        final left = side == 0 ? r.left + pad : mid + pad * 0.5;
+        final area = Rect.fromLTWH(left, r.top + pad, r.width / 2 - pad * 1.5, r.height - 2 * pad);
+        if (side == 0) {
+          c.drawRect(Rect.fromLTWH(area.left, area.top, area.width * 0.5, area.height * 0.04), Paint()..color = const Color(0xFF5B3A1E));
+          _textLines(c, Rect.fromLTWH(area.left, area.top + area.height * 0.1, area.width, area.height * 0.9), line, gap, seed * 11, ink);
+        } else {
+          _textLines(c, area, line, gap, seed * 13, ink);
+        }
+      }
+    }
+  }
+
+  void _docs(Canvas c, Size s, double p, double u) {
+    final bounds = Offset.zero & s;
+    final sigma = (7 + 1.0 * math.sin(2 * math.pi * p)) * u;
+    c.save();
+    c.clipRect(bounds);
+    c.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp));
+    c.drawRect(bounds, Paint()..color = const Color(0xFF1B1712));
+    final cols = (s.width / (s.height * 0.55)).ceil().clamp(3, 5).toInt();
+    final colW = s.width / cols;
+    final pageH = s.height * 0.62;
+    final gap = s.height * 0.04;
+    final period = pageH + gap;
+    for (var i = 0; i < cols; i++) {
+      final dir = i.isEven ? -1.0 : 1.0;
+      final off = dir * p * period;
+      final cx = colW * (i + 0.5);
+      c.save();
+      c.translate(cx, s.height / 2);
+      c.rotate((i.isEven ? -1 : 1) * 0.05);
+      c.translate(-cx, -s.height / 2);
+      final tiles = (s.height * 1.3 / period).ceil() + 2;
+      for (var k = -tiles; k <= tiles; k++) {
+        final top = s.height / 2 - pageH / 2 + k * period + off;
+        if (top > s.height * 1.3 || top + pageH < -s.height * 0.3) continue;
+        _page(c, Rect.fromLTWH(colW * i + colW * 0.06, top, colW * 0.88, pageH), (i + 0) % 3, u, i + 1);
+      }
+      c.restore();
+    }
+    c.restore();
+    // Darken a little so a white word stands out, more at the edges.
+    c.drawRect(bounds, Paint()..color = const Color(0x55000000));
+    c.drawRect(
+      bounds,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          bounds.center,
+          s.longestSide * 0.7,
+          const [Color(0x00000000), Color(0xAA000000)],
+          const [0.35, 1.0],
+        ),
+    );
+    c.restore();
+  }
 
   void _stars(Canvas c, Size s, double p, double u) {
     final paint = Paint();

@@ -571,6 +571,9 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       case 'effect':
         await _addEffect();
         break;
+      case 'focus':
+        await _addFocusWord();
+        break;
     }
   }
 
@@ -768,6 +771,79 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _sceneSelected = false;
     _commit();
     _snack('Effect added. Select it from the timeline to change when it shows or to make it last over more slides.');
+  }
+
+  /// A word in sharp big letters over blurred, drifting newspapers and documents.
+  Future<void> _addFocusWord() async {
+    final scene = _currentScene();
+    final lesson = _lesson();
+    final player = _player;
+    if (scene == null || lesson == null || player == null) return;
+    final controller = TextEditingController();
+    final word = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Focus word'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Newspapers and documents drift behind, blurred. Your word stays sharp on top. '
+                'You can change the word later like any text.'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'The word or short line'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text.trim()), child: const Text('Add')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (word == null || word.isEmpty || !mounted) return;
+    final index = lesson.scenes.indexOf(scene);
+    final local =
+        (player.positionMs - sceneStartMs(lesson, index)).clamp(0, math.max(0, scene.durationMs - 600)).toInt();
+    final back = Layer(id: newId(), type: 'shape', shape: 'fx_docs', w: 1.0, h: 1.0);
+    back.startMs = local;
+    back.endMs = -1;
+    final text = Layer(
+      id: newId(),
+      type: 'text',
+      text: word,
+      color: 0xFFFFFFFF,
+      bold: true,
+      fontFamily: 'sans-serif-black',
+      outlineOn: true,
+      outlineColor: 0xFF000000,
+      outlineWidth: 0.05,
+      glowOn: true,
+      glowColor: 0xFFFFD54F,
+      glowStrength: 0.35,
+      animIn: 'pop',
+      animDurationMs: 500,
+      startMs: local,
+      endMs: -1,
+    );
+    text.wrapW = 1000;
+    setLayerTextSizePx(text, 140);
+    if (text.w > 0.9) {
+      final f = 0.9 / text.w;
+      text.w = 0.9;
+      text.h = text.h * f;
+    }
+    scene.layers.insert(0, back);
+    scene.layers.add(text);
+    _selectedId = text.id;
+    _sceneSelected = false;
+    _commit();
+    _snack('Focus word added. Tap the word to change it. The background can be changed from the timeline.');
   }
 
   /// A screenshot inside a phone: pick the picture, pick a phone, and add the result as an image item.
