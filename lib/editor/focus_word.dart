@@ -169,7 +169,7 @@ double _widthOf(String t, double size, {bool bold = false}) {
 
 /// One sentence on one line. The marked word is always in the middle of the screen, and the rest of the
 /// sentence runs out to both sides (and past the edges when it is long).
-Layer _sentence(String text, String word, int from, int to, {double size = 60, bool first = false}) {
+Layer _sentence(String text, String word, int from, int to, {double size = 52, bool first = false}) {
   var px = size;
   if (_widthOf(text, px) > 1.5) px = px * 1.5 / _widthOf(text, px);
   final layer = Layer(

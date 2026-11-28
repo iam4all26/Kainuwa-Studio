@@ -241,95 +241,102 @@ class _FxPainter extends CustomPainter {
     return b.toString();
   }
 
-  void _block(Canvas c, Rect area, String text, double size, {bool bold = false, bool italic = false, ui.TextAlign align = ui.TextAlign.left, double height = 1.25}) {
-    if (area.width <= 4 || area.height <= 4) return;
-    final para = _para(text, area.width, size, bold: bold, italic: italic, align: align, height: height);
-    c.save();
-    c.clipRect(area);
-    c.drawParagraph(para, area.topLeft);
-    c.restore();
-  }
-
-  void _page(Canvas c, Rect r, int type, double u, int seed) {
-    final w = math.min(r.width, r.height * 0.7);
-    const papers = [Color(0xFFE9E2CF), Color(0xFFF4F3EE), Color(0xFFE2CE9B)];
-    c.drawRect(r, Paint()..color = papers[(seed + type) % 3]);
-    final pad = w * 0.06;
-    final inner = Rect.fromLTWH(r.left + pad, r.top + pad, r.width - 2 * pad, r.height - 2 * pad);
-    final rule = Paint()..color = const Color(0xAA2B2824);
-    if (type == 0) {
-      // Newspaper: masthead, headline with a photo, three columns
-      _block(c, Rect.fromLTWH(inner.left, inner.top, inner.width, w * 0.1), 'THE DAILY CHRONICLE', w * 0.075, bold: true, align: ui.TextAlign.center);
-      c.drawRect(Rect.fromLTWH(inner.left, inner.top + w * 0.1, inner.width, 1.6 * u), rule);
-      final headTop = inner.top + w * 0.13;
-      _block(c, Rect.fromLTWH(inner.left, headTop, inner.width * 0.6, w * 0.2), _bankHead[seed % _bankHead.length], w * 0.065, bold: true, height: 1.1);
-      final photo = Rect.fromLTWH(inner.left + inner.width * 0.64, headTop, inner.width * 0.36, w * 0.2);
-      c.drawRect(photo, Paint()..shader = ui.Gradient.linear(photo.topCenter, photo.bottomCenter, const [Color(0xFF7D786E), Color(0xFF3A3834)]));
-      final body = Rect.fromLTWH(inner.left, headTop + w * 0.24, inner.width, inner.bottom - headTop - w * 0.24);
-      const cols = 3;
-      final cw = (body.width - (cols - 1) * 8 * u) / cols;
-      for (var k = 0; k < cols; k++) {
-        _block(c, Rect.fromLTWH(body.left + k * (cw + 8 * u), body.top, cw, body.height), _body(seed + k * 3, 9), w * 0.027, align: ui.TextAlign.justify);
-      }
-    } else if (type == 1) {
-      // Document: title, subtitle, paragraphs, a stamp
-      _block(c, Rect.fromLTWH(inner.left, inner.top, inner.width, w * 0.1), _bankHead[(seed + 2) % _bankHead.length], w * 0.055, bold: true);
-      _block(c, Rect.fromLTWH(inner.left, inner.top + w * 0.11, inner.width, w * 0.05), 'Press release, lightly edited', w * 0.03, italic: true);
-      c.drawRect(Rect.fromLTWH(inner.left, inner.top + w * 0.17, inner.width, 1.2 * u), rule);
-      _block(c, Rect.fromLTWH(inner.left, inner.top + w * 0.2, inner.width, inner.bottom - inner.top - w * 0.2), '${_body(seed, 6)}\n\n${_body(seed + 4, 6)}\n\n${_body(seed + 8, 6)}', w * 0.033, height: 1.35);
-      final stamp = Paint()
-        ..color = const Color(0xBBB3261E)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3 * u;
-      c.drawCircle(Offset(inner.right - w * 0.12, inner.top + w * 0.3), w * 0.1, stamp);
-    } else {
-      // Open book: two pages of long text
-      final mid = r.center.dx;
-      c.drawRect(
-        Rect.fromLTWH(mid - 5 * u, r.top, 10 * u, r.height),
-        Paint()..shader = ui.Gradient.linear(Offset(mid - 5 * u, 0), Offset(mid + 5 * u, 0), const [Color(0x00000000), Color(0x55000000), Color(0x00000000)], const [0, 0.5, 1]),
-      );
-      final colW = (inner.width - 14 * u) / 2;
-      _block(c, Rect.fromLTWH(inner.left, inner.top, colW, w * 0.06), 'Chapter Three', w * 0.04, italic: true);
-      _block(c, Rect.fromLTWH(inner.left, inner.top + w * 0.08, colW, inner.height - w * 0.08), _body(seed, 14), w * 0.034, height: 1.4, align: ui.TextAlign.justify);
-      _block(c, Rect.fromLTWH(inner.left + colW + 14 * u, inner.top, colW, inner.height), _body(seed + 6, 16), w * 0.034, height: 1.4, align: ui.TextAlign.justify);
+  /// One screen-wide strip of text (a newspaper, a document or a book), laid out downward from [y0].
+  /// It is [period] tall, and the same strip follows it, so the scrolling loops without a jump.
+  void _strip(Canvas c, Size s, double y0, double period, int type) {
+    final w = s.width;
+    final h = s.height;
+    final x = w * 0.06;
+    final iw = w * 0.88;
+    final body = h * 0.064;
+    var y = y0 + h * 0.02;
+    final end = y0 + period;
+    var n = 0;
+    void put(String t, double size, {bool bold = false, bool italic = false, ui.TextAlign align = ui.TextAlign.left}) {
+      final para = _para(t, iw, size, bold: bold, italic: italic, align: align, height: 1.4);
+      c.drawParagraph(para, Offset(x, y));
+      y += para.height + size * 0.35;
     }
+
+    void photo(double hh) {
+      final r = Rect.fromLTWH(x + iw * 0.2, y, iw * 0.6, hh);
+      c.drawRect(r, Paint()..shader = ui.Gradient.linear(r.topCenter, r.bottomCenter, const [Color(0xFF8A8579), Color(0xFF3A3834)]));
+      y += hh + body * 0.5;
+    }
+
+    c.save();
+    c.clipRect(Rect.fromLTWH(0, y0, w, period));
+    if (type == 0) {
+      put('THE DAILY CHRONICLE', body * 1.4, bold: true, align: ui.TextAlign.center);
+      c.drawRect(Rect.fromLTWH(x, y, iw, 2), Paint()..color = const Color(0xAA2B2824));
+      y += body * 0.4;
+      put(_bankHead[0], body * 1.3, bold: true);
+      put(_body(1, 3), body, align: ui.TextAlign.justify);
+      photo(h * 0.2);
+      put(_bankHead[1], body * 1.1, bold: true);
+    } else if (type == 1) {
+      put(_bankHead[3], body * 1.3, bold: true);
+      put('Press release, lightly edited', body * 0.8, italic: true);
+      c.drawRect(Rect.fromLTWH(x, y, iw, 2), Paint()..color = const Color(0x882B2824));
+      y += body * 0.5;
+    } else {
+      put('Chapter Three', body * 1.1, italic: true, align: ui.TextAlign.center);
+    }
+    while (y < end) {
+      final txt = type == 2 ? '    ${_body(n * 3, 4)}' : _body(n * 3 + 2, 4);
+      put(txt, body, align: ui.TextAlign.justify);
+      n++;
+      if (type == 0 && n % 3 == 0 && y < end) put(_bankHead[n % _bankHead.length], body * 1.1, bold: true);
+    }
+    c.restore();
   }
 
   void _docs(Canvas c, Size s, double p, double u, int type) {
     final bounds = Offset.zero & s;
-    final sigma = (3.6 + 0.4 * math.sin(2 * math.pi * p)) * u;
     const papers = [Color(0xFFEAE3D0), Color(0xFFF3F2EC), Color(0xFFE6D3A3)];
     final paper = papers[type % 3];
-    c.save();
-    c.clipRect(bounds);
-    c.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp));
-    c.drawRect(bounds, Paint()..color = paper);
-    // The paper fills the whole frame. One page is a little taller than the frame and repeats upward.
-    final cols = (s.width / s.height / 1.9).ceil().clamp(1, 4).toInt();
-    final colW = s.width / cols;
-    final pageH = s.height * 1.1;
-    final fold = Paint()..color = const Color(0x33000000);
-    for (var i = 0; i < cols; i++) {
-      final off = (i.isEven ? -1.0 : 1.0) * p * pageH;
-      for (var k = -2; k <= 2; k++) {
-        final top = -pageH * 0.05 + k * pageH + off;
-        if (top > s.height || top + pageH < 0) continue;
-        final r = Rect.fromLTWH(colW * i, top, colW, pageH);
-        _page(c, r, type, u, 1 + i);
-        c.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 1.5 * u), fold);
+    final period = s.height * 1.3;
+    final off = -p * period;
+
+    void draw() {
+      c.drawRect(bounds, Paint()..color = paper);
+      for (var j = 0; j < 2; j++) {
+        _strip(c, s, off + j * period, period, type);
       }
     }
+
+    c.save();
+    c.clipRect(bounds);
+    // 1. the whole page, well blurred
+    c.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 5.5 * u, sigmaY: 5.5 * u, tileMode: TileMode.clamp));
+    draw();
     c.restore();
-    // A soft light band in the middle, so the sharp line stays easy to read.
-    final band = Rect.fromLTWH(0, s.height * 0.28, s.width, s.height * 0.44);
+    // 2. the same page only a little blurred, kept only in a band around the middle (the "focus" zone)
+    c.saveLayer(bounds, Paint());
+    c.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 1.4 * u, sigmaY: 1.4 * u, tileMode: TileMode.clamp));
+    draw();
+    c.restore();
+    c.drawRect(
+      bounds,
+      Paint()
+        ..blendMode = BlendMode.dstIn
+        ..shader = ui.Gradient.linear(
+          bounds.topCenter,
+          bounds.bottomCenter,
+          const [Color(0x00000000), Color(0x00000000), Color(0xFF000000), Color(0xFF000000), Color(0x00000000), Color(0x00000000)],
+          const [0, 0.22, 0.4, 0.6, 0.78, 1],
+        ),
+    );
+    c.restore();
+    // 3. clear paper in the middle, where the sharp sentence is shown
+    final band = Rect.fromLTWH(0, s.height * 0.5 - s.height * 0.1, s.width, s.height * 0.2);
     c.drawRect(
       band,
       Paint()
         ..shader = ui.Gradient.linear(
           band.topCenter,
           band.bottomCenter,
-          [paper.withOpacity(0), paper.withOpacity(0.78), paper.withOpacity(0.78), paper.withOpacity(0)],
+          [paper.withOpacity(0), paper.withOpacity(0.96), paper.withOpacity(0.96), paper.withOpacity(0)],
           const [0, 0.3, 0.7, 1],
         ),
     );
@@ -339,7 +346,7 @@ class _FxPainter extends CustomPainter {
         ..shader = ui.Gradient.radial(
           bounds.center,
           s.longestSide * 0.75,
-          const [Color(0x00000000), Color(0x44000000)],
+          const [Color(0x00000000), Color(0x33000000)],
           const [0.5, 1.0],
         ),
     );
