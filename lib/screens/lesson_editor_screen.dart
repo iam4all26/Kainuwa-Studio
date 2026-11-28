@@ -798,6 +798,15 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       if (mounted) _snack('The pages could not be made: $e');
       return;
     }
+    // Load every page now, so the preview does not flash white at a cut.
+    for (final l in made) {
+      if (!mounted) return;
+      try {
+        await precacheImage(FileImage(File(l.path)), context);
+      } catch (_) {
+        // the page is still shown when it is ready
+      }
+    }
     if (!mounted) return;
     scene.layers.insertAll(0, made);
     _selectedId = made.last.id;

@@ -289,17 +289,6 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
     c.drawRect(Rect.fromLTWH(colX - 6, y - 4, colW + 12, head.height + 8), Paint()..color = paper);
     c.drawParagraph(head, Offset(colX, y));
   }
-  if (_rand(seed, 4) > 0.45) {
-    final pw = colW * (0.35 + 0.3 * _rand(seed, 6));
-    final ph = h * (0.16 + 0.1 * _rand(seed, 7));
-    final top = _rand(seed, 8) > 0.5;
-    final py = top ? math.max(h * 0.03, cy - lh * 3.2 - ph) : cy + lh * 3.2;
-    final px = colX + (colW - pw) * _rand(seed, 9);
-    final r = Rect.fromLTWH(px, py, pw, ph);
-    c.drawRect(r.inflate(5), Paint()..color = paper);
-    c.drawRect(r, Paint()..shader = ui.Gradient.linear(r.topCenter, r.bottomCenter, const [Color(0xFF8A8579), Color(0xFF3A3834)]));
-  }
-
   // The sharp line: the sentence with the word on a marker, the word in the middle of the picture.
   final at = word.isEmpty ? -1 : sentence.toLowerCase().indexOf(word.toLowerCase());
   final base = ui.TextStyle(
