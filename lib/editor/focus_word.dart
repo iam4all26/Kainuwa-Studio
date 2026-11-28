@@ -257,12 +257,13 @@ ui.Paragraph _para(String text, double width, double size, _Look look, {bool? bo
 
 /// One page of a newspaper, book or typewritten sheet. The sentence is a line of the page itself, in the middle,
 /// and the lines around it get more blurred the farther they are from it.
-Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed, double w, double h) async {
+Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed, double w, double h, {double lineScale = 1}) async {
   final rec = ui.PictureRecorder();
   final c = Canvas(rec);
   final bounds = Rect.fromLTWH(0, 0, w, h);
   final size = h * look.size;
-  final lh = size * look.lh;
+  final lh = size * look.lh * lineScale;
+  final lineSize = size * lineScale;
   final cy = h / 2;
   final colW = w * look.col;
   final colX = (w - colW) / 2 + (_rand(seed, 1) - 0.5) * w * 0.1;
@@ -284,22 +285,27 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
   // A headline and a photo, sometimes, far from the middle.
   if (_rand(seed, 3) > 0.35) {
     final head = _para(_headlines[seed % _headlines.length], colW, size, look, bold: true, scale: 1.7);
-    final top = _rand(seed, 5) > 0.5;
-    final y = top ? h * 0.05 : h - head.height - h * 0.06;
-    c.drawRect(Rect.fromLTWH(colX - 6, y - 4, colW + 12, head.height + 8), Paint()..color = paper);
-    c.drawParagraph(head, Offset(colX, y));
+    var top = _rand(seed, 5) > 0.5;
+    // Only where it does not come near the sharp line in the middle.
+    bool fits(bool atTop) => atTop ? h * 0.04 + head.height < cy - lh * 3 : h - head.height - h * 0.05 > cy + lh * 3;
+    if (!fits(top)) top = !top;
+    if (fits(top)) {
+      final y = top ? h * 0.04 : h - head.height - h * 0.05;
+      c.drawRect(Rect.fromLTWH(colX - 6, y - 4, colW + 12, head.height + 8), Paint()..color = paper);
+      c.drawParagraph(head, Offset(colX, y));
+    }
   }
   // The sharp line: the sentence with the word on a marker, the word in the middle of the picture.
   final at = word.isEmpty ? -1 : sentence.toLowerCase().indexOf(word.toLowerCase());
   final base = ui.TextStyle(
     color: Color(look.ink),
     fontFamily: look.font,
-    fontSize: size,
+    fontSize: lineSize,
     height: look.lh,
     fontWeight: look.bold ? FontWeight.w800 : FontWeight.w400,
     fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
   );
-  final builder = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: size, height: look.lh));
+  final builder = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: lineSize, height: look.lh));
   if (at >= 0) {
     builder
       ..pushStyle(base)
@@ -308,7 +314,7 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
         color: const Color(0xFF000000),
         background: Paint()..color = const Color(_marker),
         fontFamily: look.font,
-        fontSize: size,
+        fontSize: lineSize,
         height: look.lh,
         fontWeight: FontWeight.w800,
         fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
@@ -326,12 +332,12 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
   if (line.longestLine > maxW) {
     // Too long for the picture: draw the whole sentence again, smaller, so none of it is cut off.
     final f = maxW / line.longestLine;
-    final small = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: size * f, height: look.lh));
+    final small = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: lineSize * f, height: look.lh));
     ui.TextStyle st(bool mark) => ui.TextStyle(
           color: mark ? const Color(0xFF000000) : Color(look.ink),
           background: mark ? (Paint()..color = const Color(_marker)) : null,
           fontFamily: look.font,
-          fontSize: size * f,
+          fontSize: lineSize * f,
           height: look.lh,
           fontWeight: (mark || look.bold) ? FontWeight.w800 : FontWeight.w400,
           fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
@@ -438,7 +444,7 @@ Future<List<Layer>> buildFocusWord(FocusChoice choice, int startMs, int availabl
     final last = k == cuts;
     final sentence = last ? choice.word : choice.lines[k % choice.lines.length];
     final look = last ? _looks[5] : _looks[set[(k * 3 + 1) % set.length]];
-    final image = await _renderPage(look, sentence, choice.word, stamp % 1000 + k * 7, w, h);
+    final image = await _renderPage(look, sentence, choice.word, stamp % 1000 + k * 7, w, h, lineScale: last ? 2.6 : 1);
     final path = await _savePage(image, '$dir/focus_${stamp}_$k.png');
     final layer = Layer(id: 'foc_${newId()}', type: 'image', path: path, w: 1.0, h: 1.0);
     layer.srcAspect = w / h;
