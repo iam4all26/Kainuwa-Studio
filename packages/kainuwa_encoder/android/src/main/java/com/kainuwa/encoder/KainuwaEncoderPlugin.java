@@ -632,6 +632,10 @@ public class KainuwaEncoderPlugin
                 stopAllClips();
                 result.success(null);
                 break;
+            case "cutAudio":
+                cutAudio((String) call.argument("path"), (List<Object>) call.argument("starts"),
+                        (List<Object>) call.argument("ends"), (List<Object>) call.argument("outs"), result);
+                break;
             case "audioPeaks":
                 audioPeaks((String) call.argument("path"), (int) num(call, "bins", 64), result);
                 break;
@@ -2268,6 +2272,33 @@ public class KainuwaEncoderPlugin
         for (String id : new java.util.ArrayList<>(clipPlayers.keySet())) {
             stopClipQuietly(id);
         }
+    }
+
+    private void cutAudio(final String path, List<Object> starts, List<Object> ends, List<Object> outs,
+                          final MethodChannel.Result result) {
+        if (path == null || starts == null || ends == null || outs == null
+                || starts.size() != outs.size() || ends.size() != outs.size() || outs.isEmpty()) {
+            result.error("bad_arguments", "A file and the cut times are required.", null);
+            return;
+        }
+        final int n = outs.size();
+        final long[] from = new long[n];
+        final long[] to = new long[n];
+        final String[] files = new String[n];
+        for (int i = 0; i < n; i++) {
+            from[i] = ((Number) starts.get(i)).longValue();
+            to[i] = ((Number) ends.get(i)).longValue();
+            files[i] = String.valueOf(outs.get(i));
+        }
+        worker.execute(() -> {
+            try {
+                LessonAudioMixer.cutPieces(path, from, to, files, LessonAudioMixer.NONE);
+                mainHandler.post(() -> result.success(true));
+            } catch (Throwable e) {
+                final String message = String.valueOf(e.getMessage());
+                mainHandler.post(() -> result.error("cut_failed", message, null));
+            }
+        });
     }
 
     private void audioPeaks(final String path, final int bins, final MethodChannel.Result result) {

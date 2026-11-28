@@ -357,6 +357,44 @@ final class LessonAudioMixer {
     /** Decodes any audio file to mono 16-bit PCM at RATE, at most maxOutFrames long. */
     private static short[] decode(String path, long maxOutFrames, Control control)
             throws IOException {
+        return decode(path, 0, maxOutFrames, control);
+    }
+
+    /**
+     * Cuts pieces out of one long recording. Piece i runs from startMs[i] to endMs[i] and is written
+     * as a WAV file to outs[i]. Only one piece is in memory at a time.
+     */
+    static void cutPieces(String src, long[] startMs, long[] endMs, String[] outs, Control control)
+            throws IOException {
+        for (int i = 0; i < outs.length; i++) {
+            long len = endMs[i] - startMs[i];
+            if (len < 100) {
+                throw new IOException("Piece " + (i + 1) + " is shorter than 0.1 second.");
+            }
+            long want = frames(len);
+            short[] pcm = decode(src, startMs[i], want, control);
+            if (pcm.length < RATE / 10) {
+                throw new IOException("Piece " + (i + 1) + " is after the end of the recording.");
+            }
+            File out = new File(outs[i]);
+            File parent = out.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                throw new IOException("Cannot create the folder for the pieces.");
+            }
+            OutputStream os = new BufferedOutputStream(new FileOutputStream(out));
+            try {
+                writeHeader(os, pcm.length);
+                writeFrames(os, pcm, pcm.length);
+            } finally {
+                os.close();
+            }
+            control.progress((int) ((i + 1) * 100L / outs.length));
+        }
+    }
+
+    /** Decodes from startMs (0 = from the beginning) to mono 16-bit PCM at RATE, at most maxOutFrames long. */
+    private static short[] decode(String path, long startMs, long maxOutFrames, Control control)
+            throws IOException {
         MediaExtractor extractor = new MediaExtractor();
         MediaCodec codec = null;
         try {
@@ -376,6 +414,9 @@ final class LessonAudioMixer {
                 throw new IOException("The file has no sound.");
             }
             extractor.selectTrack(track);
+            if (startMs > 0) {
+                extractor.seekTo(startMs * 1000L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
+            }
             codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME));
             codec.configure(format, null, null, 0);
             codec.start();
@@ -386,6 +427,8 @@ final class LessonAudioMixer {
                     ? format.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : 1;
 
             ShortList mono = new ShortList();
+            long skipSrc = 0;
+            boolean gotFirst = false;
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             boolean inDone = false;
             boolean outDone = false;
@@ -412,6 +455,13 @@ final class LessonAudioMixer {
                 if (oi >= 0) {
                     ByteBuffer ob = codec.getOutputBuffer(oi);
                     if (info.size > 0 && ob != null) {
+                        if (!gotFirst) {
+                            gotFirst = true;
+                            if (startMs > 0) {
+                                long gapUs = startMs * 1000L - info.presentationTimeUs;
+                                skipSrc = gapUs <= 0 ? 0 : (long) (gapUs * (double) srcRate / 1000000.0);
+                            }
+                        }
                         ob.position(info.offset);
                         ob.limit(info.offset + info.size);
                         ShortBuffer sb = ob.order(ByteOrder.nativeOrder()).asShortBuffer();
@@ -429,7 +479,7 @@ final class LessonAudioMixer {
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                         outDone = true;
                     }
-                    long limit = (long) ((maxOutFrames + 2000) * (double) srcRate / RATE) + 1;
+                    long limit = skipSrc + (long) ((maxOutFrames + 2000) * (double) srcRate / RATE) + 1;
                     if (mono.size >= limit) {
                         outDone = true;
                     }
@@ -442,6 +492,11 @@ final class LessonAudioMixer {
                         channels = f.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
                     }
                 }
+            }
+            if (skipSrc > 0) {
+                int from = (int) Math.min(skipSrc, mono.size);
+                short[] part = Arrays.copyOfRange(mono.data, from, mono.size);
+                return resample(part, part.length, srcRate, maxOutFrames);
             }
             return resample(mono.data, mono.size, srcRate, maxOutFrames);
         } finally {

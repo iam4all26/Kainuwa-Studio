@@ -227,6 +227,12 @@ class KainuwaEncoder {
     await _channel.invokeMethod<void>('stopClips');
   }
 
+  /// Cuts pieces out of one long recording into separate WAV files. Piece i runs from starts[i] to ends[i] (ms).
+  static Future<void> cutAudio(String path, List<int> starts, List<int> ends, List<String> outs) async {
+    _init();
+    await _channel.invokeMethod<bool>('cutAudio', {'path': path, 'starts': starts, 'ends': ends, 'outs': outs});
+  }
+
   /// Loudness along an audio file: [bins] values from 0 to 1 (first 5 minutes).
   static Future<List<double>> audioPeaks(String path, {int bins = 160}) async {
     _init();
