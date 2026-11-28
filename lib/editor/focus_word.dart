@@ -284,6 +284,55 @@ ui.Paragraph _flow(_Look look, double width, double size, double wordSize, Strin
   return b.build()..layout(ui.ParagraphConstraints(width: width));
 }
 
+/// The last page: a whole page of blurred text, and the word alone, big and sharp, on its marker in the middle.
+Future<ui.Image> _renderWordPage(_Look look, String word, int seed, double w, double h) async {
+  final rec = ui.PictureRecorder();
+  final c = Canvas(rec);
+  final bounds = Rect.fromLTWH(0, 0, w, h);
+  final size = h * look.size;
+  final colW = w * look.col;
+  final colX = (w - colW) / 2;
+  c.drawRect(bounds, Paint()..color = Color(look.paper));
+  final page = _flow(look, colW, size, size, '${_fill(seed, 40)} ', '', -1, '', ' ${_fill(seed + 4, 40)}');
+  c.save();
+  c.clipRect(bounds);
+  c.drawParagraph(page, Offset(colX, h / 2 - page.height / 2));
+  c.restore();
+  final picture = rec.endRecording();
+
+  final out = ui.PictureRecorder();
+  final o = Canvas(out);
+  final u = h / 720;
+  o.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 4.5 * u, sigmaY: 4.5 * u, tileMode: TileMode.clamp));
+  o.drawPicture(picture);
+  o.restore();
+  // The word, as large as fits the width, but not taller than a quarter of the picture.
+  var fs = h * 0.24;
+  late ui.Paragraph big;
+  for (var i = 0; i < 6; i++) {
+    final b = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: fs, height: 1.1))
+      ..pushStyle(ui.TextStyle(
+        color: const Color(0xFF000000),
+        background: Paint()..color = const Color(_marker),
+        fontFamily: look.font,
+        fontSize: fs,
+        height: 1.1,
+        fontWeight: FontWeight.w800,
+        fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
+      ))
+      ..addText(word);
+    big = b.build()..layout(const ui.ParagraphConstraints(width: 100000));
+    if (big.longestLine <= w * 0.86) break;
+    fs = fs * (w * 0.86) / big.longestLine;
+  }
+  o.drawParagraph(big, Offset((w - big.longestLine) / 2, h / 2 - big.height / 2));
+  final result = out.endRecording();
+  final image = await result.toImage(w.round(), h.round());
+  picture.dispose();
+  result.dispose();
+  return image;
+}
+
 /// One page of a newspaper, book or typewritten sheet. The sentence is a part of the page text, in the middle, and
 /// the lines around it get more blurred the farther they are from it.
 Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed, double w, double h, {double lineScale = 1}) async {
@@ -414,7 +463,9 @@ Future<List<Layer>> buildFocusWord(FocusChoice choice, int startMs, int availabl
     final last = k == cuts;
     final sentence = last ? choice.word : choice.lines[k % choice.lines.length];
     final look = last ? _looks[5] : _looks[set[(k * 3 + 1) % set.length]];
-    final image = await _renderPage(look, sentence, choice.word, stamp % 1000 + k * 7, w, h, lineScale: last ? 2.6 : 1);
+    final image = last
+        ? await _renderWordPage(look, choice.word, stamp % 1000 + k * 7, w, h)
+        : await _renderPage(look, sentence, choice.word, stamp % 1000 + k * 7, w, h);
     final path = await _savePage(image, '$dir/focus_${stamp}_$k.png');
     final layer = Layer(id: 'foc_${newId()}', type: 'image', path: path, w: 1.0, h: 1.0);
     layer.srcAspect = w / h;
