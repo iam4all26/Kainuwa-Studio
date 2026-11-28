@@ -255,38 +255,83 @@ ui.Paragraph _para(String text, double width, double size, _Look look, {bool? bo
   return builder.build()..layout(ui.ParagraphConstraints(width: width));
 }
 
-/// One page of a newspaper, book or typewritten sheet. The sentence is a line of the page itself, in the middle,
-/// and the lines around it get more blurred the farther they are from it.
+/// One paragraph made of filler text, then the sentence, then more filler. The sentence is part of the text, so it
+/// follows the same column. Only the word is on a marker. Returns the paragraph and the box of the word.
+ui.Paragraph _flow(_Look look, double width, double size, double wordSize, String prefix, String sentence, int at, String word, String suffix) {
+  ui.TextStyle st({double? fs, bool mark = false}) => ui.TextStyle(
+        color: mark ? const Color(0xFF000000) : Color(look.ink).withOpacity(0.9),
+        background: mark ? (Paint()..color = const Color(_marker)) : null,
+        fontFamily: look.font,
+        fontSize: fs ?? size,
+        height: look.lh,
+        fontWeight: (mark || look.bold) ? FontWeight.w800 : FontWeight.w400,
+        fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
+      );
+  final b = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: size, height: look.lh))
+    ..pushStyle(st())
+    ..addText(prefix);
+  if (at >= 0) {
+    b.addText(sentence.substring(0, at));
+    // The marker style is removed again with pop(), so it covers only the word and nothing after it.
+    b.pushStyle(st(fs: wordSize, mark: true));
+    b.addText(sentence.substring(at, at + word.length));
+    b.pop();
+    b.addText(sentence.substring(at + word.length));
+  } else {
+    b.addText(sentence);
+  }
+  b.addText(suffix);
+  return b.build()..layout(ui.ParagraphConstraints(width: width));
+}
+
+/// One page of a newspaper, book or typewritten sheet. The sentence is a part of the page text, in the middle, and
+/// the lines around it get more blurred the farther they are from it.
 Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed, double w, double h, {double lineScale = 1}) async {
   final rec = ui.PictureRecorder();
   final c = Canvas(rec);
   final bounds = Rect.fromLTWH(0, 0, w, h);
   final size = h * look.size;
-  final lh = size * look.lh * lineScale;
-  final lineSize = size * lineScale;
   final cy = h / 2;
   final colW = w * look.col;
-  final colX = (w - colW) / 2 + (_rand(seed, 1) - 0.5) * w * 0.1;
+  final colX = (w - colW) / 2;
   final paper = Color(look.paper);
   c.drawRect(bounds, Paint()..color = paper);
 
-  // Text above and below the sharp line.
-  final above = _para(_fill(seed, 40), colW, size, look);
+  // The page text with the sentence inside it. Words of filler before the sentence are taken away one by one,
+  // and the choice that puts the word nearest the middle of the picture is kept.
+  final at = word.isEmpty ? -1 : sentence.toLowerCase().indexOf(word.toLowerCase());
+  final prefixWords = _fill(seed, 40).split(' ');
+  final suffix = ' ${_fill(seed + 4, 40)}';
+  final markLen = at >= 0 ? word.length : math.min(sentence.length, 1);
+  ui.Paragraph? flow;
+  ui.TextBox? box;
+  var bestDist = double.infinity;
+  for (var trim = 0; trim <= 14; trim++) {
+    final prefix = '${prefixWords.sublist(0, prefixWords.length - trim).join(' ')} ';
+    final para = _flow(look, colW, size, size * lineScale, prefix, sentence, at, word, suffix);
+    final from = prefix.length + (at >= 0 ? at : 0);
+    final boxes = para.getBoxesForRange(from, from + markLen);
+    if (boxes.isEmpty) continue;
+    final dist = ((colX + (boxes.first.left + boxes.first.right) / 2) - w / 2).abs();
+    if (dist < bestDist) {
+      bestDist = dist;
+      flow = para;
+      box = boxes.first;
+    }
+  }
+  if (flow == null || box == null) throw Exception('A page could not be laid out.');
+  final rowH = math.max(box.bottom - box.top, size * look.lh);
+  final lineMid = (box.top + box.bottom) / 2;
   c.save();
-  c.clipRect(Rect.fromLTWH(0, 0, w, cy - lh * 0.5));
-  c.drawParagraph(above, Offset(colX, cy - lh * 0.5 - above.height));
+  c.clipRect(bounds);
+  c.drawParagraph(flow, Offset(colX, cy - lineMid));
   c.restore();
-  final below = _para(_fill(seed + 4, 40), colW, size, look);
-  c.save();
-  c.clipRect(Rect.fromLTWH(0, cy + lh * 0.5, w, h));
-  c.drawParagraph(below, Offset(colX, cy + lh * 0.5));
-  c.restore();
+  final lh = rowH;
 
-  // A headline and a photo, sometimes, far from the middle.
+  // A headline, sometimes, far from the line in the middle.
   if (_rand(seed, 3) > 0.35) {
     final head = _para(_headlines[seed % _headlines.length], colW, size, look, bold: true, scale: 1.7);
     var top = _rand(seed, 5) > 0.5;
-    // Only where it does not come near the sharp line in the middle.
     bool fits(bool atTop) => atTop ? h * 0.04 + head.height < cy - lh * 3 : h - head.height - h * 0.05 > cy + lh * 3;
     if (!fits(top)) top = !top;
     if (fits(top)) {
@@ -295,81 +340,6 @@ Future<ui.Image> _renderPage(_Look look, String sentence, String word, int seed,
       c.drawParagraph(head, Offset(colX, y));
     }
   }
-  // The sharp line: the sentence with the word on a marker, the word in the middle of the picture.
-  final at = word.isEmpty ? -1 : sentence.toLowerCase().indexOf(word.toLowerCase());
-  final base = ui.TextStyle(
-    color: Color(look.ink),
-    fontFamily: look.font,
-    fontSize: lineSize,
-    height: look.lh,
-    fontWeight: look.bold ? FontWeight.w800 : FontWeight.w400,
-    fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
-  );
-  final builder = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: lineSize, height: look.lh));
-  if (at >= 0) {
-    builder
-      ..pushStyle(base)
-      ..addText(sentence.substring(0, at))
-      ..pushStyle(ui.TextStyle(
-        color: const Color(0xFF000000),
-        background: Paint()..color = const Color(_marker),
-        fontFamily: look.font,
-        fontSize: lineSize,
-        height: look.lh,
-        fontWeight: FontWeight.w800,
-        fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
-      ))
-      ..addText(sentence.substring(at, at + word.length))
-      ..pushStyle(base)
-      ..addText(sentence.substring(at + word.length));
-  } else {
-    builder
-      ..pushStyle(base)
-      ..addText(sentence);
-  }
-  var line = builder.build()..layout(const ui.ParagraphConstraints(width: 100000));
-  final maxW = w * 0.92;
-  if (line.longestLine > maxW) {
-    // Too long for the picture: draw the whole sentence again, smaller, so none of it is cut off.
-    final f = maxW / line.longestLine;
-    final small = ui.ParagraphBuilder(ui.ParagraphStyle(fontFamily: look.font, fontSize: lineSize * f, height: look.lh));
-    ui.TextStyle st(bool mark) => ui.TextStyle(
-          color: mark ? const Color(0xFF000000) : Color(look.ink),
-          background: mark ? (Paint()..color = const Color(_marker)) : null,
-          fontFamily: look.font,
-          fontSize: lineSize * f,
-          height: look.lh,
-          fontWeight: (mark || look.bold) ? FontWeight.w800 : FontWeight.w400,
-          fontStyle: look.italic ? FontStyle.italic : FontStyle.normal,
-        );
-    if (at >= 0) {
-      small
-        ..pushStyle(st(false))
-        ..addText(sentence.substring(0, at))
-        ..pushStyle(st(true))
-        ..addText(sentence.substring(at, at + word.length))
-        ..pushStyle(st(false))
-        ..addText(sentence.substring(at + word.length));
-    } else {
-      small
-        ..pushStyle(st(false))
-        ..addText(sentence);
-    }
-    line = small.build()..layout(const ui.ParagraphConstraints(width: 100000));
-  }
-  var centre = line.longestLine / 2;
-  if (at >= 0) {
-    final boxes = line.getBoxesForRange(at, at + word.length);
-    if (boxes.isNotEmpty) centre = (boxes.first.left + boxes.last.right) / 2;
-  }
-  // The word goes to the middle of the picture, but the sentence always stays inside it.
-  final margin = w * 0.04;
-  var dx = w / 2 - centre;
-  dx = math.min(dx, w - margin - line.longestLine);
-  dx = math.max(dx, margin);
-  // A paper strip behind the line hides the page text under it.
-  c.drawRect(Rect.fromLTWH(0, cy - lh * 0.5, w, lh), Paint()..color = paper);
-  c.drawParagraph(line, Offset(dx, cy - line.height / 2));
   final page = rec.endRecording();
 
   // Blur: the farther from the middle line, the stronger.
