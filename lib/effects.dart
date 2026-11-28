@@ -175,138 +175,161 @@ class _FxPainter extends CustomPainter {
 
   // ---- Blurred newspapers, documents and books drifting behind a sharp word ----
 
-  /// Lines of small text (grey bars) inside [area].
-  void _textLines(Canvas c, Rect area, double lineH, double gap, int seed, Color col) {
-    final paint = Paint()..color = col;
-    var y = area.top;
-    var n = 0;
-    var left = 3 + (_rnd(seed, 1) * 5).floor();
-    while (y + lineH <= area.bottom) {
-      var w = area.width * (0.82 + 0.18 * _rnd(seed + n, 7));
-      if (left == 0) {
-        // the last line of a paragraph is short, then a bigger gap
-        w = area.width * (0.3 + 0.4 * _rnd(seed + n, 8));
-      }
-      c.drawRect(Rect.fromLTWH(area.left, y, w, lineH), paint);
-      y += lineH + gap;
-      left--;
-      if (left < 0) {
-        y += gap * 1.6;
-        left = 4 + (_rnd(seed + n, 9) * 6).floor();
-      }
-      n++;
+  static const List<String> _bankBody = [
+    'The council announced a full report after a short delay.',
+    'Residents said the road had been closed since early morning.',
+    'Officials gave no reason, though several people were asked.',
+    'A spokesman said the matter would be reviewed next week.',
+    'Nobody could say exactly when the work would be finished.',
+    'The market was busy again by noon and the mood was calm.',
+    'Several families waited outside for news until late evening.',
+    'It was the third time this year that the same thing happened.',
+    'Local leaders met on Tuesday to talk about what comes next.',
+    'The figures, released on Friday, were higher than expected.',
+    'Some said it was fine, others said they had seen it before.',
+    'Weather was mild and the roads were mostly clear all week.',
+  ];
+
+  static const List<String> _bankHead = [
+    'Ten years later, still a mystery',
+    'Council to decide on new plan',
+    'Fog clears by afternoon',
+    'Survey: most people found nothing unusual',
+    'Annual report is out',
+    'Residents split over road works',
+    'Market opens early this season',
+  ];
+
+  static final Map<String, ui.Paragraph> _paras = {};
+
+  /// A block of text, laid out once and reused for every picture of the loop.
+  ui.Paragraph _para(String text, double width, double size,
+      {bool bold = false, bool italic = false, Color color = const Color(0xDD2B2824), ui.TextAlign align = ui.TextAlign.left, double height = 1.25}) {
+    final key = '${text.hashCode}|${width.round()}|${size.toStringAsFixed(1)}|$bold|$italic|${color.value}|${align.index}';
+    final cached = _paras[key];
+    if (cached != null) return cached;
+    if (_paras.length > 400) _paras.clear();
+    final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: align, fontFamily: 'serif', fontSize: size, height: height))
+      ..pushStyle(ui.TextStyle(
+        color: color,
+        fontFamily: 'serif',
+        fontSize: size,
+        height: height,
+        fontWeight: bold ? FontWeight.w800 : FontWeight.w400,
+        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+      ))
+      ..addText(text);
+    final para = builder.build()..layout(ui.ParagraphConstraints(width: width));
+    _paras[key] = para;
+    return para;
+  }
+
+  String _body(int seed, int sentences) {
+    final b = StringBuffer();
+    for (var i = 0; i < sentences; i++) {
+      if (i > 0) b.write(' ');
+      b.write(_bankBody[(seed + i * 5) % _bankBody.length]);
     }
+    return b.toString();
+  }
+
+  void _block(Canvas c, Rect area, String text, double size, {bool bold = false, bool italic = false, ui.TextAlign align = ui.TextAlign.left, double height = 1.25}) {
+    if (area.width <= 4 || area.height <= 4) return;
+    final para = _para(text, area.width, size, bold: bold, italic: italic, align: align, height: height);
+    c.save();
+    c.clipRect(area);
+    c.drawParagraph(para, area.topLeft);
+    c.restore();
   }
 
   void _page(Canvas c, Rect r, int type, double u, int seed) {
-    c.drawRect(r.shift(Offset(4 * u, 5 * u)), Paint()..color = const Color(0x66000000));
-    final ink = const Color(0xCC3A3631);
-    final line = 3.2 * u;
-    final gap = 3.0 * u;
+    c.drawRect(r.shift(Offset(4 * u, 5 * u)), Paint()..color = const Color(0x55000000));
+    final w = r.width;
+    const papers = [Color(0xFFE9E2CF), Color(0xFFF4F3EE), Color(0xFFE2CE9B)];
+    c.drawRect(r, Paint()..color = papers[(seed + type) % 3]);
+    final pad = w * 0.06;
+    final inner = Rect.fromLTWH(r.left + pad, r.top + pad, r.width - 2 * pad, r.height - 2 * pad);
+    final rule = Paint()..color = const Color(0xAA2B2824);
     if (type == 0) {
-      // Newspaper
-      c.drawRect(r, Paint()..color = const Color(0xFFE9E2CF));
-      final pad = r.width * 0.06;
-      final inner = Rect.fromLTWH(r.left + pad, r.top + pad, r.width - 2 * pad, r.height - 2 * pad);
-      c.drawRect(Rect.fromLTWH(inner.left, inner.top, inner.width, inner.height * 0.075), Paint()..color = const Color(0xFF2A2622));
-      c.drawRect(Rect.fromLTWH(inner.left, inner.top + inner.height * 0.09, inner.width, 1.5 * u), Paint()..color = ink);
-      final headTop = inner.top + inner.height * 0.12;
-      c.drawRect(Rect.fromLTWH(inner.left, headTop, inner.width * 0.7, inner.height * 0.055), Paint()..color = const Color(0xFF2A2622));
-      c.drawRect(Rect.fromLTWH(inner.left, headTop + inner.height * 0.07, inner.width * 0.45, inner.height * 0.03), Paint()..color = ink);
-      final photo = Rect.fromLTWH(inner.left + inner.width * 0.58, headTop + inner.height * 0.065, inner.width * 0.42, inner.height * 0.2);
-      c.drawRect(photo, Paint()..color = const Color(0xFF8C867A));
-      final body = Rect.fromLTWH(inner.left, headTop + inner.height * 0.12, inner.width, inner.bottom - headTop - inner.height * 0.12);
+      // Newspaper: masthead, headline with a photo, three columns
+      _block(c, Rect.fromLTWH(inner.left, inner.top, inner.width, w * 0.1), 'THE DAILY CHRONICLE', w * 0.075, bold: true, align: ui.TextAlign.center);
+      c.drawRect(Rect.fromLTWH(inner.left, inner.top + w * 0.1, inner.width, 1.6 * u), rule);
+      final headTop = inner.top + w * 0.13;
+      _block(c, Rect.fromLTWH(inner.left, headTop, inner.width * 0.6, w * 0.2), _bankHead[seed % _bankHead.length], w * 0.065, bold: true, height: 1.1);
+      final photo = Rect.fromLTWH(inner.left + inner.width * 0.64, headTop, inner.width * 0.36, w * 0.2);
+      c.drawRect(photo, Paint()..shader = ui.Gradient.linear(photo.topCenter, photo.bottomCenter, const [Color(0xFF7D786E), Color(0xFF3A3834)]));
+      final body = Rect.fromLTWH(inner.left, headTop + w * 0.24, inner.width, inner.bottom - headTop - w * 0.24);
       const cols = 3;
-      final cw = (body.width - (cols - 1) * 6 * u) / cols;
+      final cw = (body.width - (cols - 1) * 8 * u) / cols;
       for (var k = 0; k < cols; k++) {
-        var top = body.top;
-        if (k == 2) top = photo.bottom + 6 * u;
-        _textLines(c, Rect.fromLTWH(body.left + k * (cw + 6 * u), top, cw, body.bottom - top), line, gap, seed * 7 + k, ink);
+        _block(c, Rect.fromLTWH(body.left + k * (cw + 8 * u), body.top, cw, body.height), _body(seed + k * 3, 9), w * 0.027, align: ui.TextAlign.justify);
       }
     } else if (type == 1) {
-      // Document with a table and a stamp
-      c.drawRect(r, Paint()..color = const Color(0xFFF7F6F0));
-      final pad = r.width * 0.1;
-      final inner = Rect.fromLTWH(r.left + pad, r.top + pad, r.width - 2 * pad, r.height - 2 * pad);
-      c.drawRect(Rect.fromLTWH(inner.left, inner.top, inner.width * 0.55, inner.height * 0.05), Paint()..color = const Color(0xFF2C3E6B));
-      _textLines(c, Rect.fromLTWH(inner.left, inner.top + inner.height * 0.09, inner.width, inner.height * 0.3), line, gap, seed * 5, ink);
-      final table = Rect.fromLTWH(inner.left, inner.top + inner.height * 0.44, inner.width, inner.height * 0.22);
-      final grid = Paint()
-        ..color = const Color(0x99555555)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2 * u;
-      c.drawRect(table, grid);
-      for (var k = 1; k < 4; k++) {
-        c.drawLine(Offset(table.left, table.top + table.height * k / 4), Offset(table.right, table.top + table.height * k / 4), grid);
-        c.drawLine(Offset(table.left + table.width * k / 4, table.top), Offset(table.left + table.width * k / 4, table.bottom), grid);
-      }
-      _textLines(c, Rect.fromLTWH(inner.left, table.bottom + inner.height * 0.05, inner.width, inner.bottom - table.bottom - inner.height * 0.05), line, gap, seed * 3, ink);
+      // Document: title, subtitle, paragraphs, a stamp
+      _block(c, Rect.fromLTWH(inner.left, inner.top, inner.width, w * 0.1), _bankHead[(seed + 2) % _bankHead.length], w * 0.055, bold: true);
+      _block(c, Rect.fromLTWH(inner.left, inner.top + w * 0.11, inner.width, w * 0.05), 'Press release, lightly edited', w * 0.03, italic: true);
+      c.drawRect(Rect.fromLTWH(inner.left, inner.top + w * 0.17, inner.width, 1.2 * u), rule);
+      _block(c, Rect.fromLTWH(inner.left, inner.top + w * 0.2, inner.width, inner.bottom - inner.top - w * 0.2), '${_body(seed, 6)}\n\n${_body(seed + 4, 6)}\n\n${_body(seed + 8, 6)}', w * 0.033, height: 1.35);
       final stamp = Paint()
-        ..color = const Color(0xCCB3261E)
+        ..color = const Color(0xBBB3261E)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3 * u;
-      c.drawCircle(Offset(inner.right - inner.width * 0.18, inner.top + inner.height * 0.22), inner.width * 0.13, stamp);
+      c.drawCircle(Offset(inner.right - w * 0.12, inner.top + w * 0.3), w * 0.1, stamp);
     } else {
-      // Open book: two pages
-      c.drawRect(r, Paint()..color = const Color(0xFFF0E2BD));
+      // Open book: two pages of long text
       final mid = r.center.dx;
       c.drawRect(
         Rect.fromLTWH(mid - 5 * u, r.top, 10 * u, r.height),
-        Paint()..shader = ui.Gradient.linear(Offset(mid - 5 * u, 0), Offset(mid + 5 * u, 0), const [Color(0x00000000), Color(0x66000000), Color(0x00000000)], const [0, 0.5, 1]),
+        Paint()..shader = ui.Gradient.linear(Offset(mid - 5 * u, 0), Offset(mid + 5 * u, 0), const [Color(0x00000000), Color(0x55000000), Color(0x00000000)], const [0, 0.5, 1]),
       );
-      final pad = r.width * 0.07;
-      for (var side = 0; side < 2; side++) {
-        final left = side == 0 ? r.left + pad : mid + pad * 0.5;
-        final area = Rect.fromLTWH(left, r.top + pad, r.width / 2 - pad * 1.5, r.height - 2 * pad);
-        if (side == 0) {
-          c.drawRect(Rect.fromLTWH(area.left, area.top, area.width * 0.5, area.height * 0.04), Paint()..color = const Color(0xFF5B3A1E));
-          _textLines(c, Rect.fromLTWH(area.left, area.top + area.height * 0.1, area.width, area.height * 0.9), line, gap, seed * 11, ink);
-        } else {
-          _textLines(c, area, line, gap, seed * 13, ink);
-        }
-      }
+      final colW = (inner.width - 14 * u) / 2;
+      _block(c, Rect.fromLTWH(inner.left, inner.top, colW, w * 0.06), 'Chapter Three', w * 0.04, italic: true);
+      _block(c, Rect.fromLTWH(inner.left, inner.top + w * 0.08, colW, inner.height - w * 0.08), _body(seed, 14), w * 0.034, height: 1.4, align: ui.TextAlign.justify);
+      _block(c, Rect.fromLTWH(inner.left + colW + 14 * u, inner.top, colW, inner.height), _body(seed + 6, 16), w * 0.034, height: 1.4, align: ui.TextAlign.justify);
     }
   }
 
   void _docs(Canvas c, Size s, double p, double u) {
     final bounds = Offset.zero & s;
-    final sigma = (7 + 1.0 * math.sin(2 * math.pi * p)) * u;
+    final sigma = (2.4 + 0.5 * math.sin(2 * math.pi * p)) * u;
     c.save();
     c.clipRect(bounds);
     c.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp));
     c.drawRect(bounds, Paint()..color = const Color(0xFF1B1712));
-    final cols = (s.width / (s.height * 0.55)).ceil().clamp(3, 5).toInt();
+    final cols = (s.width / (s.height * 0.95)).ceil().clamp(2, 4).toInt();
     final colW = s.width / cols;
-    final pageH = s.height * 0.62;
-    final gap = s.height * 0.04;
-    final period = pageH + gap;
+    final pageH = math.min(s.height * 0.95, colW * 0.88 * 1.3);
+    final gap = s.height * 0.03;
+    // Two different pages per column, then the column repeats: one full turn per loop.
+    final period = 2 * (pageH + gap);
     for (var i = 0; i < cols; i++) {
       final dir = i.isEven ? -1.0 : 1.0;
       final off = dir * p * period;
       final cx = colW * (i + 0.5);
       c.save();
       c.translate(cx, s.height / 2);
-      c.rotate((i.isEven ? -1 : 1) * 0.05);
+      c.rotate((i.isEven ? -1 : 1) * 0.02);
       c.translate(-cx, -s.height / 2);
-      final tiles = (s.height * 1.3 / period).ceil() + 2;
+      final tiles = (s.height * 1.4 / (pageH + gap)).ceil() + 3;
       for (var k = -tiles; k <= tiles; k++) {
-        final top = s.height / 2 - pageH / 2 + k * period + off;
+        final top = s.height / 2 - pageH / 2 + k * (pageH + gap) + off;
         if (top > s.height * 1.3 || top + pageH < -s.height * 0.3) continue;
-        _page(c, Rect.fromLTWH(colW * i + colW * 0.06, top, colW * 0.88, pageH), (i + 0) % 3, u, i + 1);
+        final id = (i * 2 + (k % 2 + 2) % 2);
+        _page(c, Rect.fromLTWH(colW * i + colW * 0.06, top, colW * 0.88, pageH), id % 3, u, id + 1);
       }
       c.restore();
     }
     c.restore();
-    // Darken a little so a white word stands out, more at the edges.
-    c.drawRect(bounds, Paint()..color = const Color(0x55000000));
+    // A little darker, more at the edges, so the sharp line in the middle stands out.
+    c.drawRect(bounds, Paint()..color = const Color(0x22000000));
     c.drawRect(
       bounds,
       Paint()
         ..shader = ui.Gradient.radial(
           bounds.center,
           s.longestSide * 0.7,
-          const [Color(0x00000000), Color(0xAA000000)],
-          const [0.35, 1.0],
+          const [Color(0x00000000), Color(0x88000000)],
+          const [0.45, 1.0],
         ),
     );
     c.restore();

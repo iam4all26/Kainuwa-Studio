@@ -671,8 +671,8 @@ class _EditPanelState extends State<_EditPanel> {
         next.add(s);
         continue;
       }
-      if (s[0] < start) next.add([s[0], start, s[2]]);
-      if (s[1] > end) next.add([end, s[1], s[2]]);
+      if (s[0] < start) next.add([s[0], start, s[2], ...s.sublist(3)]);
+      if (s[1] > end) next.add([end, s[1], s[2], ...s.sublist(3)]);
     }
     if (argb != null) next.add([start, end, argb]);
     l.colorSpans = next;

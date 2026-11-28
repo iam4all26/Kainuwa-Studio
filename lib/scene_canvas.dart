@@ -1241,24 +1241,42 @@ class SceneBackground extends StatelessWidget {
 TextSpan layerTextSpan(Layer layer, TextStyle base, {String? text}) {
   final t = text ?? layer.text;
   if (layer.colorSpans.isEmpty || t.isEmpty) return TextSpan(text: t, style: base);
+  // A part is [from, to, colour]. A marker part is [from, to, markerColour, 1, textColour]: the letters
+  // sit on a coloured marker, like a highlighter pen.
   final colors = List<int?>.filled(t.length, null);
+  final marks = List<int?>.filled(t.length, null);
   for (final s in layer.colorSpans) {
     if (s.length < 3) continue;
+    final marker = s.length >= 4 && s[3] == 1;
     for (var i = math.max(0, s[0]); i < math.min(t.length, s[1]); i++) {
-      colors[i] = s[2];
+      if (marker) {
+        marks[i] = s[2];
+        colors[i] = s.length >= 5 ? s[4] : 0xFF000000;
+      } else {
+        colors[i] = s[2];
+        marks[i] = null;
+      }
     }
   }
   final parts = <TextSpan>[];
   var start = 0;
   while (start < t.length) {
     var end = start + 1;
-    while (end < t.length && colors[end] == colors[start]) {
+    while (end < t.length && colors[end] == colors[start] && marks[end] == marks[start]) {
       end++;
     }
     final c = colors[start];
+    final m = marks[start];
     parts.add(TextSpan(
       text: t.substring(start, end),
-      style: c == null ? null : TextStyle(color: Color(c), decorationColor: Color(c)),
+      style: c == null
+          ? null
+          : TextStyle(
+              color: Color(c),
+              decorationColor: Color(c),
+              backgroundColor: m == null ? null : Color(m),
+              fontWeight: m == null ? null : FontWeight.w800,
+            ),
     ));
     start = end;
   }
@@ -1291,7 +1309,7 @@ List<List<int>> shiftColorSpans(String oldText, String newText, List<List<int>> 
     if (s.length < 3) continue;
     final a = map(s[0], false);
     final b = map(s[1], true);
-    if (b > a) out.add([a, b, s[2]]);
+    if (b > a) out.add([a, b, s[2], ...s.sublist(3)]);
   }
   return out;
 }

@@ -1,4 +1,5 @@
 import '../editor/bulk_edit_sheet.dart';
+import '../editor/focus_word.dart';
 import '../editor/side_sheet.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -773,77 +774,29 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
     _snack('Effect added. Select it from the timeline to change when it shows or to make it last over more slides.');
   }
 
-  /// A word in sharp big letters over blurred, drifting newspapers and documents.
+  /// A sentence with the word on a yellow marker, changing quickly, over blurred newspapers and books.
   Future<void> _addFocusWord() async {
     final scene = _currentScene();
     final lesson = _lesson();
     final player = _player;
     if (scene == null || lesson == null || player == null) return;
-    final controller = TextEditingController();
-    final word = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Focus word'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Newspapers and documents drift behind, blurred. Your word stays sharp on top. '
-                'You can change the word later like any text.'),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'The word or short line'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text.trim()), child: const Text('Add')),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (word == null || word.isEmpty || !mounted) return;
+    final choice = await showFocusDialog(context);
+    if (choice == null || !mounted) return;
     final index = lesson.scenes.indexOf(scene);
     final local =
         (player.positionMs - sceneStartMs(lesson, index)).clamp(0, math.max(0, scene.durationMs - 600)).toInt();
-    final back = Layer(id: newId(), type: 'shape', shape: 'fx_docs', w: 1.0, h: 1.0);
-    back.startMs = local;
-    back.endMs = -1;
-    final text = Layer(
-      id: newId(),
-      type: 'text',
-      text: word,
-      color: 0xFFFFFFFF,
-      bold: true,
-      fontFamily: 'sans-serif-black',
-      outlineOn: true,
-      outlineColor: 0xFF000000,
-      outlineWidth: 0.05,
-      glowOn: true,
-      glowColor: 0xFFFFD54F,
-      glowStrength: 0.35,
-      animIn: 'pop',
-      animDurationMs: 500,
-      startMs: local,
-      endMs: -1,
-    );
-    text.wrapW = 1000;
-    setLayerTextSizePx(text, 140);
-    if (text.w > 0.9) {
-      final f = 0.9 / text.w;
-      text.w = 0.9;
-      text.h = text.h * f;
+    // A slide without a clip is made long enough for the whole thing (up to 10 sentences and the word at the end).
+    if (!scene.hasVideo) {
+      final want = local + math.min(choice.lines.length, 10) * choice.stepMs + 1400;
+      if (scene.durationMs < want) scene.durationMs = want;
     }
-    scene.layers.insert(0, back);
-    scene.layers.add(text);
-    _selectedId = text.id;
+    final made = buildFocusWord(choice, local, scene.durationMs - local);
+    scene.layers.insert(0, made.first);
+    scene.layers.addAll(made.sublist(1));
+    _selectedId = made.last.id;
     _sceneSelected = false;
     _commit();
-    _snack('Focus word added. Tap the word to change it. The background can be changed from the timeline.');
+    _snack('Focus word added: ${made.length - 1} text lines shown as one bar on the timeline. Tap the bar to change one line.');
   }
 
   /// A screenshot inside a phone: pick the picture, pick a phone, and add the result as an image item.

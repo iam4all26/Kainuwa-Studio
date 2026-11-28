@@ -260,6 +260,9 @@ class _TimelinePanelState extends State<TimelinePanel> {
       final caps = <Layer>[];
       var capFrom = 1 << 30;
       var capTo = 0;
+      final focs = <Layer>[];
+      var focFrom = 1 << 30;
+      var focTo = 0;
       for (final layer in scene.layers) {
         final dur = scene.durationMs;
         final from = layer.startMs.clamp(0, math.max(0, dur - 200)).toInt();
@@ -269,6 +272,13 @@ class _TimelinePanelState extends State<TimelinePanel> {
           caps.add(layer);
           capFrom = math.min(capFrom, from);
           capTo = math.max(capTo, math.min(to, dur));
+          continue;
+        }
+        if (layer.type == 'text' && layer.id.startsWith('foc_')) {
+          // The lines of a focus word are shown as one bar.
+          focs.add(layer);
+          focFrom = math.min(focFrom, from);
+          focTo = math.max(focTo, math.min(to, dur));
           continue;
         }
         if (layer.type == 'text') {
@@ -294,6 +304,18 @@ class _TimelinePanelState extends State<TimelinePanel> {
             label: layerLabel(layer),
           ));
         }
+      }
+      if (focs.isNotEmpty) {
+        text.add(_Clip(
+          kind: 'captions',
+          startMs: start + focFrom,
+          endMs: start + math.max(focFrom + 200, focTo),
+          lane: textLane++,
+          sceneIndex: i,
+          layer: focs.first,
+          group: focs,
+          label: 'Focus word (${focs.length})',
+        ));
       }
       if (caps.isNotEmpty) {
         text.add(_Clip(
@@ -1071,7 +1093,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
           selected = !widget.sceneSelected &&
               (group.any((l) => l.id == widget.selectedLayerId) || group.any((l) => widget.multiIds.contains(l.id)));
           final sceneNow = widget.lesson.scenes[clip.sceneIndex];
+          final isFocus = group.first.id.startsWith('foc_');
           onTap = () async {
+            if (isFocus) {
+              onLong?.call();
+              return;
+            }
             // Opens all the captions of this slide to edit: words, way, style, size and place.
             final made = await showSceneCaptions(context, sceneNow);
             if (made != null) widget.onEditEnd();
@@ -1084,9 +1111,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ListTile(
-                      title: Text('Captions of slide ${clip.sceneIndex + 1}'),
-                      subtitle: Text('${group.length} items shown as one bar. Tap the bar to edit all the captions of this slide.'),
+                      title: Text(isFocus ? 'Focus word on slide ${clip.sceneIndex + 1}' : 'Captions of slide ${clip.sceneIndex + 1}'),
+                      subtitle: Text(isFocus ? '${group.length} lines shown as one bar. Choose Edit one line, then tap it on the picture.' : '${group.length} items shown as one bar. Tap the bar to edit all the captions of this slide.'),
                     ),
+                    if (!isFocus)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       child: Wrap(
@@ -1113,7 +1141,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.touch_app_outlined),
-                      title: const Text('Edit one word on the picture'),
+                      title: Text(isFocus ? 'Edit one line on the picture' : 'Edit one word on the picture'),
                       onTap: () {
                         Navigator.of(sheet).pop();
                         final local = widget.player.positionMs - sceneStartMs(widget.lesson, clip.sceneIndex);
@@ -1129,7 +1157,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.delete_outline),
-                      title: const Text('Delete the captions of this slide'),
+                      title: Text(isFocus ? 'Delete the focus lines of this slide' : 'Delete the captions of this slide'),
                       onTap: () {
                         Navigator.of(sheet).pop();
                         sceneNow.layers.removeWhere((l) => group.contains(l));
