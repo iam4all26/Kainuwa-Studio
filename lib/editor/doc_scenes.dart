@@ -5,7 +5,7 @@ import 'package:kainuwa_encoder/kainuwa_encoder.dart';
 
 import '../media/media_library.dart';
 import '../models.dart';
-import '../scene_canvas.dart';
+import 'doc_captions.dart';
 import 'doc_cut.dart';
 
 /// A list of the slides with their words and notes, where a clip, a picture and a voice can be added to each.
@@ -138,121 +138,10 @@ class _DocScenesPageState extends State<_DocScenesPage> {
   }
 
   Future<void> _captions() async {
-    var size = 40.0;
-    var onVideo = true;
-    final withWords = _scenes.where((s) => s.narrationText.trim().isNotEmpty).length;
-    final go = await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: const Text('Captions from the script'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('$withWords scenes have words. Each scene\'s words are cut into short lines that appear one after another '
-                  'while the voice plays. Add the voices first, so the timing fits. '
-                  'Captions made earlier are replaced.'),
-              const SizedBox(height: 12),
-              const Text('Size'),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final o in const [(32.0, 'Small'), (40.0, 'Medium'), (50.0, 'Large')])
-                    ChoiceChip(label: Text(o.$2), selected: size == o.$1, onSelected: (_) => setLocal(() => size = o.$1)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Expanded(child: Text('Dark box behind the words')),
-                  Switch(value: onVideo, onChanged: (v) => setLocal(() => onVideo = v)),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop('remove'),
-              child: const Text('Remove all'),
-            ),
-            FilledButton(onPressed: () => Navigator.of(context).pop('add'), child: const Text('Add captions')),
-          ],
-        ),
-      ),
-    );
-    if (go == 'remove') {
-      for (final s in _scenes) {
-        s.layers.removeWhere((l) => l.id.startsWith('cap_'));
-      }
-      _changed();
-      _say('Captions removed.');
-      return;
-    }
-    if (go != 'add') return;
-    var lines = 0;
-    for (final s in _scenes) {
-      lines += _captionScene(s, size, onVideo);
-    }
+    final result = await showCaptionTool(context, _scenes);
+    if (result == null) return;
     _changed();
-    _say('Added $lines caption lines.');
-  }
-
-  /// Puts the scene's words on the slide as short lines timed across the voice. Returns the number of lines.
-  int _captionScene(Scene s, double size, bool box) {
-    s.layers.removeWhere((l) => l.id.startsWith('cap_'));
-    final words = s.narrationText.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    if (words.isEmpty) return 0;
-    // Lines of about 8 words, ending at a full stop or comma when one is near.
-    final chunks = <String>[];
-    var cur = <String>[];
-    for (final w in words) {
-      cur.add(w);
-      final endsSentence = RegExp(r'[.!?;:,]$').hasMatch(w);
-      if (cur.length >= 10 || (endsSentence && cur.length >= 4)) {
-        chunks.add(cur.join(' '));
-        cur = <String>[];
-      }
-    }
-    if (cur.isNotEmpty) {
-      if (chunks.isNotEmpty && cur.length < 3) {
-        chunks[chunks.length - 1] = '${chunks.last} ${cur.join(' ')}';
-      } else {
-        chunks.add(cur.join(' '));
-      }
-    }
-    final span = s.narrationMs > 0 ? s.narrationLenMs : math.max(1000, s.durationMs - 300);
-    final total = chunks.fold<int>(0, (a, c) => a + c.length);
-    var at = 0.0;
-    for (var i = 0; i < chunks.length; i++) {
-      final from = at.round();
-      at += span * chunks[i].length / total;
-      final last = i == chunks.length - 1;
-      final layer = Layer(
-        id: 'cap_${newId()}',
-        type: 'text',
-        text: chunks[i],
-        cy: 0.86,
-        color: 0xFFFFFFFF,
-        bold: false,
-        bgBox: box,
-        bgColor: 0xCC000000,
-        outlineOn: !box,
-        outlineColor: 0xFF000000,
-        startMs: from,
-        endMs: last ? -1 : at.round(),
-      );
-      layer.wrapW = 1100;
-      setLayerTextSizePx(layer, size);
-      if (layer.w > 0.92) {
-        final f = 0.92 / layer.w;
-        layer.w = 0.92;
-        layer.h = layer.h * f;
-      }
-      s.layers.add(layer);
-    }
-    return chunks.length;
+    _say(result < 0 ? 'Captions removed.' : 'Added $result caption items.');
   }
 
   void _clear(Scene s, String what) {
