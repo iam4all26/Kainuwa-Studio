@@ -1094,6 +1094,30 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       subtitle: Text('${group.length} items shown as one bar. Tap the bar to edit the word on screen. '
                           'To change the style or timing of all of them, use Captions in the Scenes list.'),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const Text('Move ALL captions of the video to:'),
+                          for (final o in const [(0.14, 'Top'), (0.5, 'Middle'), (0.78, 'Lower'), (0.88, 'Bottom')])
+                            ActionChip(
+                              label: Text(o.$2),
+                              onPressed: () {
+                                Navigator.of(sheet).pop();
+                                for (final sc in widget.lesson.scenes) {
+                                  for (final l in sc.layers) {
+                                    if (l.id.startsWith('cap_')) l.cy = o.$1;
+                                  }
+                                }
+                                widget.onEditEnd();
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
                     ListTile(
                       leading: const Icon(Icons.delete_outline),
                       title: const Text('Delete the captions of this slide'),

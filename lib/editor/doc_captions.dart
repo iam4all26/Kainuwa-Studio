@@ -78,7 +78,7 @@ class _CaptionDialogState extends State<_CaptionDialog> {
   int _mode = 1; // 0 one word, 1 short phrase, 2 lines
   String _style = 'karaoke';
   double _size = 46;
-  double _cy = 0.5;
+  double _cy = 0.78;
   bool _test = true;
 
   CaptionStyle get _current => kCaptionStyles.firstWhere((s) => s.id == _style);
