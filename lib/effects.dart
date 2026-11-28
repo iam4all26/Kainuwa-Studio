@@ -32,9 +32,6 @@ const List<FxKind> kFxKinds = [
   FxKind('bokeh', 'Bokeh lights', Icons.blur_on),
   FxKind('hearts', 'Floating hearts', Icons.favorite_border),
   FxKind('meteors', 'Shooting stars', Icons.nights_stay_outlined),
-  FxKind('docs', 'Blurred newspaper', Icons.newspaper),
-  FxKind('docs_book', 'Blurred book', Icons.menu_book_outlined),
-  FxKind('docs_doc', 'Blurred document', Icons.description_outlined),
 ];
 
 bool isFxLayerShape(String shape) => shape.startsWith('fx_');

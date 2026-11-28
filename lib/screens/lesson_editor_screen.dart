@@ -790,13 +790,20 @@ class _LessonEditorScreenState extends State<LessonEditorScreen>
       final want = local + math.min(choice.lines.length, 10) * choice.stepMs + 1400;
       if (scene.durationMs < want) scene.durationMs = want;
     }
-    final made = buildFocusWord(choice, local, scene.durationMs - local);
-    scene.layers.insert(0, made.first);
-    scene.layers.addAll(made.sublist(1));
+    _snack('Making the pages. One moment...');
+    final List<Layer> made;
+    try {
+      made = await buildFocusWord(choice, local, scene.durationMs - local);
+    } catch (e) {
+      if (mounted) _snack('The pages could not be made: $e');
+      return;
+    }
+    if (!mounted) return;
+    scene.layers.insertAll(0, made);
     _selectedId = made.last.id;
     _sceneSelected = false;
     _commit();
-    _snack('Focus word added: ${made.length - 1} text lines shown as one bar on the timeline. Tap the bar to change one line.');
+    _snack('Focus word added: ${made.length} pages shown as one bar on the timeline. To change the word, delete the bar and make it again.');
   }
 
   /// A screenshot inside a phone: pick the picture, pick a phone, and add the result as an image item.
