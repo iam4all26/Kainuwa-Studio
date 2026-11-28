@@ -8,6 +8,7 @@ import '../animation_math.dart';
 import '../models.dart';
 import '../scene_canvas.dart';
 import '../theme.dart';
+import 'doc_captions.dart';
 import 'editor_tools.dart';
 import 'lesson_player.dart';
 import 'peaks_cache.dart';
@@ -1070,17 +1071,10 @@ class _TimelinePanelState extends State<TimelinePanel> {
           selected = !widget.sceneSelected &&
               (group.any((l) => l.id == widget.selectedLayerId) || group.any((l) => widget.multiIds.contains(l.id)));
           final sceneNow = widget.lesson.scenes[clip.sceneIndex];
-          onTap = () {
-            // Selects the word that is on screen at the playhead (or the first one), to edit it.
-            final local = widget.player.positionMs - sceneStartMs(widget.lesson, clip.sceneIndex);
-            var pick = group.first;
-            for (final l in group) {
-              if (l.startMs <= local && local < layerEndMs(l, sceneNow.durationMs)) {
-                pick = l;
-                break;
-              }
-            }
-            widget.onSelectLayer(clip.sceneIndex, pick.id);
+          onTap = () async {
+            // Opens all the captions of this slide to edit: words, way, style, size and place.
+            final made = await showSceneCaptions(context, sceneNow);
+            if (made != null) widget.onEditEnd();
           };
           onLong = () {
             showModalBottomSheet<void>(
@@ -1091,8 +1085,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   children: [
                     ListTile(
                       title: Text('Captions of slide ${clip.sceneIndex + 1}'),
-                      subtitle: Text('${group.length} items shown as one bar. Tap the bar to edit the word on screen. '
-                          'To change the style or timing of all of them, use Captions in the Scenes list.'),
+                      subtitle: Text('${group.length} items shown as one bar. Tap the bar to edit all the captions of this slide.'),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1117,6 +1110,22 @@ class _TimelinePanelState extends State<TimelinePanel> {
                             ),
                         ],
                       ),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.touch_app_outlined),
+                      title: const Text('Edit one word on the picture'),
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        final local = widget.player.positionMs - sceneStartMs(widget.lesson, clip.sceneIndex);
+                        var pick = group.first;
+                        for (final l in group) {
+                          if (l.startMs <= local && local < layerEndMs(l, sceneNow.durationMs)) {
+                            pick = l;
+                            break;
+                          }
+                        }
+                        widget.onSelectLayer(clip.sceneIndex, pick.id);
+                      },
                     ),
                     ListTile(
                       leading: const Icon(Icons.delete_outline),

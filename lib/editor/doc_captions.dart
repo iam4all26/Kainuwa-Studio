@@ -63,27 +63,62 @@ Future<int?> showCaptionTool(BuildContext context, List<Scene> scenes) {
   );
 }
 
+/// Edits the captions of one slide: the words, the way they come, the style, size and place.
+/// Returns the number of caption items made, or -1 when they were removed, or null when cancelled.
+Future<int?> showSceneCaptions(BuildContext context, Scene scene) {
+  return showDialog<int>(
+    context: context,
+    builder: (_) => _CaptionDialog(scenes: [scene], single: scene),
+  );
+}
+
 bool _isCaption(Layer l) => l.id.startsWith('cap_');
 
+// What was chosen last, so the next edit starts from it.
+int _lastMode = 1;
+String _lastStyle = 'karaoke';
+double _lastSize = 46;
+double _lastCy = 0.78;
+
 class _CaptionDialog extends StatefulWidget {
-  const _CaptionDialog({required this.scenes});
+  const _CaptionDialog({required this.scenes, this.single});
 
   final List<Scene> scenes;
+
+  /// When set, only this slide is edited and its words can be changed.
+  final Scene? single;
 
   @override
   State<_CaptionDialog> createState() => _CaptionDialogState();
 }
 
 class _CaptionDialogState extends State<_CaptionDialog> {
-  int _mode = 1; // 0 one word, 1 short phrase, 2 lines
-  String _style = 'karaoke';
-  double _size = 46;
-  double _cy = 0.78;
+  int _mode = _lastMode; // 0 one word, 1 short phrase, 2 lines
+  String _style = _lastStyle;
+  double _size = _lastSize;
+  double _cy = _lastCy;
   bool _test = true;
+  late final TextEditingController _words = TextEditingController(text: widget.single?.narrationText ?? '');
+
+  @override
+  void dispose() {
+    _words.dispose();
+    super.dispose();
+  }
 
   CaptionStyle get _current => kCaptionStyles.firstWhere((s) => s.id == _style);
 
   void _add() {
+    _lastMode = _mode;
+    _lastStyle = _style;
+    _lastSize = _size;
+    _lastCy = _cy;
+    final one = widget.single;
+    if (one != null) {
+      one.narrationText = _words.text.trim();
+      Navigator.of(context).pop(_captionScene(one, _mode, _current, _size, _cy));
+      return;
+    }
     var count = 0;
     final list = _test ? widget.scenes.take(3).toList() : widget.scenes;
     for (final s in widget.scenes) {
@@ -170,16 +205,27 @@ class _CaptionDialogState extends State<_CaptionDialog> {
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      title: const Text('Captions from the script'),
+      title: Text(widget.single != null ? 'Captions of this slide' : 'Captions from the script'),
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('$withWords scenes have words. Add the voices first so the timing fits. '
-                  'Captions made earlier are replaced.',
-                  style: const TextStyle(fontSize: 12)),
+              if (widget.single != null) ...[
+                const Text('The words of this slide. Change them here, then tap Apply.',
+                    style: TextStyle(fontSize: 12)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _words,
+                  minLines: 3,
+                  maxLines: 8,
+                  decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                ),
+              ] else
+                Text('$withWords scenes have words. Add the voices first so the timing fits. '
+                    'Captions made earlier are replaced.',
+                    style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 10),
               const Text('How the words come', style: TextStyle(fontWeight: FontWeight.w700)),
               Wrap(
@@ -214,12 +260,13 @@ class _CaptionDialogState extends State<_CaptionDialog> {
                 ],
               ),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Expanded(child: Text('Test: only the first 3 scenes')),
-                  Switch(value: _test, onChanged: (v) => setState(() => _test = v)),
-                ],
-              ),
+              if (widget.single == null)
+                Row(
+                  children: [
+                    const Expanded(child: Text('Test: only the first 3 scenes')),
+                    Switch(value: _test, onChanged: (v) => setState(() => _test = v)),
+                  ],
+                ),
               const SizedBox(height: 10),
               const Text('Style', style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
@@ -238,7 +285,7 @@ class _CaptionDialogState extends State<_CaptionDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         TextButton(onPressed: _remove, child: const Text('Remove all')),
-        FilledButton(onPressed: _add, child: const Text('Add')),
+        FilledButton(onPressed: _add, child: Text(widget.single != null ? 'Apply' : 'Add')),
       ],
     );
   }
