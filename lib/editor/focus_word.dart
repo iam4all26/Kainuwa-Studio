@@ -5,13 +5,16 @@ import '../scene_canvas.dart';
 
 /// What the person chose in the Focus word dialog.
 class FocusChoice {
-  FocusChoice({required this.word, required this.lines, required this.stepMs});
+  FocusChoice({required this.word, required this.lines, required this.stepMs, this.paper = 'docs'});
 
   final String word;
 
   /// Sentences. Each one has the word in it (or not, when the person wrote their own).
   final List<String> lines;
   final int stepMs;
+
+  /// docs (newspaper), docs_book or docs_doc
+  final String paper;
 }
 
 const List<String> kFocusEnglish = [
@@ -57,6 +60,7 @@ class _FocusDialogState extends State<_FocusDialog> {
   final TextEditingController _own = TextEditingController();
   int _source = 0; // 0 English, 1 Hausa, 2 my own lines
   int _step = 700;
+  String _paper = 'docs';
 
   @override
   void dispose() {
@@ -76,7 +80,7 @@ class _FocusDialogState extends State<_FocusDialog> {
       final bank = _source == 1 ? kFocusHausa : kFocusEnglish;
       lines = [for (final t in bank) t.replaceAll('{w}', word)];
     }
-    Navigator.of(context).pop(FocusChoice(word: word, lines: lines, stepMs: _step));
+    Navigator.of(context).pop(FocusChoice(word: word, lines: lines, stepMs: _step, paper: _paper));
   }
 
   @override
@@ -127,6 +131,15 @@ class _FocusDialogState extends State<_FocusDialog> {
               ),
             ],
             const SizedBox(height: 12),
+            const Text('Paper', style: TextStyle(fontWeight: FontWeight.w700)),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final o in const [('docs', 'Newspaper'), ('docs_book', 'Book'), ('docs_doc', 'Document')])
+                  ChoiceChip(label: Text(o.$2), selected: _paper == o.$1, onSelected: (_) => setState(() => _paper = o.$1)),
+              ],
+            ),
+            const SizedBox(height: 12),
             const Text('How fast the sentences change', style: TextStyle(fontWeight: FontWeight.w700)),
             Wrap(
               spacing: 8,
@@ -148,7 +161,17 @@ class _FocusDialogState extends State<_FocusDialog> {
 
 const int _marker = 0xFFFFE02E;
 
-Layer _sentence(String text, String word, int from, int to, {double size = 54, bool first = false}) {
+double _widthOf(String t, double size, {bool bold = false}) {
+  final tmp = Layer(id: 'measure', type: 'text', text: t, fontFamily: 'serif', bold: bold);
+  setLayerTextSizePx(tmp, size);
+  return tmp.w;
+}
+
+/// One sentence on one line. The marked word is always in the middle of the screen, and the rest of the
+/// sentence runs out to both sides (and past the edges when it is long).
+Layer _sentence(String text, String word, int from, int to, {double size = 60, bool first = false}) {
+  var px = size;
+  if (_widthOf(text, px) > 1.5) px = px * 1.5 / _widthOf(text, px);
   final layer = Layer(
     id: 'foc_${newId()}',
     type: 'text',
@@ -161,18 +184,23 @@ Layer _sentence(String text, String word, int from, int to, {double size = 54, b
     animIn: first ? 'fade' : 'none',
     animDurationMs: 150,
   );
+  layer.wrapW = 0;
+  setLayerTextSizePx(layer, px);
   final at = word.isEmpty ? -1 : text.toLowerCase().indexOf(word.toLowerCase());
   if (at >= 0) {
     layer.colorSpans = [
       [at, at + word.length, _marker, 1, 0xFF000000],
     ];
-  }
-  layer.wrapW = 1000;
-  setLayerTextSizePx(layer, size);
-  if (layer.w > 0.92) {
-    final f = 0.92 / layer.w;
-    layer.w = 0.92;
-    layer.h = layer.h * f;
+    final before = text.substring(0, at);
+    final marked = text.substring(at, at + word.length);
+    final after = text.substring(at + word.length);
+    final x = _widthOf('x', px);
+    final wBefore = before.isEmpty ? 0.0 : _widthOf('${before}x', px) - x;
+    final wWord = _widthOf(marked, px, bold: true);
+    final wAfter = after.isEmpty ? 0.0 : _widthOf('x$after', px) - x;
+    final total = wBefore + wWord + wAfter;
+    layer.w = total.clamp(0.02, 2.0).toDouble();
+    layer.cx = 0.5 + layer.w / 2 - (wBefore + wWord / 2);
   }
   return layer;
 }
@@ -180,7 +208,7 @@ Layer _sentence(String text, String word, int from, int to, {double size = 54, b
 /// The layers of a focus word: the blurred pages, the changing sentences and, at the end, the word alone.
 /// [startMs] is where it begins in the slide. Returns the layers in drawing order (pages first).
 List<Layer> buildFocusWord(FocusChoice choice, int startMs, int availableMs) {
-  final back = Layer(id: newId(), type: 'shape', shape: 'fx_docs', w: 1.0, h: 1.0);
+  final back = Layer(id: newId(), type: 'shape', shape: 'fx_${choice.paper}', w: 1.0, h: 1.0);
   back.startMs = startMs;
   back.endMs = -1;
   final out = <Layer>[back];
@@ -193,7 +221,7 @@ List<Layer> buildFocusWord(FocusChoice choice, int startMs, int availableMs) {
     final line = choice.lines[k % choice.lines.length];
     out.add(_sentence(line, choice.word, startMs + k * step, startMs + (k + 1) * step, first: k == 0));
   }
-  final last = _sentence(choice.word, choice.word, startMs + cuts * step, -1, size: 120);
+  final last = _sentence(choice.word, choice.word, startMs + cuts * step, -1, size: 110);
   last.animIn = 'pop';
   last.animDurationMs = 300;
   out.add(last);

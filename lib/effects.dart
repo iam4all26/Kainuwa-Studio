@@ -32,7 +32,9 @@ const List<FxKind> kFxKinds = [
   FxKind('bokeh', 'Bokeh lights', Icons.blur_on),
   FxKind('hearts', 'Floating hearts', Icons.favorite_border),
   FxKind('meteors', 'Shooting stars', Icons.nights_stay_outlined),
-  FxKind('docs', 'Blurred newspapers and documents', Icons.newspaper),
+  FxKind('docs', 'Blurred newspaper', Icons.newspaper),
+  FxKind('docs_book', 'Blurred book', Icons.menu_book_outlined),
+  FxKind('docs_doc', 'Blurred document', Icons.description_outlined),
 ];
 
 bool isFxLayerShape(String shape) => shape.startsWith('fx_');
@@ -164,7 +166,13 @@ class _FxPainter extends CustomPainter {
         _meteors(canvas, size, p, u);
         break;
       case 'docs':
-        _docs(canvas, size, p, u);
+        _docs(canvas, size, p, u, 0);
+        break;
+      case 'docs_doc':
+        _docs(canvas, size, p, u, 1);
+        break;
+      case 'docs_book':
+        _docs(canvas, size, p, u, 2);
         break;
     }
   }
@@ -204,7 +212,7 @@ class _FxPainter extends CustomPainter {
 
   /// A block of text, laid out once and reused for every picture of the loop.
   ui.Paragraph _para(String text, double width, double size,
-      {bool bold = false, bool italic = false, Color color = const Color(0xDD2B2824), ui.TextAlign align = ui.TextAlign.left, double height = 1.25}) {
+      {bool bold = false, bool italic = false, Color color = const Color(0xB02B2824), ui.TextAlign align = ui.TextAlign.left, double height = 1.25}) {
     final key = '${text.hashCode}|${width.round()}|${size.toStringAsFixed(1)}|$bold|$italic|${color.value}|${align.index}';
     final cached = _paras[key];
     if (cached != null) return cached;
@@ -243,8 +251,7 @@ class _FxPainter extends CustomPainter {
   }
 
   void _page(Canvas c, Rect r, int type, double u, int seed) {
-    c.drawRect(r.shift(Offset(4 * u, 5 * u)), Paint()..color = const Color(0x55000000));
-    final w = r.width;
+    final w = math.min(r.width, r.height * 0.7);
     const papers = [Color(0xFFE9E2CF), Color(0xFFF4F3EE), Color(0xFFE2CE9B)];
     c.drawRect(r, Paint()..color = papers[(seed + type) % 3]);
     final pad = w * 0.06;
@@ -289,47 +296,51 @@ class _FxPainter extends CustomPainter {
     }
   }
 
-  void _docs(Canvas c, Size s, double p, double u) {
+  void _docs(Canvas c, Size s, double p, double u, int type) {
     final bounds = Offset.zero & s;
-    final sigma = (2.4 + 0.5 * math.sin(2 * math.pi * p)) * u;
+    final sigma = (3.6 + 0.4 * math.sin(2 * math.pi * p)) * u;
+    const papers = [Color(0xFFEAE3D0), Color(0xFFF3F2EC), Color(0xFFE6D3A3)];
+    final paper = papers[type % 3];
     c.save();
     c.clipRect(bounds);
     c.saveLayer(bounds, Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp));
-    c.drawRect(bounds, Paint()..color = const Color(0xFF1B1712));
-    final cols = (s.width / (s.height * 0.95)).ceil().clamp(2, 4).toInt();
+    c.drawRect(bounds, Paint()..color = paper);
+    // The paper fills the whole frame. One page is a little taller than the frame and repeats upward.
+    final cols = (s.width / s.height / 1.9).ceil().clamp(1, 4).toInt();
     final colW = s.width / cols;
-    final pageH = math.min(s.height * 0.95, colW * 0.88 * 1.3);
-    final gap = s.height * 0.03;
-    // Two different pages per column, then the column repeats: one full turn per loop.
-    final period = 2 * (pageH + gap);
+    final pageH = s.height * 1.1;
+    final fold = Paint()..color = const Color(0x33000000);
     for (var i = 0; i < cols; i++) {
-      final dir = i.isEven ? -1.0 : 1.0;
-      final off = dir * p * period;
-      final cx = colW * (i + 0.5);
-      c.save();
-      c.translate(cx, s.height / 2);
-      c.rotate((i.isEven ? -1 : 1) * 0.02);
-      c.translate(-cx, -s.height / 2);
-      final tiles = (s.height * 1.4 / (pageH + gap)).ceil() + 3;
-      for (var k = -tiles; k <= tiles; k++) {
-        final top = s.height / 2 - pageH / 2 + k * (pageH + gap) + off;
-        if (top > s.height * 1.3 || top + pageH < -s.height * 0.3) continue;
-        final id = (i * 2 + (k % 2 + 2) % 2);
-        _page(c, Rect.fromLTWH(colW * i + colW * 0.06, top, colW * 0.88, pageH), id % 3, u, id + 1);
+      final off = (i.isEven ? -1.0 : 1.0) * p * pageH;
+      for (var k = -2; k <= 2; k++) {
+        final top = -pageH * 0.05 + k * pageH + off;
+        if (top > s.height || top + pageH < 0) continue;
+        final r = Rect.fromLTWH(colW * i, top, colW, pageH);
+        _page(c, r, type, u, 1 + i);
+        c.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 1.5 * u), fold);
       }
-      c.restore();
     }
     c.restore();
-    // A little darker, more at the edges, so the sharp line in the middle stands out.
-    c.drawRect(bounds, Paint()..color = const Color(0x22000000));
+    // A soft light band in the middle, so the sharp line stays easy to read.
+    final band = Rect.fromLTWH(0, s.height * 0.28, s.width, s.height * 0.44);
+    c.drawRect(
+      band,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          band.topCenter,
+          band.bottomCenter,
+          [paper.withOpacity(0), paper.withOpacity(0.78), paper.withOpacity(0.78), paper.withOpacity(0)],
+          const [0, 0.3, 0.7, 1],
+        ),
+    );
     c.drawRect(
       bounds,
       Paint()
         ..shader = ui.Gradient.radial(
           bounds.center,
-          s.longestSide * 0.7,
-          const [Color(0x00000000), Color(0x88000000)],
-          const [0.45, 1.0],
+          s.longestSide * 0.75,
+          const [Color(0x00000000), Color(0x44000000)],
+          const [0.5, 1.0],
         ),
     );
     c.restore();
